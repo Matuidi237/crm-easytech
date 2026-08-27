@@ -1,5 +1,13 @@
-import { createContext, useCallback, useContext, useState, ReactNode } from "react";
-import { Permission, SessionUtilisateur, clearToken, getSessionUtilisateur, getToken, login as apiLogin } from "./api";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  Permission,
+  SessionUtilisateur,
+  clearToken,
+  getSessionUtilisateur,
+  getToken,
+  login as apiLogin,
+  synchroniserSession,
+} from "./api";
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -45,6 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const rafraichir = useCallback(() => setUtilisateur(getSessionUtilisateur()), []);
+
+  /* Les droits recopiés en session datent de la connexion. Si la matrice a
+     changé depuis, on repart de ce que le serveur dit maintenant. En cas
+     d'échec on garde la copie locale : le serveur reste seul juge à l'appel. */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    synchroniserSession()
+      .then((u) => u && setUtilisateur(u))
+      .catch(() => {});
+  }, [isAuthenticated]);
 
   return (
     <AuthContext.Provider

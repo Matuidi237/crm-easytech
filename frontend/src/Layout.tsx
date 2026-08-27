@@ -10,6 +10,7 @@ import {
   IconMail,
   IconMenu,
   IconSearch,
+  IconKey,
   IconShield,
   IconUserCircle,
   IconUsers,
@@ -111,6 +112,12 @@ export default function Layout() {
               <IconUserCircle />
               <span>Mon profil</span>
             </NavLink>
+            {peut("permissions.gerer") && (
+              <NavLink to="/permissions" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+                <IconKey />
+                <span>Permissions</span>
+              </NavLink>
+            )}
             {peut("utilisateurs.gerer") && (
               <NavLink to="/utilisateurs" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
                 <IconShield />

@@ -32,7 +32,7 @@ export type Permission =
   | "clients.importer" | "clients.exporter" | "clients.coordonnees"
   | "acces.accorder"
   | "newsletters.voir" | "newsletters.creer" | "newsletters.envoyer"
-  | "stats.globales" | "utilisateurs.gerer" | "utilisateurs.gererAdmins";
+  | "stats.globales" | "utilisateurs.gerer" | "utilisateurs.gererAdmins" | "permissions.gerer";
 
 export type SessionUtilisateur = {
   id: string;
@@ -122,6 +122,30 @@ export async function fetchMoi() {
   const res = await authedFetch("/api/auth/moi");
   if (!res.ok) throw new Error("Erreur lors du chargement du profil.");
   return res.json() as Promise<Utilisateur>;
+}
+
+/**
+ * Réaligne la session locale sur ce que le serveur autorise réellement.
+ *
+ * Les droits sont recopiés dans le localStorage à la connexion pour que
+ * l'interface sache quoi afficher. Si le super administrateur modifie la
+ * matrice entre-temps, cette copie devient périmée : le serveur refuserait
+ * bien l'appel, mais l'utilisateur verrait des menus qui ne mènent nulle part,
+ * ou l'inverse. On la resynchronise donc à chaque ouverture de l'application.
+ */
+export async function synchroniserSession() {
+  const session = getSessionUtilisateur();
+  if (!session) return null;
+  const profil = await fetchMoi();
+  const aJour: SessionUtilisateur = {
+    id: profil.id,
+    identifiant: profil.identifiant,
+    nomComplet: profil.nomComplet,
+    role: profil.role,
+    permissions: profil.permissions ?? session.permissions,
+  };
+  setSessionUtilisateur(aJour);
+  return aJour;
 }
 
 export async function updateMoi(data: { nomComplet: string; email: string; fonction: string }) {
@@ -214,6 +238,41 @@ export async function fetchOptionsComptes() {
     roles: { valeur: Role; libelle: string }[];
     responsables: { id: string; nomComplet: string; role: Role }[];
   }>;
+}
+
+/* ------------------------------------------------------ Matrice des permissions */
+
+export type LignePermission = { cle: Permission; groupe: string; libelle: string; detail: string };
+
+export type RolePermissions = {
+  role: Role;
+  libelle: string;
+  /** Le super administrateur est affiché mais verrouillé. */
+  modifiable: boolean;
+  /** true si le rôle s'écarte des valeurs par défaut du code. */
+  surcharge: boolean;
+  permissions: Permission[];
+  parDefaut: Permission[];
+};
+
+export async function fetchMatricePermissions() {
+  const res = await authedFetch("/api/permissions");
+  if (!res.ok) throw new Error("Erreur lors du chargement des permissions.");
+  return res.json() as Promise<{ catalogue: LignePermission[]; roles: RolePermissions[] }>;
+}
+
+export async function enregistrerPermissions(role: Role, permissions: Permission[]) {
+  const res = await authedFetch(`/api/permissions/${role}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ permissions }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement.");
+}
+
+export async function reinitialiserPermissions(role: Role) {
+  const res = await authedFetch(`/api/permissions/${role}/reinitialiser`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la réinitialisation.");
 }
 
 /* ------------------------------------------------- Accès nominatifs aux clients */

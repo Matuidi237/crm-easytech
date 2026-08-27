@@ -96,6 +96,17 @@ model Utilisateur {
   @@index([responsableId])
 }
 
+/// Surcharge de la matrice de permissions pour un rôle. Absent = le rôle
+/// utilise les valeurs par défaut définies dans src/lib/permissions.ts.
+/// SUPER_ADMIN n'y figure jamais : ses droits ne sont pas modifiables, faute
+/// de quoi il serait possible de se verrouiller hors de l'application.
+model PermissionsRole {
+  role        RoleUtilisateur @id
+  permissions String[]
+  modifiePar  String?
+  updatedAt   DateTime        @updatedAt
+}
+
 /// Accès nominatif d'un utilisateur à un client précis, ouvert par un
 /// responsable. C'est ce qui permet à un commercial de voir une fiche qui
 /// ne lui appartient pas, sans lui ouvrir toute la base.

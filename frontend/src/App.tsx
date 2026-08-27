@@ -11,6 +11,7 @@ import NewslettersPage from "./pages/NewslettersPage";
 import NewsletterDetailPage from "./pages/NewsletterDetailPage";
 import ProfilPage from "./pages/ProfilPage";
 import UtilisateursPage from "./pages/UtilisateursPage";
+import PermissionsPage from "./pages/PermissionsPage";
 
 /** Redirige vers l accueil si le compte ne dispose pas du droit demandé. */
 function RouteProtegee({ requiert, children }: { requiert: Permission; children: JSX.Element }) {
@@ -31,6 +32,14 @@ export default function App() {
             <Route path="/newsletters" element={<RouteProtegee requiert="newsletters.voir"><NewslettersPage /></RouteProtegee>} />
             <Route path="/newsletters/:id" element={<RouteProtegee requiert="newsletters.voir"><NewsletterDetailPage /></RouteProtegee>} />
             <Route path="/profil" element={<ProfilPage />} />
+            <Route
+              path="/permissions"
+              element={
+                <RouteProtegee requiert="permissions.gerer">
+                  <PermissionsPage />
+                </RouteProtegee>
+              }
+            />
             <Route
               path="/utilisateurs"
               element={

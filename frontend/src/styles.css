@@ -2179,3 +2179,94 @@ td.col-actions {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Matrice des permissions ----------------------------------------------- */
+
+/* Une matrice reste une matrice : sur petit écran elle défile
+   horizontalement, colonne des libellés figée, plutôt que de se replier en
+   cartes où l'on perdrait justement la comparaison entre rôles. */
+.matrice {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+.matrice th,
+.matrice td {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+.matrice thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.matrice th:first-child,
+.matrice td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  min-width: 260px;
+  box-shadow: 1px 0 0 var(--border);
+}
+.matrice thead th:first-child {
+  z-index: 3;
+}
+.matrice .col-role {
+  width: 132px;
+  text-align: center;
+}
+.matrice tbody .col-role {
+  text-align: center;
+}
+.role-tete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  line-height: 1.3;
+}
+.matrice .ligne-groupe td {
+  background: var(--surface-2);
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  box-shadow: none;
+}
+.matrice tbody tr:hover td:not(:first-child) {
+  background: var(--surface-2);
+}
+.matrice input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+.matrice input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+/* Case qui s'écarte de la configuration livrée : repérable sans survol. */
+.matrice td.col-role.ecart {
+  position: relative;
+}
+.matrice td.col-role.ecart::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}

@@ -7,6 +7,7 @@ import { authRouter } from "./routes/auth.js";
 import { newslettersRouter } from "./routes/newsletters.js";
 import { utilisateursRouter } from "./routes/utilisateurs.js";
 import { accesRouter } from "./routes/acces.js";
+import { permissionsRouter, rechargerPermissions } from "./routes/permissions.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/import", requireAuth, importRouter);
 app.use("/api/newsletters", requireAuth, requirePermission("newsletters.voir"), newslettersRouter);
 app.use("/api/utilisateurs", requireAuth, requirePermission("utilisateurs.gerer"), utilisateursRouter);
 app.use("/api/acces", requireAuth, accesRouter);
+app.use("/api/permissions", requireAuth, requirePermission("permissions.gerer"), permissionsRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
@@ -83,8 +85,17 @@ async function amorcerAdministration() {
   console.log(`Premier compte super administrateur créé depuis .env : ${identifiant}`);
 }
 
-amorcerAdministration()
-  .catch((err) => console.error("Amorçage de l'administration impossible :", err))
+async function demarrer() {
+  await amorcerAdministration();
+  // Les surcharges de permissions sont chargées une fois puis tenues en cache :
+  // elles sont évaluées à chaque requête, une lecture SQL à chaque fois serait
+  // du gaspillage.
+  const n = await rechargerPermissions();
+  if (n > 0) console.log(`${n} rôle(s) avec des permissions personnalisées.`);
+}
+
+demarrer()
+  .catch((err) => console.error("Démarrage incomplet :", err))
   .finally(() => {
     app.listen(port, () => {
       console.log(`CRM backend démarré sur http://localhost:${port}`);
