@@ -119,7 +119,8 @@ cat <<'FIN'
 
 Dernière étape, dans Nginx Proxy Manager (Proxy Hosts > Add Proxy Host) :
 
-  Domain Names           crm.easytechgroup.com   (votre sous-domaine)
+  Domain Names           crm.easytechgroup.net   (ou tout autre domaine pointé
+                                                  sur le VPS en attendant)
   Scheme                 http
   Forward Hostname / IP  crm-web
   Forward Port           80
