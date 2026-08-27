@@ -1127,10 +1127,20 @@ tbody tr:hover td {
   position: relative;
   overflow: hidden;
   background-color: #08243e;
-  background-image: linear-gradient(105deg, rgba(6, 26, 45, 0.86) 0%, rgba(6, 26, 45, 0.52) 55%, rgba(6, 26, 45, 0.24) 100%),
+  /* Dégradé vertical, quasi opaque en bas où se pose le texte et plus léger en
+     haut pour laisser respirer la photo. Indispensable ici : le visuel comporte
+     un écran clair et des fenêtres lumineuses qui rendraient le blanc illisible. */
+  background-image: linear-gradient(
+      to top,
+      rgba(7, 22, 36, 0.93) 0%,
+      rgba(7, 22, 36, 0.86) 26%,
+      rgba(7, 22, 36, 0.58) 55%,
+      rgba(7, 22, 36, 0.42) 100%
+    ),
     url("/brand/login-visuel.jpg");
   background-size: cover;
-  background-position: center right;
+  /* Légèrement au-dessus du centre : garde le sujet visible malgré le recadrage. */
+  background-position: 50% 35%;
 }
 
 .login-logo {
@@ -1162,18 +1172,19 @@ tbody tr:hover td {
 }
 
 .login-aside .la-pitch p {
-  color: rgba(255, 255, 255, 0.84);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 14.5px;
   line-height: 1.65;
   margin: 16px 0 0;
-  text-shadow: 0 1px 12px rgba(4, 18, 32, 0.5);
+  text-shadow: 0 1px 12px rgba(4, 18, 32, 0.6);
 }
 
 .login-aside .la-foot {
   position: relative;
   z-index: 1;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
+  text-shadow: 0 1px 10px rgba(4, 18, 32, 0.6);
 }
 
 .login-main {
