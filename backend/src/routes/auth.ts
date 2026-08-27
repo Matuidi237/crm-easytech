@@ -2,6 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js";
 import { SELECT_UTILISATEUR, requireAuth, signToken } from "../lib/auth.js";
+import { permissionsDe } from "../lib/permissions.js";
 
 export const authRouter = Router();
 
@@ -34,7 +35,12 @@ authRouter.post("/login", async (req, res) => {
     nomComplet: utilisateur.nomComplet,
     role: utilisateur.role,
   };
-  res.json({ token: signToken(session), utilisateur: session });
+  // Les permissions accompagnent la session : l'interface masque ce qui n'est
+  // pas autorisé sans avoir à redéfinir la matrice de son côté.
+  res.json({
+    token: signToken(session),
+    utilisateur: { ...session, permissions: permissionsDe(utilisateur.role) },
+  });
 });
 
 authRouter.get("/moi", requireAuth, async (req, res) => {
@@ -43,7 +49,7 @@ authRouter.get("/moi", requireAuth, async (req, res) => {
     select: SELECT_UTILISATEUR,
   });
   if (!utilisateur) return res.status(404).json({ error: "Compte introuvable." });
-  res.json(utilisateur);
+  res.json({ ...utilisateur, permissions: permissionsDe(utilisateur.role) });
 });
 
 authRouter.put("/moi", requireAuth, async (req, res) => {

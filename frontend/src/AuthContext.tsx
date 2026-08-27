@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useState, ReactNode } from "react";
-import { SessionUtilisateur, clearToken, getSessionUtilisateur, getToken, login as apiLogin } from "./api";
+import { Permission, SessionUtilisateur, clearToken, getSessionUtilisateur, getToken, login as apiLogin } from "./api";
 
 type AuthContextValue = {
   isAuthenticated: boolean;
   utilisateur: SessionUtilisateur | null;
   estAdmin: boolean;
+  /** Les droits viennent du serveur : l interface ne fait que les lire. */
+  peut: (permission: Permission) => boolean;
   login: (identifiant: string, motDePasse: string) => Promise<void>;
   logout: () => void;
   /** Resynchronise le contexte après une modification du profil. */
@@ -46,7 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, utilisateur, estAdmin: utilisateur?.role === "ADMIN", login, logout, rafraichir }}
+      value={{
+        isAuthenticated,
+        utilisateur,
+        estAdmin: utilisateur?.role === "ADMIN" || utilisateur?.role === "SUPER_ADMIN",
+        peut: (p) => (utilisateur?.permissions ?? []).includes(p),
+        login,
+        logout,
+        rafraichir,
+      }}
     >
       {children}
     </AuthContext.Provider>

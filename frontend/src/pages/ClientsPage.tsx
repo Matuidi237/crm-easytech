@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Client, ClientFilters, Facets, deleteClient, fetchClients, fetchFacets } from "../api";
+import {
+  Beneficiaire,
+  Client,
+  ClientFilters,
+  Facets,
+  LIBELLES_ROLES,
+  accorderAcces,
+  deleteClient,
+  fetchBeneficiaires,
+  fetchClients,
+  fetchFacets,
+} from "../api";
+import { useAuth } from "../AuthContext";
 import {
   IconAlert,
   IconChevronDown,
@@ -16,7 +28,9 @@ import {
   IconMail,
   IconMore,
   IconPlus,
+  IconCheck,
   IconSearch,
+  IconShield,
   IconTrash,
   IconUsers,
 } from "../components/Icons";
@@ -69,6 +83,13 @@ export default function ClientsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const headCheck = useRef<HTMLInputElement>(null);
+
+  const { peut } = useAuth();
+  const [octroiOuvert, setOctroiOuvert] = useState(false);
+  const [beneficiaires, setBeneficiaires] = useState<Beneficiaire[]>([]);
+  const [beneficiaire, setBeneficiaire] = useState("");
+  const [octroiEnCours, setOctroiEnCours] = useState(false);
+  const [succes, setSucces] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFacets().then(setFacets).catch(() => {});
@@ -149,6 +170,40 @@ export default function ClientsPage() {
       setError((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  function ouvrirOctroi() {
+    setSucces(null);
+    setError(null);
+    fetchBeneficiaires()
+      .then((b) => {
+        setBeneficiaires(b);
+        setBeneficiaire(b[0]?.id ?? "");
+        setOctroiOuvert(true);
+      })
+      .catch((e) => setError(e.message));
+  }
+
+  async function validerOctroi() {
+    if (!beneficiaire) return;
+    setOctroiEnCours(true);
+    setError(null);
+    try {
+      const r = await accorderAcces(beneficiaire, [...selection]);
+      const nom = beneficiaires.find((b) => b.id === beneficiaire)?.nomComplet ?? "ce compte";
+      const dejaOuverts = r.dejaOuverts > 0 ? ` ${r.dejaOuverts} l'étaient déjà.` : "";
+      setSucces(
+        r.accordes > 0
+          ? `${r.accordes} client(s) désormais accessibles à ${nom}.` + dejaOuverts
+          : `Ces clients étaient déjà accessibles à ${nom}.`
+      );
+      setOctroiOuvert(false);
+      setSelection(new Set());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOctroiEnCours(false);
     }
   }
 
@@ -354,6 +409,12 @@ export default function ClientsPage() {
           {error}
         </div>
       )}
+      {succes && (
+        <div className="alert alert-success">
+          <IconCheck />
+          {succes}
+        </div>
+      )}
 
       <div className="table-card">
         {selection.size > 0 && (
@@ -365,16 +426,24 @@ export default function ClientsPage() {
             <button className="link-action" onClick={() => setSelection(new Set())}>
               Tout désélectionner
             </button>
-            <button
-              className="btn btn-danger btn-sm"
-              disabled={busy}
-              onClick={() =>
-                supprimer([...selection], `${selection.size} client${selection.size > 1 ? "s" : ""}`)
-              }
-            >
-              <IconTrash size={14} />
-              Supprimer
-            </button>
+            {peut("acces.accorder") && (
+              <button className="btn btn-soft btn-sm" onClick={ouvrirOctroi}>
+                <IconShield size={14} />
+                Donner l'accès à…
+              </button>
+            )}
+            {peut("clients.supprimer") && (
+              <button
+                className="btn btn-danger btn-sm"
+                disabled={busy}
+                onClick={() =>
+                  supprimer([...selection], `${selection.size} client${selection.size > 1 ? "s" : ""}`)
+                }
+              >
+                <IconTrash size={14} />
+                Supprimer
+              </button>
+            )}
           </div>
         )}
 
@@ -530,6 +599,51 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+
+      {octroiOuvert && (
+        <div className="modal-backdrop" onClick={() => setOctroiOuvert(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Donner accès à ces clients</h3>
+            <p className="modal-sub">
+              {selection.size} client{selection.size > 1 ? "s" : ""} sélectionné{selection.size > 1 ? "s" : ""}. Le
+              compte choisi pourra les consulter, en plus de ses propres prospects. Les comptes qui voient déjà toute
+              la base ne figurent pas dans cette liste.
+            </p>
+
+            {beneficiaires.length === 0 ? (
+              <div className="alert alert-info">
+                <IconAlert />
+                Aucun compte à périmètre restreint pour le moment. Créez un commercial depuis la page Utilisateurs.
+              </div>
+            ) : (
+              <div className="field">
+                <label htmlFor="beneficiaire">Compte bénéficiaire</label>
+                <select id="beneficiaire" value={beneficiaire} onChange={(e) => setBeneficiaire(e.target.value)}>
+                  {beneficiaires.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.nomComplet} · {LIBELLES_ROLES[b.role].toLowerCase()} · {b.nbAcces} accès
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setOctroiOuvert(false)}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={validerOctroi}
+                disabled={octroiEnCours || beneficiaires.length === 0}
+              >
+                {octroiEnCours ? "Ouverture…" : "Ouvrir l'accès"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {menu && (
         <div

@@ -28,9 +28,18 @@ model Client {
   champsPersonnalises Json?  @default("{}")
   importJob         ImportJob? @relation(fields: [importJobId], references: [id], onDelete: Cascade)
   importJobId       String?
+
+  /// Compte qui a créé la fiche. Un commercial voit toujours ses propres
+  /// prospects. Le champ texte « commercialEnCharge » reste, lui, purement
+  /// informatif : il provient des fichiers importés.
+  proprietaire   Utilisateur? @relation("Proprietaire", fields: [proprietaireId], references: [id], onDelete: SetNull)
+  proprietaireId String?
+  acces          AccesClient[]
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  @@index([proprietaireId])
   @@index([pays])
   @@index([ville])
   @@index([secteurActivite])
@@ -51,9 +60,15 @@ model ImportJob {
   clients      Client[]
 }
 
+/// Hiérarchie de privilèges. Les capacités réelles de chaque rôle sont
+/// définies dans src/lib/permissions.ts, pas ici.
 enum RoleUtilisateur {
+  SUPER_ADMIN
   ADMIN
+  RESPONSABLE_COMMERCIAL
   COMMERCIAL
+  COMPTABLE
+  CHEF_DE_PROJET
 }
 
 model Utilisateur {
@@ -68,6 +83,36 @@ model Utilisateur {
   dernierAcces   DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+
+  /// Responsable hiérarchique : un responsable commercial n'administre que
+  /// les comptes qui lui sont rattachés.
+  responsable   Utilisateur?  @relation("Equipe", fields: [responsableId], references: [id], onDelete: SetNull)
+  responsableId String?
+  equipe        Utilisateur[] @relation("Equipe")
+
+  clientsPossedes Client[]      @relation("Proprietaire")
+  accesAccordes   AccesClient[] @relation("Beneficiaire")
+
+  @@index([responsableId])
+}
+
+/// Accès nominatif d'un utilisateur à un client précis, ouvert par un
+/// responsable. C'est ce qui permet à un commercial de voir une fiche qui
+/// ne lui appartient pas, sans lui ouvrir toute la base.
+model AccesClient {
+  id            String      @id @default(uuid())
+  client        Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId      String
+  utilisateur   Utilisateur @relation("Beneficiaire", fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+  /// Simple trace d'audit : volontairement sans clé étrangère, pour qu'un
+  /// compte supprimé n'efface pas l'historique des accès qu'il a ouverts.
+  accordeParId  String
+  accordeParNom String
+  createdAt     DateTime    @default(now())
+
+  @@unique([clientId, utilisateurId])
+  @@index([utilisateurId])
 }
 
 enum NewsletterStatut {

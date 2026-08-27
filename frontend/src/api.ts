@@ -6,21 +6,54 @@ const API_URL = import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? "" : "ht
 const TOKEN_KEY = "crm_token";
 const USER_KEY = "crm_utilisateur";
 
-export type Role = "ADMIN" | "COMMERCIAL";
+export const ROLES = [
+  "SUPER_ADMIN",
+  "ADMIN",
+  "RESPONSABLE_COMMERCIAL",
+  "COMMERCIAL",
+  "COMPTABLE",
+  "CHEF_DE_PROJET",
+] as const;
+
+export type Role = (typeof ROLES)[number];
+
+/** Libellés affichés. La matrice des droits, elle, vit uniquement côté serveur. */
+export const LIBELLES_ROLES: Record<Role, string> = {
+  SUPER_ADMIN: "Super administrateur",
+  ADMIN: "Administrateur",
+  RESPONSABLE_COMMERCIAL: "Responsable commercial",
+  COMMERCIAL: "Commercial",
+  COMPTABLE: "Comptable",
+  CHEF_DE_PROJET: "Chef de projet",
+};
+
+export type Permission =
+  | "clients.voirTous" | "clients.creer" | "clients.modifier" | "clients.supprimer"
+  | "clients.importer" | "clients.exporter" | "clients.coordonnees"
+  | "acces.accorder"
+  | "newsletters.voir" | "newsletters.creer" | "newsletters.envoyer"
+  | "stats.globales" | "utilisateurs.gerer" | "utilisateurs.gererAdmins";
 
 export type SessionUtilisateur = {
   id: string;
   identifiant: string;
   nomComplet: string;
   role: Role;
+  /** Fournies par le serveur : l interface ne redéfinit jamais les droits. */
+  permissions: Permission[];
 };
 
-export type Utilisateur = SessionUtilisateur & {
+export type Utilisateur = Omit<SessionUtilisateur, "permissions"> & {
   email: string | null;
   fonction: string | null;
   actif: boolean;
   dernierAcces: string | null;
   createdAt: string;
+  responsableId: string | null;
+  responsable: { id: string; nomComplet: string } | null;
+  nbAccesAccordes?: number;
+  nbClientsPossedes?: number;
+  permissions?: Permission[];
 };
 
 export function getToken() {
@@ -105,6 +138,8 @@ export async function updateMoi(data: { nomComplet: string; email: string; fonct
     identifiant: utilisateur.identifiant,
     nomComplet: utilisateur.nomComplet,
     role: utilisateur.role,
+    // Le rôle n'a pas changé : on conserve les droits déjà en session.
+    permissions: getSessionUtilisateur()?.permissions ?? [],
   });
   return utilisateur;
 }
@@ -133,6 +168,7 @@ export async function createUtilisateur(data: {
   fonction: string;
   role: Role;
   motDePasse: string;
+  responsableId?: string | null;
 }) {
   const res = await authedFetch("/api/utilisateurs", {
     method: "POST",
@@ -145,7 +181,7 @@ export async function createUtilisateur(data: {
 
 export async function updateUtilisateur(
   id: string,
-  data: Partial<{ nomComplet: string; email: string; fonction: string; role: Role; actif: boolean }>
+  data: Partial<{ nomComplet: string; email: string; fonction: string; role: Role; actif: boolean; responsableId: string | null }>
 ) {
   const res = await authedFetch(`/api/utilisateurs/${id}`, {
     method: "PUT",
@@ -168,6 +204,60 @@ export async function reinitialiserMotDePasse(id: string, motDePasse: string) {
 export async function deleteUtilisateur(id: string) {
   const res = await authedFetch(`/api/utilisateurs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression du compte.");
+}
+
+/** Rôles que le compte connecté a le droit d'attribuer, et responsables assignables. */
+export async function fetchOptionsComptes() {
+  const res = await authedFetch("/api/utilisateurs/options");
+  if (!res.ok) throw new Error("Erreur lors du chargement des options.");
+  return res.json() as Promise<{
+    roles: { valeur: Role; libelle: string }[];
+    responsables: { id: string; nomComplet: string; role: Role }[];
+  }>;
+}
+
+/* ------------------------------------------------- Accès nominatifs aux clients */
+
+export type Beneficiaire = {
+  id: string;
+  nomComplet: string;
+  identifiant: string;
+  role: Role;
+  nbAcces: number;
+};
+
+/** Comptes à périmètre restreint, seuls concernés par un octroi d'accès. */
+export async function fetchBeneficiaires() {
+  const res = await authedFetch("/api/acces/beneficiaires");
+  if (!res.ok) throw new Error("Erreur lors du chargement des comptes.");
+  return res.json() as Promise<Beneficiaire[]>;
+}
+
+export async function fetchAccesDe(utilisateurId: string) {
+  const res = await authedFetch(`/api/acces/utilisateur/${utilisateurId}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement des accès.");
+  return res.json() as Promise<
+    { id: string; client: { id: string; nom: string; secteurActivite: string | null; pays: string | null }; accordePar: string; accordeLe: string }[]
+  >;
+}
+
+export async function accorderAcces(utilisateurId: string, clientIds: string[]) {
+  const res = await authedFetch("/api/acces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ utilisateurId, clientIds }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'ouverture des accès.");
+  return res.json() as Promise<{ accordes: number; dejaOuverts: number; introuvables: number }>;
+}
+
+export async function retirerAcces(utilisateurId: string, clientId: string) {
+  const res = await authedFetch("/api/acces", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ utilisateurId, clientId }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors du retrait de l'accès.");
 }
 
 export type Client = {

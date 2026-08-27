@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 import type { RoleUtilisateur } from "@prisma/client";
+import { peut, type Permission } from "./permissions.js";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-me";
 
@@ -31,6 +32,8 @@ export const SELECT_UTILISATEUR = {
   actif: true,
   dernierAcces: true,
   createdAt: true,
+  responsableId: true,
+  responsable: { select: { id: true, nomComplet: true } },
 } as const;
 
 export function signToken(u: SessionUtilisateur) {
@@ -50,9 +53,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.utilisateur?.role !== "ADMIN") {
-    return res.status(403).json({ error: "Action réservée aux administrateurs." });
-  }
-  next();
+/**
+ * Exige une capacité précise plutôt qu'un rôle : les routes n'ont pas à
+ * connaître la hiérarchie, seulement ce qu'elles demandent.
+ */
+export function requirePermission(permission: Permission) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const role = req.utilisateur?.role;
+    if (!role || !peut(role, permission)) {
+      return res.status(403).json({ error: "Votre rôle ne permet pas cette action." });
+    }
+    next();
+  };
 }

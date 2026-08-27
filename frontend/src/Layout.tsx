@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { LIBELLES_ROLES } from "./api";
 import {
   IconClose,
   IconDashboard,
@@ -14,12 +15,13 @@ import {
   IconUsers,
 } from "./components/Icons";
 
+/** « requiert » vide = visible par tous les comptes connectés. */
 const NAV = [
-  { to: "/", label: "Tableau de bord", icon: IconDashboard, end: true },
-  { to: "/clients", label: "Clients", icon: IconUsers, end: false },
-  { to: "/import", label: "Importer", icon: IconImport, end: false },
-  { to: "/newsletters", label: "Newsletters", icon: IconMail, end: false },
-];
+  { to: "/", label: "Tableau de bord", icon: IconDashboard, end: true, requiert: null },
+  { to: "/clients", label: "Clients", icon: IconUsers, end: false, requiert: null },
+  { to: "/import", label: "Importer", icon: IconImport, end: false, requiert: "clients.importer" },
+  { to: "/newsletters", label: "Newsletters", icon: IconMail, end: false, requiert: "newsletters.voir" },
+] as const;
 
 function initiales(nom: string) {
   const mots = nom.trim().split(/\s+/).filter(Boolean);
@@ -29,7 +31,7 @@ function initiales(nom: string) {
 }
 
 export default function Layout() {
-  const { logout, utilisateur, estAdmin } = useAuth();
+  const { logout, utilisateur, peut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState("");
@@ -38,7 +40,7 @@ export default function Layout() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const nom = utilisateur?.nomComplet ?? "Utilisateur";
-  const roleLabel = estAdmin ? "Administrateur" : "Commercial";
+  const roleLabel = utilisateur ? LIBELLES_ROLES[utilisateur.role] : "";
 
   // Le tiroir de navigation se referme dès qu'on change de page (mobile).
   useEffect(() => {
@@ -95,7 +97,7 @@ export default function Layout() {
         <div className="sidebar-tag">CRM Clients</div>
 
         <nav className="sidebar-nav" aria-label="Navigation principale">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.filter((n) => !n.requiert || peut(n.requiert)).map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
               <Icon />
               <span>{label}</span>
@@ -109,7 +111,7 @@ export default function Layout() {
               <IconUserCircle />
               <span>Mon profil</span>
             </NavLink>
-            {estAdmin && (
+            {peut("utilisateurs.gerer") && (
               <NavLink to="/utilisateurs" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
                 <IconShield />
                 <span>Utilisateurs</span>
@@ -179,7 +181,7 @@ export default function Layout() {
                     <IconUserCircle size={16} />
                     Mon profil
                   </button>
-                  {estAdmin && (
+                  {peut("utilisateurs.gerer") && (
                     <button className="menu-item" role="menuitem" onClick={() => navigate("/utilisateurs")}>
                       <IconShield size={16} />
                       Gérer les utilisateurs

@@ -5,6 +5,7 @@ import { parseUploadedFile } from "../lib/fileParser.js";
 import { prisma } from "../lib/prisma.js";
 import { CLIENT_FIELD_KEYS, type ClientFieldKey } from "../lib/clientFields.js";
 import { canoniserSecteur } from "../lib/secteurs.js";
+import { requirePermission } from "../lib/auth.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
@@ -34,7 +35,7 @@ importRouter.get("/", async (_req, res) => {
   );
 });
 
-importRouter.delete("/:id", async (req, res) => {
+importRouter.delete("/:id", requirePermission("clients.supprimer"), async (req, res) => {
   try {
     await prisma.importJob.delete({ where: { id: req.params.id } });
     res.status(204).send();
@@ -43,7 +44,7 @@ importRouter.delete("/:id", async (req, res) => {
   }
 });
 
-importRouter.post("/preview", upload.single("file"), (req, res) => {
+importRouter.post("/preview", requirePermission("clients.importer"), upload.single("file"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "Aucun fichier reçu." });
   }
@@ -68,7 +69,7 @@ importRouter.post("/preview", upload.single("file"), (req, res) => {
   }
 });
 
-importRouter.post("/commit", async (req, res) => {
+importRouter.post("/commit", requirePermission("clients.importer"), async (req, res) => {
   const { token, mapping } = req.body as { token: string; mapping: Record<string, ClientFieldKey | null> };
 
   const pending = pendingImports.get(token);
@@ -98,7 +99,12 @@ importRouter.post("/commit", async (req, res) => {
 
   for (let i = 0; i < pending.rows.length; i++) {
     const row = pending.rows[i];
-    const clientData: Record<string, unknown> = { importJobId: importJob.id };
+    // Le compte qui importe devient propriétaire des fiches créées : un
+    // commercial retrouve ainsi ses propres prospects dans son périmètre.
+    const clientData: Record<string, unknown> = {
+      importJobId: importJob.id,
+      proprietaireId: req.utilisateur!.id,
+    };
 
     for (const [sourceHeader, targetField] of Object.entries(mapping)) {
       if (!targetField) continue;

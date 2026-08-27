@@ -1,6 +1,9 @@
 import { Router } from "express";
+import type { RoleUtilisateur } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { isMailerLive, sendEmail } from "../lib/mailer.js";
+import { requirePermission } from "../lib/auth.js";
+import { perimetreClients } from "../lib/permissions.js";
 
 export const newslettersRouter = Router();
 
@@ -12,9 +15,17 @@ function splitEmails(raw: string | null): string[] {
     .filter((e) => e.includes("@"));
 }
 
-async function findAudience(secteurs: string[]) {
+/**
+ * Destinataires d'une campagne, restreints au périmètre du compte : un
+ * commercial ne doit pas déduire la taille de la base entière depuis le
+ * compteur d'audience.
+ */
+async function findAudience(secteurs: string[], utilisateur: { id: string; role: RoleUtilisateur }) {
+  const filtre = secteurs.length > 0 ? { secteurActivite: { in: secteurs } } : {};
+  const perimetre = perimetreClients(utilisateur);
+
   const clients = await prisma.client.findMany({
-    where: secteurs.length > 0 ? { secteurActivite: { in: secteurs } } : {},
+    where: perimetre ? { AND: [filtre, perimetre] } : filtre,
     select: { id: true, nom: true, emailContact: true, secteurActivite: true },
   });
   return clients.filter((c) => splitEmails(c.emailContact).length > 0);
@@ -28,7 +39,7 @@ newslettersRouter.get("/", async (_req, res) => {
 newslettersRouter.get("/audience", async (req, res) => {
   const secteursParam = String(req.query.secteurs ?? "");
   const secteurs = secteursParam ? secteursParam.split(",").filter(Boolean) : [];
-  const audience = await findAudience(secteurs);
+  const audience = await findAudience(secteurs, req.utilisateur!);
   res.json({ nbDestinataires: audience.length });
 });
 
@@ -41,7 +52,7 @@ newslettersRouter.get("/:id", async (req, res) => {
   res.json(newsletter);
 });
 
-newslettersRouter.post("/", async (req, res) => {
+newslettersRouter.post("/", requirePermission("newsletters.creer"), async (req, res) => {
   const { titre, sujet, format, contenu, secteursCibles } = req.body as {
     titre?: string;
     sujet?: string;
@@ -66,7 +77,7 @@ newslettersRouter.post("/", async (req, res) => {
   res.status(201).json(newsletter);
 });
 
-newslettersRouter.put("/:id", async (req, res) => {
+newslettersRouter.put("/:id", requirePermission("newsletters.creer"), async (req, res) => {
   const existing = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "Newsletter introuvable." });
   if (existing.statut !== "BROUILLON") {
@@ -88,7 +99,7 @@ newslettersRouter.put("/:id", async (req, res) => {
   res.json(newsletter);
 });
 
-newslettersRouter.delete("/:id", async (req, res) => {
+newslettersRouter.delete("/:id", requirePermission("newsletters.creer"), async (req, res) => {
   try {
     await prisma.newsletter.delete({ where: { id: req.params.id } });
     res.status(204).send();
@@ -106,14 +117,14 @@ function toHtml(format: string, contenu: string) {
   return `<div style="font-family: sans-serif; white-space: pre-wrap;">${escaped}</div>`;
 }
 
-newslettersRouter.post("/:id/send", async (req, res) => {
+newslettersRouter.post("/:id/send", requirePermission("newsletters.envoyer"), async (req, res) => {
   const newsletter = await prisma.newsletter.findUnique({ where: { id: req.params.id } });
   if (!newsletter) return res.status(404).json({ error: "Newsletter introuvable." });
   if (newsletter.statut === "ENVOI_EN_COURS") {
     return res.status(400).json({ error: "Un envoi est déjà en cours pour cette newsletter." });
   }
 
-  const audience = await findAudience(newsletter.secteursCibles);
+  const audience = await findAudience(newsletter.secteursCibles, req.utilisateur!);
   if (audience.length === 0) {
     return res.status(400).json({ error: "Aucun client avec email trouvé pour les secteurs ciblés." });
   }

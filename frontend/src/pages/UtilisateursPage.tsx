@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
+  LIBELLES_ROLES,
   Role,
   Utilisateur,
   createUtilisateur,
   deleteUtilisateur,
+  fetchOptionsComptes,
   fetchUtilisateurs,
   reinitialiserMotDePasse,
   updateUtilisateur,
@@ -23,9 +25,23 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
 }
 
+/** Teinte de pastille par famille de rôle, pour repérer la hiérarchie d'un coup d'œil. */
+const TEINTE_ROLE: Record<Role, string> = {
+  SUPER_ADMIN: "pill-danger",
+  ADMIN: "pill-brand",
+  RESPONSABLE_COMMERCIAL: "pill-brand",
+  CHEF_DE_PROJET: "pill-warn",
+  COMPTABLE: "pill-warn",
+  COMMERCIAL: "pill-neutral",
+};
+
 export default function UtilisateursPage() {
   const { utilisateur: moi } = useAuth();
   const [comptes, setComptes] = useState<Utilisateur[]>([]);
+  const [options, setOptions] = useState<{
+    roles: { valeur: Role; libelle: string }[];
+    responsables: { id: string; nomComplet: string; role: Role }[];
+  }>({ roles: [], responsables: [] });
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -36,19 +52,25 @@ export default function UtilisateursPage() {
   const [email, setEmail] = useState("");
   const [fonction, setFonction] = useState("");
   const [role, setRole] = useState<Role>("COMMERCIAL");
+  const [responsableId, setResponsableId] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [creation, setCreation] = useState(false);
 
   const [menu, setMenu] = useState<{ compte: Utilisateur; x: number; y: number } | null>(null);
   const [resetCible, setResetCible] = useState<Utilisateur | null>(null);
   const [resetMdp, setResetMdp] = useState("");
-  const [resetEnCours, setResetEnCours] = useState(false);
+  const [roleCible, setRoleCible] = useState<Utilisateur | null>(null);
+  const [nouveauRole, setNouveauRole] = useState<Role>("COMMERCIAL");
   const resetInput = useRef<HTMLInputElement>(null);
 
   function charger() {
     setChargement(true);
-    fetchUtilisateurs()
-      .then(setComptes)
+    Promise.all([fetchUtilisateurs(), fetchOptionsComptes()])
+      .then(([u, o]) => {
+        setComptes(u);
+        setOptions(o);
+        if (o.roles.length && !o.roles.some((r) => r.valeur === role)) setRole(o.roles[0].valeur);
+      })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false));
   }
@@ -76,16 +98,16 @@ export default function UtilisateursPage() {
     setSucces(null);
     setCreation(true);
     try {
-      const nouveau = await createUtilisateur({ identifiant, nomComplet, email, fonction, role, motDePasse });
-      setComptes((c) => [nouveau, ...c]);
-      setSucces(`Compte « ${nouveau.identifiant} » créé.`);
+      await createUtilisateur({ identifiant, nomComplet, email, fonction, role, motDePasse, responsableId: responsableId || null });
+      setSucces(`Compte « ${identifiant} » créé.`);
       setIdentifiant("");
       setNomComplet("");
       setEmail("");
       setFonction("");
-      setRole("COMMERCIAL");
       setMotDePasse("");
+      setResponsableId("");
       setFormOuvert(false);
+      charger();
     } catch (err) {
       setErreur((err as Error).message);
     } finally {
@@ -97,8 +119,8 @@ export default function UtilisateursPage() {
     setErreur(null);
     setSucces(null);
     try {
-      const maj = await updateUtilisateur(compte.id, data);
-      setComptes((cs) => cs.map((c) => (c.id === maj.id ? maj : c)));
+      await updateUtilisateur(compte.id, data);
+      charger();
     } catch (err) {
       setErreur((err as Error).message);
     }
@@ -107,11 +129,10 @@ export default function UtilisateursPage() {
   async function supprimer(compte: Utilisateur) {
     if (!confirm(`Supprimer définitivement le compte « ${compte.identifiant} » ?`)) return;
     setErreur(null);
-    setSucces(null);
     try {
       await deleteUtilisateur(compte.id);
-      setComptes((cs) => cs.filter((c) => c.id !== compte.id));
       setSucces(`Compte « ${compte.identifiant} » supprimé.`);
+      charger();
     } catch (err) {
       setErreur((err as Error).message);
     }
@@ -124,8 +145,6 @@ export default function UtilisateursPage() {
       setErreur("Le mot de passe doit faire au moins 8 caractères.");
       return;
     }
-    setResetEnCours(true);
-    setErreur(null);
     try {
       await reinitialiserMotDePasse(resetCible.id, resetMdp);
       setSucces(`Mot de passe réinitialisé pour « ${resetCible.identifiant} ».`);
@@ -133,9 +152,16 @@ export default function UtilisateursPage() {
       setResetMdp("");
     } catch (err) {
       setErreur((err as Error).message);
-    } finally {
-      setResetEnCours(false);
     }
+  }
+
+  async function validerRole(e: FormEvent) {
+    e.preventDefault();
+    if (!roleCible) return;
+    const cible = roleCible;
+    setRoleCible(null);
+    await modifier(cible, { role: nouveauRole });
+    setSucces(`${cible.nomComplet} est désormais ${LIBELLES_ROLES[nouveauRole].toLowerCase()}.`);
   }
 
   return (
@@ -151,10 +177,7 @@ export default function UtilisateursPage() {
           </div>
         </div>
         <div className="head-actions">
-          <button
-            className={formOuvert ? "btn btn-ghost" : "btn btn-primary"}
-            onClick={() => setFormOuvert((o) => !o)}
-          >
+          <button className={formOuvert ? "btn btn-ghost" : "btn btn-primary"} onClick={() => setFormOuvert((o) => !o)}>
             {formOuvert ? (
               "Annuler"
             ) : (
@@ -186,7 +209,8 @@ export default function UtilisateursPage() {
             <div>
               <div className="card-title">Nouveau compte</div>
               <div className="card-sub">
-                L'utilisateur pourra ensuite modifier ses informations et son mot de passe depuis son profil.
+                Vous ne pouvez attribuer que des rôles inférieurs au vôtre. Un commercial ne voit que ses propres
+                prospects tant qu'on ne lui a pas ouvert d'accès.
               </div>
             </div>
           </div>
@@ -195,62 +219,46 @@ export default function UtilisateursPage() {
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="u-identifiant">Identifiant de connexion</label>
-                <input
-                  id="u-identifiant"
-                  value={identifiant}
-                  onChange={(e) => setIdentifiant(e.target.value)}
-                  placeholder="p.nom"
-                  autoComplete="off"
-                  required
-                />
+                <input id="u-identifiant" value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} placeholder="p.nom" autoComplete="off" required />
               </div>
               <div className="field">
                 <label htmlFor="u-nom">Nom complet</label>
-                <input
-                  id="u-nom"
-                  value={nomComplet}
-                  onChange={(e) => setNomComplet(e.target.value)}
-                  placeholder="Prénom Nom"
-                  required
-                />
+                <input id="u-nom" value={nomComplet} onChange={(e) => setNomComplet(e.target.value)} placeholder="Prénom Nom" required />
               </div>
               <div className="field">
                 <label htmlFor="u-email">Adresse email</label>
-                <input
-                  id="u-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="prenom.nom@easytechgroup.com"
-                />
+                <input id="u-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom.nom@easytechgroup.net" />
               </div>
               <div className="field">
                 <label htmlFor="u-fonction">Fonction</label>
-                <input
-                  id="u-fonction"
-                  value={fonction}
-                  onChange={(e) => setFonction(e.target.value)}
-                  placeholder="Commercial grands comptes"
-                />
+                <input id="u-fonction" value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Commercial grands comptes" />
               </div>
               <div className="field">
                 <label htmlFor="u-role">Rôle</label>
                 <select id="u-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                  <option value="COMMERCIAL">Commercial (accès aux clients et campagnes)</option>
-                  <option value="ADMIN">Administrateur (gère aussi les comptes)</option>
+                  {options.roles.map((r) => (
+                    <option key={r.valeur} value={r.valeur}>
+                      {r.libelle}
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div className="field">
+              {moi?.role !== "RESPONSABLE_COMMERCIAL" && (
+                <div className="field">
+                  <label htmlFor="u-resp">Rattaché à</label>
+                  <select id="u-resp" value={responsableId} onChange={(e) => setResponsableId(e.target.value)}>
+                    <option value="">Aucun responsable</option>
+                    {options.responsables.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nomComplet} ({LIBELLES_ROLES[r.role].toLowerCase()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="field full">
                 <label htmlFor="u-mdp">Mot de passe provisoire</label>
-                <input
-                  id="u-mdp"
-                  type="text"
-                  value={motDePasse}
-                  onChange={(e) => setMotDePasse(e.target.value)}
-                  placeholder="8 caractères minimum"
-                  autoComplete="off"
-                  required
-                />
+                <input id="u-mdp" type="text" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} placeholder="8 caractères minimum" autoComplete="off" required />
               </div>
             </div>
 
@@ -281,7 +289,8 @@ export default function UtilisateursPage() {
                 <tr>
                   <th>Utilisateur</th>
                   <th>Rôle</th>
-                  <th>Email</th>
+                  <th>Rattaché à</th>
+                  <th>Périmètre</th>
                   <th>Dernier accès</th>
                   <th>Statut</th>
                   <th className="col-actions" />
@@ -290,6 +299,7 @@ export default function UtilisateursPage() {
               <tbody>
                 {comptes.map((c) => {
                   const cestMoi = c.id === moi?.id;
+                  const restreint = c.role === "COMMERCIAL";
                   return (
                     <tr key={c.id}>
                       <td className="td-main">
@@ -300,11 +310,7 @@ export default function UtilisateursPage() {
                           <div style={{ minWidth: 0 }}>
                             <div className="cc-name">
                               {c.nomComplet}
-                              {cestMoi && (
-                                <span className="tag" style={{ marginLeft: 7 }}>
-                                  vous
-                                </span>
-                              )}
+                              {cestMoi && <span className="tag" style={{ marginLeft: 7 }}>vous</span>}
                             </div>
                             <div className="cc-sub">
                               {c.identifiant}
@@ -314,11 +320,21 @@ export default function UtilisateursPage() {
                         </div>
                       </td>
                       <td data-label="Rôle">
-                        <span className={`pill ${c.role === "ADMIN" ? "pill-brand" : "pill-neutral"}`}>
-                          {c.role === "ADMIN" ? "Administrateur" : "Commercial"}
-                        </span>
+                        <span className={`pill ${TEINTE_ROLE[c.role]}`}>{LIBELLES_ROLES[c.role]}</span>
                       </td>
-                      <td data-label="Email">{c.email ?? "-"}</td>
+                      <td data-label="Rattaché à">{c.responsable?.nomComplet ?? "-"}</td>
+                      <td data-label="Périmètre">
+                        {restreint ? (
+                          <>
+                            {c.nbClientsPossedes ?? 0} créés
+                            {(c.nbAccesAccordes ?? 0) > 0 && (
+                              <span className="tag" style={{ marginLeft: 6 }}>+{c.nbAccesAccordes} ouverts</span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="muted-3">Base entière</span>
+                        )}
+                      </td>
                       <td data-label="Dernier accès">{formatDate(c.dernierAcces)}</td>
                       <td data-label="Statut">
                         <span className={`pill ${c.actif ? "pill-success" : "pill-danger"}`}>
@@ -352,7 +368,7 @@ export default function UtilisateursPage() {
       {menu && (
         <div
           className="menu menu--fixed"
-          style={{ left: Math.max(12, menu.x - 210), top: menu.y + 6 }}
+          style={{ left: Math.max(12, menu.x - 220), top: menu.y + 6 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <button
@@ -360,11 +376,12 @@ export default function UtilisateursPage() {
             onClick={() => {
               const c = menu.compte;
               setMenu(null);
-              modifier(c, { role: c.role === "ADMIN" ? "COMMERCIAL" : "ADMIN" });
+              setNouveauRole(c.role);
+              setRoleCible(c);
             }}
           >
             <IconShield size={16} />
-            {menu.compte.role === "ADMIN" ? "Passer en commercial" : "Passer en administrateur"}
+            Changer le rôle
           </button>
           <button
             className="menu-item"
@@ -404,6 +421,36 @@ export default function UtilisateursPage() {
         </div>
       )}
 
+      {roleCible && (
+        <div className="modal-backdrop" onClick={() => setRoleCible(null)}>
+          <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={validerRole}>
+            <h3>Changer le rôle</h3>
+            <p className="modal-sub">
+              Compte de <strong>{roleCible.nomComplet}</strong>. Passer un commercial à un rôle qui voit toute la base
+              rend ses accès nominatifs sans objet : ils sont alors retirés.
+            </p>
+            <div className="field">
+              <label htmlFor="role-cible">Nouveau rôle</label>
+              <select id="role-cible" value={nouveauRole} onChange={(e) => setNouveauRole(e.target.value as Role)}>
+                {options.roles.map((r) => (
+                  <option key={r.valeur} value={r.valeur}>
+                    {r.libelle}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setRoleCible(null)}>
+                Annuler
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Appliquer
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {resetCible && (
         <div className="modal-backdrop" onClick={() => setResetCible(null)}>
           <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={validerReset}>
@@ -412,26 +459,16 @@ export default function UtilisateursPage() {
               Nouveau mot de passe pour <strong>{resetCible.nomComplet}</strong> ({resetCible.identifiant}).
               Communiquez-le lui pour qu'il le change depuis son profil.
             </p>
-
             <div className="field">
               <label htmlFor="reset-mdp">Nouveau mot de passe</label>
-              <input
-                id="reset-mdp"
-                ref={resetInput}
-                type="text"
-                value={resetMdp}
-                onChange={(e) => setResetMdp(e.target.value)}
-                placeholder="8 caractères minimum"
-                autoComplete="off"
-              />
+              <input id="reset-mdp" ref={resetInput} type="text" value={resetMdp} onChange={(e) => setResetMdp(e.target.value)} placeholder="8 caractères minimum" autoComplete="off" />
             </div>
-
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setResetCible(null)}>
                 Annuler
               </button>
-              <button type="submit" className="btn btn-primary" disabled={resetEnCours}>
-                {resetEnCours ? "Application…" : "Réinitialiser"}
+              <button type="submit" className="btn btn-primary">
+                Réinitialiser
               </button>
             </div>
           </form>

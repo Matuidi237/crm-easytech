@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
+import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
 import LoginPage from "./pages/LoginPage";
@@ -11,9 +12,10 @@ import NewsletterDetailPage from "./pages/NewsletterDetailPage";
 import ProfilPage from "./pages/ProfilPage";
 import UtilisateursPage from "./pages/UtilisateursPage";
 
-function AdminRoute({ children }: { children: JSX.Element }) {
-  const { estAdmin } = useAuth();
-  return estAdmin ? children : <Navigate to="/" replace />;
+/** Redirige vers l accueil si le compte ne dispose pas du droit demandé. */
+function RouteProtegee({ requiert, children }: { requiert: Permission; children: JSX.Element }) {
+  const { peut } = useAuth();
+  return peut(requiert) ? children : <Navigate to="/" replace />;
 }
 
 export default function App() {
@@ -25,16 +27,16 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/import" element={<ImportPage />} />
-            <Route path="/newsletters" element={<NewslettersPage />} />
-            <Route path="/newsletters/:id" element={<NewsletterDetailPage />} />
+            <Route path="/import" element={<RouteProtegee requiert="clients.importer"><ImportPage /></RouteProtegee>} />
+            <Route path="/newsletters" element={<RouteProtegee requiert="newsletters.voir"><NewslettersPage /></RouteProtegee>} />
+            <Route path="/newsletters/:id" element={<RouteProtegee requiert="newsletters.voir"><NewsletterDetailPage /></RouteProtegee>} />
             <Route path="/profil" element={<ProfilPage />} />
             <Route
               path="/utilisateurs"
               element={
-                <AdminRoute>
+                <RouteProtegee requiert="utilisateurs.gerer">
                   <UtilisateursPage />
-                </AdminRoute>
+                </RouteProtegee>
               }
             />
           </Route>
