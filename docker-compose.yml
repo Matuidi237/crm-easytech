@@ -1,0 +1,76 @@
+# CRM EasyTech Group SA — déploiement VPS derrière Nginx Proxy Manager.
+#
+# Aucun port n'est publié sur l'hôte : le proxy joint le conteneur « crm-web »
+# par son nom, sur le réseau Docker partagé. La base et l'API ne sont accessibles
+# que depuis le réseau interne.
+#
+# Variables attendues dans un fichier .env placé à côté de ce fichier
+# (voir .env.example).
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: crm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Sans cela, une réinitialisation accidentelle du volume repartirait sans mot de passe.
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+    volumes:
+      - crm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - interne
+
+  backend:
+    build: ./backend
+    container_name: crm-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+      # Laisser vides tant que Resend n'est pas configuré : les envois restent simulés.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - interne
+
+  web:
+    build: ./frontend
+    container_name: crm-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - interne
+      # Réseau partagé avec Nginx Proxy Manager : c'est par là que le proxy entre.
+      - proxy
+
+volumes:
+  crm_pgdata:
+
+networks:
+  interne:
+    driver: bridge
+  proxy:
+    external: true
+    name: ${RESEAU_PROXY}

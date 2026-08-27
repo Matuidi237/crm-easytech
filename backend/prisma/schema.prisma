@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id                String   @id @default(uuid())
+  nom               String
+  adressePhysique   String?
+  ville             String?
+  pays              String?
+  siteWeb           String?
+  emailContact      String?
+  nomContactInterne String?
+  commercialEnCharge String?
+  secteurActivite   String?
+  chiffreAffaires   Decimal? @db.Decimal(18, 2)
+  telephone         String?
+  notes             String?
+  champsPersonnalises Json?  @default("{}")
+  importJob         ImportJob? @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJobId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([pays])
+  @@index([ville])
+  @@index([secteurActivite])
+  @@index([commercialEnCharge])
+  @@index([importJobId])
+}
+
+model ImportJob {
+  id           String   @id @default(uuid())
+  nomFichier   String
+  formatSource String
+  nbLignesTotal Int
+  nbLignesImportees Int
+  nbErreurs    Int
+  mappingUtilise Json
+  erreurs      Json?
+  createdAt    DateTime @default(now())
+  clients      Client[]
+}
+
+enum RoleUtilisateur {
+  ADMIN
+  COMMERCIAL
+}
+
+model Utilisateur {
+  id             String          @id @default(uuid())
+  identifiant    String          @unique
+  nomComplet     String
+  email          String?
+  fonction       String?
+  motDePasseHash String
+  role           RoleUtilisateur @default(COMMERCIAL)
+  actif          Boolean         @default(true)
+  dernierAcces   DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+enum NewsletterStatut {
+  BROUILLON
+  ENVOI_EN_COURS
+  ENVOYEE
+  ECHEC
+}
+
+enum NewsletterFormat {
+  TEXTE
+  HTML
+}
+
+model Newsletter {
+  id              String   @id @default(uuid())
+  titre           String
+  sujet           String
+  format          NewsletterFormat @default(TEXTE)
+  contenu         String
+  secteursCibles  String[]
+  statut          NewsletterStatut @default(BROUILLON)
+  nbDestinataires Int?
+  nbEnvoyes       Int?
+  nbEchecs        Int?
+  envoyeeLe       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  envois          NewsletterEnvoi[]
+}
+
+enum EnvoiStatut {
+  ENVOYE
+  ECHEC
+}
+
+model NewsletterEnvoi {
+  id            String   @id @default(uuid())
+  newsletter    Newsletter @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  newsletterId  String
+  clientId      String
+  clientNom     String
+  email         String
+  statut        EnvoiStatut
+  erreur        String?
+  createdAt     DateTime @default(now())
+
+  @@index([newsletterId])
+}

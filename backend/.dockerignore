@@ -1,0 +1,7 @@
+# Sans ce fichier, le node_modules compilé pour Windows serait copié dans l'image
+# Linux : moteur Prisma incompatible et image inutilement énorme.
+node_modules
+dist
+.env
+.env.*
+*.log

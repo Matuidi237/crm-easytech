@@ -1,0 +1,7 @@
+# Voir backend/.dockerignore : on ne copie jamais le node_modules de la machine
+# de développement dans le contexte de build.
+node_modules
+dist
+.env
+.env.*
+*.log

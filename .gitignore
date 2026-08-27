@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+
+# Secrets de production : jamais versionnés.
+.env
+.env.*
+!.env.example
+
+# Données clients réelles : ces fichiers contiennent des centaines d'adresses
+# email d'entreprises. Ils n'ont pas leur place sur un dépôt distant, même privé.
+# Ils restent sur votre poste et s'importent depuis l'interface.
+test-data/
