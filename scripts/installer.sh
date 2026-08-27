@@ -86,9 +86,11 @@ HASH=$(docker compose run --rm --no-deps -T backend \
   node -e "console.log(require('bcryptjs').hashSync(process.argv[1],10))" "$MDP" | tr -d '\r\n')
 
 if [ -z "$HASH" ]; then rouge "Le chiffrement a échoué."; exit 1; fi
-# Le hash contient des « / » et des « $ » : on passe par un fichier temporaire
-# plutôt que par sed, dont les délimiteurs seraient cassés.
-awk -v h="$HASH" '/^ADMIN_PASSWORD_HASH=/{print "ADMIN_PASSWORD_HASH=" h; next} {print}' .env > .env.tmp
+# Le hash contient des « / » et des « $ » : on passe par awk plutôt que par sed,
+# dont les délimiteurs seraient cassés. Les guillemets simples autour de la
+# valeur sont indispensables : sans eux, Docker Compose interpréterait « $2b »
+# et « $10 » comme des variables et enregistrerait un hash tronqué.
+awk -v h="$HASH" '/^ADMIN_PASSWORD_HASH=/{print "ADMIN_PASSWORD_HASH=\x27" h "\x27"; next} {print}' .env > .env.tmp
 mv .env.tmp .env
 chmod 600 .env
 unset MDP MDP2
