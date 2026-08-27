@@ -103,7 +103,7 @@ docker compose up -d
 echo
 echo "Attente de la disponibilité de l'API…"
 for i in $(seq 1 30); do
-  if docker compose exec -T backend wget -qO- http://127.0.0.1:4000/api/health >/dev/null 2>&1; then
+  if docker compose exec -T backend node -e "fetch(\`http://127.0.0.1:4000/api/health\`).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
     vert "  API opérationnelle"
     break
   fi
@@ -133,6 +133,7 @@ Dernière étape, dans Nginx Proxy Manager (Proxy Hosts > Add Proxy Host) :
 Cette dernière ligne n'est pas facultative : sans elle vos imports de fichiers
 échouent en erreur 413 avant même d'atteindre l'application.
 
-Connectez-vous ensuite avec l'identifiant « admin » et changez le mot de passe
-depuis Mon profil.
+Connectez-vous avec l'identifiant « admin » et le mot de passe choisi au début
+de cette installation. Les comptes de vos collaborateurs se créent ensuite
+depuis la page Utilisateurs, sans intervention sur le serveur.
 FIN

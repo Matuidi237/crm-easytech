@@ -43,7 +43,7 @@ docker compose up -d
 echo
 echo "Vérification…"
 for i in $(seq 1 30); do
-  if docker compose exec -T backend wget -qO- http://127.0.0.1:4000/api/health >/dev/null 2>&1; then
+  if docker compose exec -T backend node -e "fetch(\`http://127.0.0.1:4000/api/health\`).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
     vert "  API opérationnelle"
     break
   fi

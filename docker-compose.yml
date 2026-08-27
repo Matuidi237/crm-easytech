@@ -45,8 +45,14 @@ services:
       # Laisser vides tant que Resend n'est pas configuré : les envois restent simulés.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-}
+    # L'image Debian n'embarque ni wget ni curl : on interroge avec node,
+    # dont le fetch global est disponible depuis la version 18.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/api/health || exit 1"]
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 20s
       timeout: 5s
       retries: 5

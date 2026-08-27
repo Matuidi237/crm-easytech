@@ -1,5 +1,9 @@
 generator client {
   provider = "prisma-client-js"
+  // « native » couvre la machine de développement (Windows), la cible Debian
+  // couvre l'image de production. Sans elle, le moteur généré peut ne pas
+  // correspondre à celui attendu dans le conteneur.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
