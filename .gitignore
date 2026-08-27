@@ -8,6 +8,9 @@ dist/
 .env.*
 !.env.example
 
+# Sauvegardes créées sur le VPS par scripts/deployer.sh
+sauvegardes/
+
 # Données clients réelles : ces fichiers contiennent des centaines d'adresses
 # email d'entreprises. Ils n'ont pas leur place sur un dépôt distant, même privé.
 # Ils restent sur votre poste et s'importent depuis l'interface.

@@ -63,7 +63,8 @@ services:
     networks:
       - interne
       # Réseau partagé avec Nginx Proxy Manager : c'est par là que le proxy entre.
-      - proxy
+      # Même réseau que le site easytech-site déjà en production.
+      - webproxy
 
 volumes:
   crm_pgdata:
@@ -71,6 +72,5 @@ volumes:
 networks:
   interne:
     driver: bridge
-  proxy:
+  webproxy:
     external: true
-    name: ${RESEAU_PROXY}

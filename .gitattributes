@@ -1,0 +1,7 @@
+# Les scripts shell et les fichiers lus par Docker doivent conserver des fins de
+# ligne Unix. Depuis Windows, git convertit sinon en CRLF et le VPS échoue avec
+# « bad interpreter: /usr/bin/env bash^M ».
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
+.env.example text eol=lf

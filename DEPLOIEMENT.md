@@ -1,6 +1,19 @@
 # Déploiement sur le VPS
 
-Cible : VPS avec Docker et **Nginx Proxy Manager** déjà installés.
+Même environnement que le site `easytech-site` déjà en production : VPS Ubuntu, Docker, Nginx Proxy Manager, réseau Docker partagé **`webproxy`**, code dans `/opt`.
+
+## En bref
+
+```bash
+# Première fois
+cd /opt && git clone https://github.com/Matuidi237/crm-easytech.git crm && cd crm
+./scripts/installer.sh          # secrets, images, démarrage : tout en une commande
+
+# Mises à jour suivantes
+./scripts/deployer.sh           # sauvegarde, git pull, rebuild, vérification
+```
+
+Le reste de ce document détaille ce que font ces scripts et comment intervenir à la main.
 
 ## Ce qui tourne
 
@@ -18,64 +31,30 @@ Nginx Proxy Manager entre par `crm-web`. Comme l'application et l'API partagent 
 
 ## 1. Première installation
 
-### Récupérer le code
-
 ```bash
 cd /opt
-git clone <url-de-votre-depot> crm
+git clone https://github.com/Matuidi237/crm-easytech.git crm
 cd crm
+./scripts/installer.sh
 ```
 
-### Trouver le réseau de Nginx Proxy Manager
+Le script vérifie que Docker et le réseau `webproxy` sont bien là, vous demande le mot de passe du premier administrateur, puis se charge du reste :
 
-```bash
-docker network ls
-```
+- génération de `POSTGRES_PASSWORD` et `JWT_SECRET` avec `openssl` ;
+- écriture du `.env` en permissions `600` ;
+- chiffrement bcrypt du mot de passe administrateur ;
+- construction des images et démarrage ;
+- attente que l'API réponde, sinon affichage des journaux.
 
-Repérez le réseau du conteneur NPM, souvent `npm_default` ou `proxy`. En cas de doute :
+Il refuse de s'exécuter si un `.env` existe déjà : régénérer les secrets déconnecterait tout le monde et rendrait le compte administrateur inutilisable.
 
-```bash
-docker inspect <nom-du-conteneur-npm> -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}'
-```
+`JWT_SECRET` mérite un mot. Sans lui, le backend retombe sur un secret de développement présent dans le code source : n'importe qui pourrait forger un jeton d'administrateur. Le script le génère pour vous, il n'y a plus d'oubli possible.
 
-### Préparer le fichier de configuration
+Le compte administrateur n'est créé qu'au tout premier démarrage, si la table des utilisateurs est vide. Les suivants se créent depuis l'interface.
 
-```bash
-cp .env.example .env
-```
+### Faire les choses à la main
 
-Générez les deux secrets :
-
-```bash
-openssl rand -base64 24   # POSTGRES_PASSWORD
-openssl rand -hex 32      # JWT_SECRET
-```
-
-`JWT_SECRET` n'est pas optionnel. Sans lui, le backend utilise un secret de développement connu publiquement, et n'importe qui pourrait fabriquer un jeton d'administrateur.
-
-Renseignez aussi `RESEAU_PROXY` avec le nom trouvé plus haut.
-
-### Créer le mot de passe du premier administrateur
-
-Construisez d'abord les images, puis générez le hash :
-
-```bash
-docker compose build
-
-docker compose run --rm --no-deps backend \
-  node -e "console.log(require('bcryptjs').hashSync(process.argv[1],10))" 'VotreMotDePasse'
-```
-
-Copiez la chaîne obtenue dans `ADMIN_PASSWORD_HASH`. Ce compte n'est créé qu'au tout premier démarrage, si la table des utilisateurs est vide ; les suivants se créent depuis l'interface.
-
-### Démarrer
-
-```bash
-docker compose up -d
-docker compose logs -f backend
-```
-
-Vous devez lire `Premier compte administrateur créé depuis .env : admin` puis `CRM backend démarré sur http://localhost:4000`.
+Si vous préférez ne pas utiliser le script : `cp .env.example .env`, remplissez chaque valeur (les commandes de génération sont en commentaire dans le fichier), puis `docker compose up -d --build`.
 
 ---
 
@@ -124,17 +103,17 @@ Un test utile de bout en bout : importer un petit CSV et vérifier qu'il appara�
 
 ```bash
 cd /opt/crm
-git pull
-docker compose up -d --build
+./scripts/deployer.sh
 ```
 
-Les migrations de base de données en attente s'appliquent automatiquement au démarrage du backend. Rien d'autre à lancer.
+Le script sauvegarde la base **avant** toute modification, récupère le code, affiche les commits appliqués, reconstruit, redémarre et vérifie que l'API répond. Les dix dernières sauvegardes sont conservées dans `sauvegardes/`.
 
-Pour repartir proprement en cas de doute sur les images :
+Les migrations de base de données en attente s'appliquent seules au démarrage du backend.
+
+En cas de doute sur les images :
 
 ```bash
-docker compose build --no-cache
-docker compose up -d
+docker compose build --no-cache && docker compose up -d
 ```
 
 ---
