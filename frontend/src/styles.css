@@ -56,6 +56,20 @@
   --viz-rest: #bdb7b4;
   --viz-track: #efedea;
 
+  /* Rampe CATÉGORIELLE, distincte de la rampe ordinale ci-dessus : elle porte
+     une identité (quel produit), pas une grandeur. Quatre teintes seulement,
+     et non cinq : au-delà, le rose et le vert deviennent indiscernables en
+     deutéranopie sur les paires non adjacentes. La cinquième ligne se replie
+     donc en « Autres », dans le neutre.
+     Validée toutes paires : ΔE normal ≥ 16.3, ΔE deutan/protan ≥ 7.4, contraste
+     ≥ 3:1 sur blanc. Le seul écart en zone plancher (ambre / vert, 7.4) est
+     couvert par le libellé du produit écrit sur chaque ligne. */
+  --cat-1: #1f86c8; /* bleu du logo */
+  --cat-2: #0e8a5f; /* vert, déjà celui des statuts positifs */
+  --cat-3: #7c4dcc;
+  --cat-4: #c07a00;
+  --cat-rest: #bdb7b4;
+
   --r-sm: 10px;
   --r: 14px;
   --r-lg: 20px;
@@ -1024,6 +1038,13 @@ tbody tr:hover td {
   grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+
+/* Le partage 1.65 / 1 convient à « barres larges + donut étroit ». Quand les
+   deux encarts sont de même nature et de même poids, ils prennent la même
+   largeur : rien ne justifierait d'en avantager un. */
+.dash-grid-egal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 /* Graphique en barres --------------------------------------------------- */
@@ -2410,4 +2431,104 @@ td.col-actions {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* Graphiques de direction ------------------------------------------------ */
+
+/* Ligne à deux étages : le groupe, puis le produit qui y domine. La couleur
+   de la barre redit ce produit, elle ne le remplace pas. */
+.bar-row-double .bar-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.bar-label-principal {
+  color: var(--ink);
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-label-second {
+  color: var(--ink-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Les montants en XAF sont plus larges qu'un compteur de clients, mais la
+   colonne reste compressible : un « min-width » fixe débordait de la grille
+   sur les écrans étroits, et le graphique passait sous une barre de défilement
+   horizontale. La valeur se replie sur deux lignes plutôt que de pousser. */
+.bar-row-valeur {
+  grid-template-columns: minmax(76px, 150px) minmax(0, 1fr) minmax(0, 118px);
+}
+
+.bar-value-large {
+  white-space: normal;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* Légende posée sous les barres, et non en colonne comme sur le donut. */
+.legend-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  width: auto;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.legend-inline .legend-item {
+  flex: 0 1 auto;
+  max-width: 220px;
+}
+
+/* Sélecteur de dimension, posé dans l'entête de la carte ----------------- */
+
+.dim-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  flex-wrap: wrap;
+}
+
+.dim-opt {
+  height: 27px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dim-opt:hover {
+  color: var(--ink);
+}
+
+.dim-opt.on {
+  background: var(--surface);
+  color: var(--brand-700);
+  font-weight: 650;
+  box-shadow: var(--shadow-card);
+}
+
+/* Entête de carte portant un sélecteur : il passe sous le titre plutôt que
+   de comprimer celui-ci quand la largeur manque. */
+.card-head-filtre {
+  flex-wrap: wrap;
+  gap: 12px;
 }

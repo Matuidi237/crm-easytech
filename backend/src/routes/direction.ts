@@ -112,6 +112,156 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
   });
 });
 
+/** Ce qui remplace un pays, un secteur ou un vendeur absent. */
+const NON_RENSEIGNE = "Non renseigné";
+
+/** Combien de barres avant de replier la traîne. */
+const MAX_LIGNES = 8;
+
+type Cumul = { montant: number; nbVentes: number };
+
+/** Replie tout ce qui dépasse en une ligne « Autres », valeurs comprises. */
+function replier<T extends { label: string }>(lignes: T[], garder: number, libelleReste: string, sommer: (t: T) => number) {
+  if (lignes.length <= garder) return lignes;
+  const tete = lignes.slice(0, garder);
+  const reste = lignes.slice(garder).reduce((s, l) => s + sommer(l), 0);
+  return reste > 0 ? [...tete, { label: libelleReste, montant: reste, nbVentes: 0 } as unknown as T] : tete;
+}
+
+/**
+ * Analyses du tableau de bord de direction.
+ *
+ * Les quatre ventilations du chiffre d'affaires et les trois regroupements de
+ * produits sont calculés d'un seul tenant et renvoyés ensemble. Changer de
+ * filtre à l'écran est alors immédiat, sans aller-retour réseau ni attente :
+ * la table des ventes est petite, la recalculer intégralement coûte moins
+ * cher qu'une requête par dimension.
+ */
+directionRouter.get("/analyses", async (_req, res) => {
+  const ventes = await prisma.vente.findMany({
+    select: {
+      produit: true,
+      quantite: true,
+      prixAchat: true,
+      prixVente: true,
+      vendeurNom: true,
+      clientNom: true,
+      dateVente: true,
+      client: { select: { pays: true, secteurActivite: true } },
+    },
+    orderBy: { dateVente: "desc" },
+  });
+
+  /** Clés de regroupement d'une vente, une par dimension proposée à l'écran. */
+  const dimensions = (v: (typeof ventes)[number]) => ({
+    pays: v.client?.pays || NON_RENSEIGNE,
+    secteur: v.client?.secteurActivite || NON_RENSEIGNE,
+    commercial: v.vendeurNom || NON_RENSEIGNE,
+    produit: v.produit,
+  });
+
+  // -------------------------------------------------- Chiffre d'affaires
+  const ca: Record<string, Map<string, Cumul>> = {
+    pays: new Map(),
+    secteur: new Map(),
+    commercial: new Map(),
+    produit: new Map(),
+  };
+
+  // ------------------- Ventes par produit, à l'intérieur de chaque groupe
+  const parGroupe: Record<string, Map<string, Map<string, Cumul>>> = {
+    commercial: new Map(),
+    pays: new Map(),
+    secteur: new Map(),
+  };
+
+  for (const v of ventes) {
+    const montant = nb(v.prixVente) * v.quantite;
+    const cles = dimensions(v);
+
+    for (const dim of Object.keys(ca)) {
+      const cle = cles[dim as keyof typeof cles];
+      const acc = ca[dim].get(cle) ?? { montant: 0, nbVentes: 0 };
+      acc.montant += montant;
+      acc.nbVentes += 1;
+      ca[dim].set(cle, acc);
+    }
+
+    for (const dim of Object.keys(parGroupe)) {
+      const cle = cles[dim as keyof typeof cles];
+      const produits = parGroupe[dim].get(cle) ?? new Map<string, Cumul>();
+      const acc = produits.get(v.produit) ?? { montant: 0, nbVentes: 0 };
+      acc.montant += montant;
+      // « Le plus vendu » se compte en ventes, pas en quantités : dix
+      // licences en une fois restent une vente.
+      acc.nbVentes += 1;
+      produits.set(v.produit, acc);
+      parGroupe[dim].set(cle, produits);
+    }
+  }
+
+  const classement = (m: Map<string, Cumul>) =>
+    [...m.entries()]
+      .map(([label, c]) => ({ label, montant: Math.round(c.montant), nbVentes: c.nbVentes }))
+      .sort((a, b) => b.montant - a.montant);
+
+  const chiffreAffaires = Object.fromEntries(
+    Object.entries(ca).map(([dim, m]) => [
+      dim,
+      replier(classement(m), MAX_LIGNES, "Autres", (l) => l.montant),
+    ])
+  );
+
+  /* Pour chaque groupe, le produit qui y revient le plus souvent. À nombre de
+     ventes égal, le chiffre d'affaires départage : deux produits ex aequo en
+     volume ne pèsent pas la même chose. */
+  const meilleursProduits = Object.fromEntries(
+    Object.entries(parGroupe).map(([dim, groupes]) => [
+      dim,
+      [...groupes.entries()]
+        .map(([groupe, produits]) => {
+          const [produit, c] = [...produits.entries()].sort(
+            (a, b) => b[1].nbVentes - a[1].nbVentes || b[1].montant - a[1].montant
+          )[0];
+          const totalGroupe = [...produits.values()].reduce((s, p) => s + p.nbVentes, 0);
+          return {
+            groupe,
+            produit,
+            nbVentes: c.nbVentes,
+            montant: Math.round(c.montant),
+            // Part du produit dominant dans les ventes du groupe : dit si le
+            // « meilleur » écrase les autres ou s'il gagne de justesse.
+            partPct: totalGroupe > 0 ? Math.round((c.nbVentes / totalGroupe) * 100) : 0,
+          };
+        })
+        .sort((a, b) => b.nbVentes - a.nbVentes || b.montant - a.montant)
+        .slice(0, MAX_LIGNES),
+    ])
+  );
+
+  /* Ordre global des produits, tous filtres confondus.
+     C'est lui qui fixe la couleur de chaque produit à l'écran. Sans cet ordre
+     stable, la teinte suivrait le rang dans la vue courante : changer de
+     filtre repeindrait les produits, et un même produit changerait de couleur
+     d'une vue à l'autre. La couleur doit suivre l'entité, jamais son rang. */
+  const ordreProduits = classement(ca.produit).map((l) => l.label);
+
+  res.json({
+    chiffreAffaires,
+    meilleursProduits,
+    ordreProduits,
+    dernieresVentes: ventes.slice(0, 8).map((v) => ({
+      dateVente: v.dateVente,
+      clientNom: v.clientNom,
+      produit: v.produit,
+      vendeurNom: v.vendeurNom,
+      quantite: v.quantite,
+      montant: Math.round(nb(v.prixVente) * v.quantite),
+      benefice: Math.round((nb(v.prixVente) - nb(v.prixAchat)) * v.quantite),
+    })),
+  });
+});
+
 /**
  * Vue « Équipes » : chaque responsable commercial avec les comptes qui lui
  * sont rattachés, et ce que chacun a réalisé.

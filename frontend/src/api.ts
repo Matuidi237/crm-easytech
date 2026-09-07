@@ -575,3 +575,38 @@ export async function fetchEquipes() {
   if (!res.ok) throw new Error("Erreur lors du chargement des équipes.");
   return res.json() as Promise<Equipes>;
 }
+
+export type DimensionCa = "pays" | "secteur" | "commercial" | "produit";
+export type DimensionTop = "commercial" | "pays" | "secteur";
+
+export type LigneCa = { label: string; montant: number; nbVentes: number };
+export type LigneTopProduit = {
+  groupe: string;
+  produit: string;
+  nbVentes: number;
+  montant: number;
+  partPct: number;
+};
+export type VenteRecente = {
+  dateVente: string;
+  clientNom: string;
+  produit: string;
+  vendeurNom: string;
+  quantite: number;
+  montant: number;
+  benefice: number;
+};
+
+export type AnalysesDirection = {
+  chiffreAffaires: Record<DimensionCa, LigneCa[]>;
+  meilleursProduits: Record<DimensionTop, LigneTopProduit[]>;
+  /** Ordre global des produits : c'est lui qui fixe leur couleur à l'écran. */
+  ordreProduits: string[];
+  dernieresVentes: VenteRecente[];
+};
+
+export async function fetchAnalysesDirection() {
+  const res = await authedFetch("/api/direction/analyses");
+  if (!res.ok) throw new Error("Erreur lors du chargement des analyses.");
+  return res.json() as Promise<AnalysesDirection>;
+}
