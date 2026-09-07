@@ -2532,3 +2532,183 @@ td.col-actions {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+/* Donut interactif ------------------------------------------------------- */
+
+/* Les arcs se déploient au montage : la longueur du trait est animée, pas sa
+   couleur ni sa position. */
+.donut-seg {
+  transition: opacity 0.16s ease, stroke-width 0.16s ease,
+    stroke-dasharray 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+
+/* Survol : la part visée s'épaissit, les autres reculent. La valeur reste
+   lisible au centre, l'atténuation ne descend pas jusqu'à l'illisible. */
+.donut-seg.estompe {
+  opacity: 0.3;
+}
+
+.donut-seg.actif {
+  stroke-width: 28;
+}
+
+.donut-wrap-large .donut {
+  width: 210px;
+  height: 210px;
+}
+
+.donut-wrap-large .donut svg {
+  width: 210px;
+  height: 210px;
+}
+
+.donut-wrap-large .dc-value {
+  font-size: 20px;
+  max-width: 130px;
+  overflow-wrap: anywhere;
+}
+
+.donut-wrap-large .dc-label {
+  max-width: 130px;
+  line-height: 1.3;
+}
+
+/* Lignes de légende survolables : elles servent de cible pour les parts trop
+   fines à viser directement sur le cercle. */
+.legend-item-actionnable {
+  cursor: pointer;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  border-radius: 7px;
+  transition: background 0.14s ease, opacity 0.16s ease;
+}
+
+.legend-item-actionnable.actif {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.legend-item-actionnable.estompe {
+  opacity: 0.45;
+}
+
+/* Bascule de représentation, à droite du sélecteur de dimension ---------- */
+
+.vue-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.vue-opt {
+  width: 30px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.vue-opt:hover {
+  color: var(--ink);
+}
+
+.vue-opt.on {
+  background: var(--surface);
+  color: var(--brand-700);
+  box-shadow: var(--shadow-card);
+}
+
+.card-head-outils {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Entrée des cartes ------------------------------------------------------ */
+
+/* Les tuiles arrivent en cascade courte : assez pour que la page se compose
+   sous l'œil, assez brève pour ne jamais faire attendre. Le bloc
+   « prefers-reduced-motion » plus haut dans la feuille neutralise l'ensemble
+   pour qui a demandé moins d'animations : il porte « !important », l'ordre de
+   déclaration ne le contourne donc pas. */
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stat-grid > .stat {
+  animation: surgir 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stat-grid > .stat:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.stat-grid > .stat:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.stat-grid > .stat:nth-child(4) {
+  animation-delay: 0.15s;
+}
+
+/* Le survol soulève à peine : sur une interface sobre, un déplacement de deux
+   pixels suffit à signaler que la tuile est vivante. */
+.stat {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(36, 31, 30, 0.07);
+}
+
+/* Entrée des marques ----------------------------------------------------- */
+
+/* Purement CSS : la géométrie finale est toujours dans le DOM, l'animation ne
+   fait que la révéler. Rien ne peut donc rester à zéro si l'animation ne part
+   pas. Le rejeu au changement de filtre vient du remontage du bloc. */
+@keyframes croitre {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.bar-fill {
+  transform-origin: left center;
+  animation: croitre 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes apparaitre {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-90deg) scale(1);
+  }
+}
+
+/* La rotation de -90° place le premier segment à midi ; elle est reprise dans
+   l'animation, sinon celle-ci l'écraserait le temps de son déroulé. */
+.donut-arcs {
+  transform-origin: 80px 80px;
+  animation: apparaitre 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

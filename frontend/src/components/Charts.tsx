@@ -164,6 +164,14 @@ export function Donut({ data, centerLabel }: { data: Repartition[]; centerLabel?
 const CATEGORIES = ["var(--cat-1)", "var(--cat-2)", "var(--cat-3)", "var(--cat-4)"];
 const CAT_RESTE = "var(--cat-rest)";
 
+/* L'animation d'entrée est entièrement en CSS (voir « croitre » et
+   « apparaitre » dans styles.css), et non pilotée depuis React.
+   Une version antérieure basculait un état via requestAnimationFrame : dans un
+   onglet en arrière-plan, rAF ne se déclenche pas, les marques restaient à
+   longueur nulle et le graphique s'affichait vide. Une animation CSS part
+   toujours de la géométrie finale, elle ne peut pas rester bloquée. Le rejeu
+   au changement de filtre se fait par la clé de remontage côté page. */
+
 export type LigneValeur = { label: string; valeur: number; valeurCourte: string; detail: string };
 
 /**
@@ -287,5 +295,108 @@ export function TopProduits({ lignes, ordreProduits }: { lignes: LigneProduit[];
 
       <Tooltip tip={tip} />
     </>
+  );
+}
+
+/**
+ * Donut de composition, à survol actif.
+ *
+ * Légitime ici parce que la question posée est bien une part-de-tout, et
+ * seulement tant qu'on reste sous sept segments : au-delà les parts voisines
+ * deviennent impossibles à comparer, d'où le repli de la traîne en « Autres ».
+ * Pour comparer des valeurs proches, c'est la vue en barres qui répond, d'où
+ * la bascule offerte à côté.
+ *
+ * Le centre affiche le total, et la part survolée quand il y en a une : c'est
+ * l'endroit où le regard est déjà posé, autant y mettre la réponse.
+ */
+export function DonutInteractif({
+  lignes,
+  libelleCentre,
+  totalFormate,
+}: {
+  lignes: { label: string; valeur: number; valeurCourte: string }[];
+  libelleCentre: string;
+  totalFormate: string;
+}) {
+  const [actif, setActif] = useState<string | null>(null);
+
+  const total = lignes.reduce((s, l) => s + l.valeur, 0);
+  const R = 62;
+  const STROKE = 24;
+  const CIRC = 2 * Math.PI * R;
+  const GAP = 2; // séparation en couleur de surface, jamais un contour
+
+  let curseur = 0;
+  const segments = lignes.map((l, i) => {
+    const part = total > 0 ? l.valeur / total : 0;
+    const brut = part * CIRC;
+    const seg = {
+      ...l,
+      couleur: i >= RAMP.length ? REST : RAMP[i],
+      longueur: Math.max(1, brut - GAP),
+      decalage: curseur,
+      partPct: Math.round(part * 100),
+    };
+    curseur += brut;
+    return seg;
+  });
+
+  const survole = segments.find((s) => s.label === actif) ?? null;
+  const description = segments.map((s) => `${s.label} ${s.partPct}%`).join(", ");
+
+  return (
+    <div className="donut-wrap donut-wrap-large">
+      <div className="donut">
+        <svg width="190" height="190" viewBox="0 0 160 160" role="img" aria-label={description}>
+          <g className="donut-arcs" transform="rotate(-90 80 80)">
+            {segments.map((s) => (
+              <circle
+                key={s.label}
+                className={`donut-seg${actif && actif !== s.label ? " estompe" : ""}${
+                  actif === s.label ? " actif" : ""
+                }`}
+                cx="80"
+                cy="80"
+                r={R}
+                fill="none"
+                style={{ stroke: s.couleur }}
+                strokeWidth={STROKE}
+                strokeDasharray={`${s.longueur} ${CIRC - s.longueur}`}
+                strokeDashoffset={-s.decalage}
+                onMouseEnter={() => setActif(s.label)}
+                onMouseLeave={() => setActif(null)}
+              />
+            ))}
+          </g>
+        </svg>
+        <div className="donut-center">
+          <div className="dc-value">{survole ? survole.valeurCourte : totalFormate}</div>
+          <div className="dc-label">{survole ? `${survole.label} · ${survole.partPct}%` : libelleCentre}</div>
+        </div>
+      </div>
+
+      {/* La légende porte l'identité et les valeurs : rien ne repose sur la
+          couleur seule. Elle est aussi une cible de survol, pour atteindre les
+          parts trop fines à viser sur le cercle. */}
+      <div className="legend">
+        {segments.map((s) => (
+          <div
+            className={`legend-item legend-item-actionnable${actif === s.label ? " actif" : ""}${
+              actif && actif !== s.label ? " estompe" : ""
+            }`}
+            key={s.label}
+            onMouseEnter={() => setActif(s.label)}
+            onMouseLeave={() => setActif(null)}
+          >
+            <span className="legend-dot" style={{ background: s.couleur }} />
+            <span className="legend-name" title={s.label}>
+              {s.label}
+            </span>
+            <span className="legend-val">{s.partPct}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

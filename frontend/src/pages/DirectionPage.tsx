@@ -9,14 +9,38 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue, type CleTraduction } from "../i18n";
-import { Classement, TopProduits } from "../components/Charts";
-import { IconAlert, IconAward, IconBox, IconCoins, IconInbox, IconTrend } from "../components/Icons";
+import { Classement, DonutInteractif, TopProduits } from "../components/Charts";
+import {
+  IconAlert,
+  IconAward,
+  IconBars,
+  IconBox,
+  IconCoins,
+  IconDonut,
+  IconInbox,
+  IconTrend,
+} from "../components/Icons";
 
 /* Dimensions offertes par chaque encart. La première est celle qui s'affiche
    à l'ouverture : le pays pour le chiffre d'affaires, le commercial pour les
    produits. */
 const DIMS_CA: DimensionCa[] = ["pays", "secteur", "commercial", "produit"];
 const DIMS_TOP: DimensionTop[] = ["commercial", "pays", "secteur"];
+
+/* Un donut cesse d'être lisible au-delà de six parts : les voisines deviennent
+   impossibles à comparer. La traîne se replie donc en « Autres ». La vue en
+   barres, elle, n'a pas cette limite et garde les huit lignes. */
+const MAX_PARTS = 6;
+
+type PartDonut = { label: string; valeur: number; valeurCourte: string };
+
+/** Replie tout ce qui dépasse la lisibilité du donut en une part « Autres ». */
+function replierParts(parts: PartDonut[], libelleReste: string, formater: (n: number) => string): PartDonut[] {
+  if (parts.length <= MAX_PARTS) return parts;
+  const tete = parts.slice(0, MAX_PARTS - 1);
+  const reste = parts.slice(MAX_PARTS - 1).reduce((s, p) => s + p.valeur, 0);
+  return [...tete, { label: libelleReste, valeur: reste, valeurCourte: `${formater(reste)} XAF` }];
+}
 
 function SelecteurDimension<T extends string>({
   dimensions,
@@ -101,6 +125,8 @@ export default function DirectionPage() {
       .then(setAnalyses)
       .catch((e) => setErreur(e.message));
   }, []);
+
+  const [vueCa, setVueCa] = useState<"donut" | "barres">("donut");
 
   const libelleDim = (d: string) => t(`dg.dim${d[0].toUpperCase()}${d.slice(1)}` as CleTraduction);
   const libelleDimMin = (d: string) => t(`dg.dim${d[0].toUpperCase()}${d.slice(1)}Min` as CleTraduction);
@@ -215,25 +241,71 @@ export default function DirectionPage() {
                     {t("dg.caSousTitre", { dimension: libelleDimMin(dimCa) })}
                   </div>
                 </div>
-                <SelecteurDimension
-                  dimensions={DIMS_CA}
-                  active={dimCa}
-                  onChange={setDimCa}
-                  libelle={libelleDim}
-                  etiquette={t("dg.changerDimension")}
-                />
+                <div className="card-head-outils">
+                  <SelecteurDimension
+                    dimensions={DIMS_CA}
+                    active={dimCa}
+                    onChange={setDimCa}
+                    libelle={libelleDim}
+                    etiquette={t("dg.changerDimension")}
+                  />
+                  {/* Le donut répond à « quelle part » ; les barres à « combien,
+                      et dans quel ordre ». Deux questions, deux vues. */}
+                  <div className="vue-switch" role="group" aria-label={t("dg.changerVue")}>
+                    <button
+                      type="button"
+                      className={`vue-opt${vueCa === "donut" ? " on" : ""}`}
+                      onClick={() => setVueCa("donut")}
+                      aria-pressed={vueCa === "donut"}
+                      title={t("dg.vueCirculaire")}
+                      aria-label={t("dg.vueCirculaire")}
+                    >
+                      <IconDonut size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className={`vue-opt${vueCa === "barres" ? " on" : ""}`}
+                      onClick={() => setVueCa("barres")}
+                      aria-pressed={vueCa === "barres"}
+                      title={t("dg.vueBarres")}
+                      aria-label={t("dg.vueBarres")}
+                    >
+                      <IconBars size={16} />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <Classement
-                lignes={analyses.chiffreAffaires[dimCa].map((l) => ({
-                  label: l.label,
-                  valeur: l.montant,
-                  valeurCourte: `${nombre(l.montant)} XAF`,
-                  detail:
-                    l.nbVentes === 1
-                      ? t("dg.caDetailUn", { montant: nombre(l.montant) })
-                      : t("dg.caDetail", { montant: nombre(l.montant), n: nombre(l.nbVentes) }),
-                }))}
-              />
+              {/* La clé remonte le graphique quand la vue ou la dimension
+                  change : c'est ce qui rejoue l'animation d'entrée. */}
+              {vueCa === "donut" ? (
+                <DonutInteractif
+                  key={`donut-${dimCa}`}
+                  lignes={replierParts(
+                    analyses.chiffreAffaires[dimCa].map((l) => ({
+                      label: l.label,
+                      valeur: l.montant,
+                      valeurCourte: `${nombre(l.montant)} XAF`,
+                    })),
+                    t("dg.autres"),
+                    nombre
+                  )}
+                  libelleCentre={t("dg.totalCentre")}
+                  totalFormate={`${nombre(ind.chiffreAffaires)} XAF`}
+                />
+              ) : (
+                <Classement
+                  key={`barres-${dimCa}`}
+                  lignes={analyses.chiffreAffaires[dimCa].map((l) => ({
+                    label: l.label,
+                    valeur: l.montant,
+                    valeurCourte: `${nombre(l.montant)} XAF`,
+                    detail:
+                      l.nbVentes === 1
+                        ? t("dg.caDetailUn", { montant: nombre(l.montant) })
+                        : t("dg.caDetail", { montant: nombre(l.montant), n: nombre(l.nbVentes) }),
+                  }))}
+                />
+              )}
             </div>
 
             <div className="card">
@@ -253,6 +325,7 @@ export default function DirectionPage() {
                 />
               </div>
               <TopProduits
+                key={`top-${dimTop}`}
                 ordreProduits={analyses.ordreProduits}
                 lignes={analyses.meilleursProduits[dimTop].map((l) => ({
                   groupe: l.groupe,
