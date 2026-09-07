@@ -291,16 +291,105 @@ button {
 
 /* Topbar --------------------------------------------------------------- */
 
+/* La barre du haut est une surface à part entière, pas un simple alignement
+   d'éléments posés sur le fond de page : c'est elle qui porte l'identité du
+   compte connecté et la bascule de langue, elle doit se lire comme un objet.
+   Collante, elle reste accessible quelle que soit la longueur de la page. */
 .topbar {
+  position: sticky;
+  top: 18px;
+  z-index: 60;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  min-height: 62px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .search {
   position: relative;
   flex: 0 1 360px;
+}
+
+/* Dans la barre, le champ se pose sur la teinte secondaire : sur du blanc,
+   un fond blanc cerclé de gris disparaîtrait. */
+.topbar .search input {
+  background: var(--surface-2);
+}
+
+.topbar .search input:focus {
+  background: var(--surface);
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 26px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Bascule de langue ----------------------------------------------------- */
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.lang-opt {
+  min-width: 38px;
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lang-opt:hover {
+  color: var(--ink);
+}
+
+/* L'option active porte la marque : l'état se lit sans avoir à comparer. */
+.lang-opt.on {
+  background: var(--brand-strong);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(36, 31, 30, 0.12);
+}
+
+.lang-switch.compact {
+  padding: 2px;
+}
+
+.lang-switch.compact .lang-opt {
+  min-width: 32px;
+  height: 24px;
+  font-size: 11.5px;
+}
+
+/* Reprise de la bascule dans le menu du compte, pour les petits écrans. */
+.menu-lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 11px 4px;
+  font-size: 12.5px;
+  color: var(--ink-2);
 }
 
 .search svg {
@@ -368,13 +457,21 @@ button {
   align-items: center;
   gap: 10px;
   background: none;
-  border: none;
-  padding: 3px;
+  border: 1px solid transparent;
+  padding: 3px 8px 3px 3px;
   border-radius: 999px;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.user-chip:hover {
-  background: var(--surface);
+.user-chip:hover,
+.user-chip[aria-expanded="true"] {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+/* Un liseré discret détache la pastille du fond clair de la barre. */
+.topbar .avatar {
+  box-shadow: 0 0 0 1px var(--brand-200);
 }
 
 .uc-meta {
@@ -1188,10 +1285,20 @@ tbody tr:hover td {
 }
 
 .login-main {
+  position: relative;
   display: grid;
   place-items: center;
   padding: 20px;
   overflow-y: auto; /* écrans courts : le formulaire reste atteignable */
+}
+
+/* Posée dans le coin, la bascule ne déplace pas le formulaire, qui reste
+   centré comme sur une page de connexion ordinaire. */
+.login-lang {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
 }
 
 .login-card {
@@ -1940,6 +2047,10 @@ td.col-actions {
     display: grid;
   }
 
+  .topbar {
+    top: 14px;
+  }
+
   .login-shell {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1988,6 +2099,20 @@ td.col-actions {
 
   .uc-meta {
     display: none;
+  }
+
+  /* La bascule de langue quitte la barre : elle reste accessible dans le
+     menu du compte, où elle ne dispute pas la place au champ de recherche. */
+  .topbar > .topbar-right > .lang-switch,
+  .topbar-sep {
+    display: none;
+  }
+
+  .topbar {
+    top: 12px;
+    min-height: 56px;
+    padding: 8px 10px;
+    gap: 10px;
   }
 
   .search {

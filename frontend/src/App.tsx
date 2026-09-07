@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { LangueProvider } from "./i18n";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -21,8 +22,9 @@ function RouteProtegee({ requiert, children }: { requiert: Permission; children:
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
+    <LangueProvider>
+      <AuthProvider>
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
@@ -51,7 +53,8 @@ export default function App() {
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AuthProvider>
+        </Routes>
+      </AuthProvider>
+    </LangueProvider>
   );
 }

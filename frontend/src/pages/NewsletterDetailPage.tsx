@@ -1,14 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Newsletter, NewsletterEnvoi, deleteNewsletter, fetchNewsletter, sendNewsletter } from "../api";
+import { useLangue } from "../i18n";
 import { IconAlert, IconArrowLeft, IconCheck, IconInbox, IconSend, IconTrash } from "../components/Icons";
 import { STATUT_PILL } from "./NewslettersPage";
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
-}
-
 export default function NewsletterDetailPage() {
+  const { t, dateHeure } = useLangue();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [newsletter, setNewsletter] = useState<(Newsletter & { envois: NewsletterEnvoi[] }) | null>(null);
@@ -28,9 +26,9 @@ export default function NewsletterDetailPage() {
     if (!id || !newsletter) return;
     const cible =
       newsletter.secteursCibles.length === 0
-        ? "tous les clients disposant d'une adresse email"
-        : `les clients des secteurs : ${newsletter.secteursCibles.join(", ")}`;
-    if (!confirm(`Envoyer « ${newsletter.titre} » à ${cible} ?`)) return;
+        ? t("nld.cibleTous")
+        : t("nld.cibleSecteurs", { secteurs: newsletter.secteursCibles.join(", ") });
+    if (!confirm(t("nld.confirmerEnvoi", { titre: newsletter.titre, cible }))) return;
 
     setSending(true);
     setError(null);
@@ -38,9 +36,7 @@ export default function NewsletterDetailPage() {
       const res = await sendNewsletter(id);
       setMailerNote({
         live: res.mailerLive,
-        text: res.mailerLive
-          ? "Envoi réel effectué via Resend."
-          : "Mode simulé : aucun email réel n'a quitté le serveur (clé Resend non configurée). L'historique ci-dessous reflète ce qui aurait été envoyé.",
+        text: res.mailerLive ? t("nld.envoiReel") : t("nld.envoiSimule"),
       });
       load();
     } catch (e) {
@@ -52,7 +48,7 @@ export default function NewsletterDetailPage() {
 
   async function handleDelete() {
     if (!id) return;
-    if (!confirm("Supprimer cette newsletter et son historique d'envoi ?")) return;
+    if (!confirm(t("nld.confirmerSuppression"))) return;
     setDeleting(true);
     try {
       await deleteNewsletter(id);
@@ -71,9 +67,16 @@ export default function NewsletterDetailPage() {
       </div>
     );
   }
-  if (!newsletter) return <div className="card"><p className="muted-3" style={{ margin: 0 }}>Chargement…</p></div>;
+  if (!newsletter)
+    return (
+      <div className="card">
+        <p className="muted-3" style={{ margin: 0 }}>
+          {t("commun.chargement")}
+        </p>
+      </div>
+    );
 
-  const st = STATUT_PILL[newsletter.statut] ?? { label: newsletter.statut, cls: "pill-neutral" };
+  const st = STATUT_PILL[newsletter.statut];
   const echecs = newsletter.envois.filter((e) => e.statut === "ECHEC").length;
 
   return (
@@ -84,7 +87,7 @@ export default function NewsletterDetailPage() {
         style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
       >
         <IconArrowLeft size={15} />
-        Toutes les newsletters
+        {t("nld.retour")}
       </Link>
 
       <div className="page-head">
@@ -96,12 +99,12 @@ export default function NewsletterDetailPage() {
           {newsletter.statut === "BROUILLON" && (
             <button className="btn btn-primary" onClick={handleSend} disabled={sending}>
               <IconSend size={16} />
-              {sending ? "Envoi en cours…" : "Envoyer"}
+              {sending ? t("nld.envoiEnCours") : t("nld.envoyer")}
             </button>
           )}
           <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
             <IconTrash size={15} />
-            {deleting ? "Suppression…" : "Supprimer"}
+            {deleting ? t("commun.suppression") : t("commun.supprimer")}
           </button>
         </div>
       </div>
@@ -123,30 +126,32 @@ export default function NewsletterDetailPage() {
       <div className="card">
         <div className="meta-grid">
           <div className="meta-item">
-            <div className="meta-label">Statut</div>
+            <div className="meta-label">{t("nld.metaStatut")}</div>
             <div className="meta-value">
-              <span className={`pill ${st.cls}`}>{st.label}</span>
+              <span className={`pill ${st?.cls ?? "pill-neutral"}`}>{st ? t(st.cle) : newsletter.statut}</span>
             </div>
           </div>
           <div className="meta-item">
-            <div className="meta-label">Secteurs ciblés</div>
+            <div className="meta-label">{t("nld.metaSecteurs")}</div>
             <div className="meta-value">
-              {newsletter.secteursCibles.length === 0 ? "Tous les clients" : newsletter.secteursCibles.join(", ")}
+              {newsletter.secteursCibles.length === 0
+                ? t("nl.tousLesClients")
+                : newsletter.secteursCibles.join(", ")}
             </div>
           </div>
           <div className="meta-item">
-            <div className="meta-label">Destinataires</div>
+            <div className="meta-label">{t("nld.metaDestinataires")}</div>
             <div className="meta-value">{newsletter.nbDestinataires ?? "-"}</div>
           </div>
           <div className="meta-item">
-            <div className="meta-label">Envoyés / Échecs</div>
+            <div className="meta-label">{t("nld.metaEnvoyesEchecs")}</div>
             <div className="meta-value">
               {newsletter.nbEnvoyes ?? "-"} / {newsletter.nbEchecs ?? "-"}
             </div>
           </div>
           <div className="meta-item">
-            <div className="meta-label">Envoyée le</div>
-            <div className="meta-value">{newsletter.envoyeeLe ? formatDate(newsletter.envoyeeLe) : "-"}</div>
+            <div className="meta-label">{t("nld.metaEnvoyeeLe")}</div>
+            <div className="meta-value">{newsletter.envoyeeLe ? dateHeure(newsletter.envoyeeLe) : "-"}</div>
           </div>
         </div>
       </div>
@@ -154,9 +159,9 @@ export default function NewsletterDetailPage() {
       <div className="card">
         <div className="card-head">
           <div>
-            <div className="card-title">Aperçu du contenu</div>
+            <div className="card-title">{t("nld.apercuTitre")}</div>
             <div className="card-sub">
-              {newsletter.format === "HTML" ? "Rendu HTML isolé" : "Texte simple"}
+              {newsletter.format === "HTML" ? t("nld.apercuHtml") : t("nld.apercuTexte")}
             </div>
           </div>
           <span className="pill pill-neutral">{newsletter.format}</span>
@@ -164,7 +169,7 @@ export default function NewsletterDetailPage() {
 
         {newsletter.format === "HTML" ? (
           <iframe
-            title="Aperçu de la newsletter"
+            title={t("nld.apercuIframe")}
             className="preview-frame"
             sandbox=""
             srcDoc={newsletter.contenu}
@@ -177,13 +182,18 @@ export default function NewsletterDetailPage() {
       <div className="table-card">
         <div className="card-head">
           <div>
-            <div className="card-title">Historique d'envoi</div>
+            <div className="card-title">{t("nld.historiqueTitre")}</div>
             <div className="card-sub">
               {newsletter.envois.length === 0
-                ? "Aucun envoi enregistré"
-                : `${newsletter.envois.length} destinataire${newsletter.envois.length > 1 ? "s" : ""}${
-                    echecs > 0 ? ` · ${echecs} échec${echecs > 1 ? "s" : ""}` : ""
-                  }`}
+                ? t("nld.historiqueVide")
+                : (newsletter.envois.length > 1
+                    ? t("nld.historiqueN", { n: newsletter.envois.length })
+                    : t("nld.historiqueUn")) +
+                  (echecs > 0
+                    ? echecs > 1
+                      ? t("nld.historiqueEchecN", { n: echecs })
+                      : t("nld.historiqueEchecUn")
+                    : "")}
             </div>
           </div>
         </div>
@@ -193,9 +203,9 @@ export default function NewsletterDetailPage() {
             <div className="empty-icon">
               <IconInbox />
             </div>
-            <div className="empty-title">Pas encore d'envoi</div>
+            <div className="empty-title">{t("nld.pasEncoreTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              Lancez l'envoi pour voir ici le détail destinataire par destinataire.
+              {t("nld.pasEncoreTexte")}
             </p>
           </div>
         ) : (
@@ -203,25 +213,25 @@ export default function NewsletterDetailPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Client</th>
-                  <th>Adresses</th>
-                  <th>Statut</th>
-                  <th>Détail</th>
-                  <th>Date</th>
+                  <th>{t("nld.colClient")}</th>
+                  <th>{t("nld.colAdresses")}</th>
+                  <th>{t("nld.colStatut")}</th>
+                  <th>{t("nld.colDetail")}</th>
+                  <th>{t("nld.colDate")}</th>
                 </tr>
               </thead>
               <tbody>
                 {newsletter.envois.map((e) => (
                   <tr key={e.id}>
                     <td className="td-strong td-main">{e.clientNom}</td>
-                    <td data-label="Adresses">{e.email}</td>
-                    <td data-label="Statut">
+                    <td data-label={t("nld.colAdresses")}>{e.email}</td>
+                    <td data-label={t("nld.colStatut")}>
                       <span className={`pill ${e.statut === "ENVOYE" ? "pill-success" : "pill-danger"}`}>
-                        {e.statut === "ENVOYE" ? "Envoyé" : "Échec"}
+                        {e.statut === "ENVOYE" ? t("nld.envoye") : t("nld.echec")}
                       </span>
                     </td>
-                    <td data-label="Détail">{e.erreur ?? "-"}</td>
-                    <td data-label="Date">{formatDate(e.createdAt)}</td>
+                    <td data-label={t("nld.colDetail")}>{e.erreur ?? "-"}</td>
+                    <td data-label={t("nld.colDate")}>{dateHeure(e.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

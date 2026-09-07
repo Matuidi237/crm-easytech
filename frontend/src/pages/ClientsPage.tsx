@@ -5,7 +5,6 @@ import {
   Client,
   ClientFilters,
   Facets,
-  LIBELLES_ROLES,
   accorderAcces,
   deleteClient,
   fetchBeneficiaires,
@@ -13,6 +12,7 @@ import {
   fetchFacets,
 } from "../api";
 import { useAuth } from "../AuthContext";
+import { useLangue, useLibelles } from "../i18n";
 import {
   IconAlert,
   IconChevronDown,
@@ -85,6 +85,8 @@ export default function ClientsPage() {
   const headCheck = useRef<HTMLInputElement>(null);
 
   const { peut } = useAuth();
+  const { t, nombre } = useLangue();
+  const libelles = useLibelles();
   const [octroiOuvert, setOctroiOuvert] = useState(false);
   const [beneficiaires, setBeneficiaires] = useState<Beneficiaire[]>([]);
   const [beneficiaire, setBeneficiaire] = useState("");
@@ -158,7 +160,7 @@ export default function ClientsPage() {
   }
 
   async function supprimer(ids: string[], libelle: string) {
-    if (!confirm(`Supprimer ${libelle} ? Cette action est définitive.`)) return;
+    if (!confirm(t("clients.confirmerSuppression", { libelle }))) return;
     setBusy(true);
     setError(null);
     try {
@@ -191,12 +193,12 @@ export default function ClientsPage() {
     setError(null);
     try {
       const r = await accorderAcces(beneficiaire, [...selection]);
-      const nom = beneficiaires.find((b) => b.id === beneficiaire)?.nomComplet ?? "ce compte";
-      const dejaOuverts = r.dejaOuverts > 0 ? ` ${r.dejaOuverts} l'étaient déjà.` : "";
+      const nom = beneficiaires.find((b) => b.id === beneficiaire)?.nomComplet ?? t("clients.ceCompte");
+      const dejaOuverts = r.dejaOuverts > 0 ? t("clients.octroiDejaOuverts", { n: r.dejaOuverts }) : "";
       setSucces(
         r.accordes > 0
-          ? `${r.accordes} client(s) désormais accessibles à ${nom}.` + dejaOuverts
-          : `Ces clients étaient déjà accessibles à ${nom}.`
+          ? t("clients.octroiFait", { n: r.accordes, nom }) + dejaOuverts
+          : t("clients.octroiRien", { nom })
       );
       setOctroiOuvert(false);
       setSelection(new Set());
@@ -220,18 +222,21 @@ export default function ClientsPage() {
         p++;
       }
 
+      // Les entêtes du CSV suivent la langue affichée : le fichier part chez
+      // la personne qui l'a demandé, il n'a pas vocation à servir de format
+      // d'échange figé.
       const colonnes: [string, (c: Client) => string][] = [
-        ["Nom du client", (c) => c.nom],
-        ["Secteur d'activité", (c) => c.secteurActivite ?? ""],
-        ["Pays", (c) => c.pays ?? ""],
-        ["Ville", (c) => c.ville ?? ""],
-        ["Adresse physique", (c) => c.adressePhysique ?? ""],
-        ["Site web", (c) => c.siteWeb ?? ""],
-        ["Adresse mail", (c) => c.emailContact ?? ""],
-        ["Téléphone", (c) => c.telephone ?? ""],
-        ["Nom du contact (interne)", (c) => c.nomContactInterne ?? ""],
-        ["Commercial en charge", (c) => c.commercialEnCharge ?? ""],
-        ["Chiffre d'affaires", (c) => (c.chiffreAffaires ? String(c.chiffreAffaires) : "")],
+        [t("clients.exportNom"), (c) => c.nom],
+        [t("clients.exportSecteur"), (c) => c.secteurActivite ?? ""],
+        [t("clients.exportPays"), (c) => c.pays ?? ""],
+        [t("clients.exportVille"), (c) => c.ville ?? ""],
+        [t("clients.exportAdresse"), (c) => c.adressePhysique ?? ""],
+        [t("clients.exportSite"), (c) => c.siteWeb ?? ""],
+        [t("clients.exportEmail"), (c) => c.emailContact ?? ""],
+        [t("clients.exportTelephone"), (c) => c.telephone ?? ""],
+        [t("clients.exportContact"), (c) => c.nomContactInterne ?? ""],
+        [t("clients.exportCommercial"), (c) => c.commercialEnCharge ?? ""],
+        [t("clients.exportCa"), (c) => (c.chiffreAffaires ? String(c.chiffreAffaires) : "")],
       ];
 
       const esc = (v: string) => (/[",\n;]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
@@ -281,20 +286,26 @@ export default function ClientsPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Clients</h1>
+          <h1>{t("clients.titre")}</h1>
           <div className="head-meta">
             <IconUsers size={15} />
-            {loading ? "Chargement…" : <span>Total : <b>{total.toLocaleString("fr-FR")}</b></span>}
+            {loading ? (
+              t("commun.chargement")
+            ) : (
+              <span>
+                {t("commun.total")} <b>{nombre(total)}</b>
+              </span>
+            )}
           </div>
         </div>
         <div className="head-actions">
           <button className="btn btn-ghost" onClick={exporter} disabled={busy || total === 0}>
             <IconDownload />
-            Exporter
+            {t("clients.exporter")}
           </button>
           <Link to="/import" className="btn btn-primary">
             <IconPlus />
-            Importer des clients
+            {t("clients.importerClients")}
           </Link>
         </div>
       </div>
@@ -305,7 +316,7 @@ export default function ClientsPage() {
             <IconSearch />
             <input
               type="search"
-              placeholder="Nom, email, contact…"
+              placeholder={t("clients.rechercher")}
               style={{ height: 36 }}
               value={filters.recherche ?? ""}
               onChange={(e) => updateFilter("recherche", e.target.value)}
@@ -314,7 +325,7 @@ export default function ClientsPage() {
 
           <div className={`select-pill${filters.pays ? " on" : ""}`}>
             <select value={filters.pays ?? ""} onChange={(e) => updateFilter("pays", e.target.value)}>
-              <option value="">Pays</option>
+              <option value="">{t("clients.filtrePays")}</option>
               {facets.pays.map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -329,7 +340,7 @@ export default function ClientsPage() {
               value={filters.secteurActivite ?? ""}
               onChange={(e) => updateFilter("secteurActivite", e.target.value)}
             >
-              <option value="">Secteur</option>
+              <option value="">{t("clients.filtreSecteur")}</option>
               {facets.secteurs.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -345,7 +356,7 @@ export default function ClientsPage() {
                 value={filters.commercialEnCharge ?? ""}
                 onChange={(e) => updateFilter("commercialEnCharge", e.target.value)}
               >
-                <option value="">Commercial</option>
+                <option value="">{t("clients.filtreCommercial")}</option>
                 {facets.commerciaux.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -358,12 +369,12 @@ export default function ClientsPage() {
 
           <button className={`btn-filters${avances ? " on" : ""}`} onClick={() => setAvances((a) => !a)}>
             <IconFilter />
-            Plus de filtres
+            {t("clients.plusDeFiltres")}
           </button>
 
           {filtresActifs > 0 && (
             <button className="link-action" onClick={resetFilters}>
-              Réinitialiser
+              {t("commun.reinitialiser")}
             </button>
           )}
         </div>
@@ -373,7 +384,7 @@ export default function ClientsPage() {
             {facets.villes.length > 0 && (
               <div className={`select-pill${filters.ville ? " on" : ""}`}>
                 <select value={filters.ville ?? ""} onChange={(e) => updateFilter("ville", e.target.value)}>
-                  <option value="">Ville</option>
+                  <option value="">{t("clients.filtreVille")}</option>
                   {facets.villes.map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -386,7 +397,7 @@ export default function ClientsPage() {
             <input
               className="input"
               type="number"
-              placeholder="CA min (XAF)"
+              placeholder={t("clients.caMin")}
               style={{ maxWidth: 150 }}
               value={filters.caMin ?? ""}
               onChange={(e) => updateFilter("caMin", e.target.value)}
@@ -394,7 +405,7 @@ export default function ClientsPage() {
             <input
               className="input"
               type="number"
-              placeholder="CA max (XAF)"
+              placeholder={t("clients.caMax")}
               style={{ maxWidth: 150 }}
               value={filters.caMax ?? ""}
               onChange={(e) => updateFilter("caMax", e.target.value)}
@@ -420,16 +431,16 @@ export default function ClientsPage() {
         {selection.size > 0 && (
           <div className="bulk-bar">
             <span>
-              {selection.size} client{selection.size > 1 ? "s" : ""} sélectionné{selection.size > 1 ? "s" : ""}
+              {selection.size > 1 ? t("clients.selectionN", { n: selection.size }) : t("clients.selectionUn")}
             </span>
             <div className="bulk-spacer" />
             <button className="link-action" onClick={() => setSelection(new Set())}>
-              Tout désélectionner
+              {t("clients.toutDeselectionner")}
             </button>
             {peut("acces.accorder") && (
               <button className="btn btn-soft btn-sm" onClick={ouvrirOctroi}>
                 <IconShield size={14} />
-                Donner l'accès à…
+                {t("clients.donnerAcces")}
               </button>
             )}
             {peut("clients.supprimer") && (
@@ -437,11 +448,14 @@ export default function ClientsPage() {
                 className="btn btn-danger btn-sm"
                 disabled={busy}
                 onClick={() =>
-                  supprimer([...selection], `${selection.size} client${selection.size > 1 ? "s" : ""}`)
+                  supprimer(
+                    [...selection],
+                    selection.size > 1 ? t("clients.libelleN", { n: selection.size }) : t("clients.libelleUn")
+                  )
                 }
               >
                 <IconTrash size={14} />
-                Supprimer
+                {t("commun.supprimer")}
               </button>
             )}
           </div>
@@ -457,15 +471,15 @@ export default function ClientsPage() {
                     type="checkbox"
                     checked={toutSelectionne}
                     onChange={() => setSelection(toutSelectionne ? new Set() : new Set(clients.map((c) => c.id)))}
-                    aria-label="Tout sélectionner"
+                    aria-label={t("clients.toutSelectionner")}
                   />
                 </th>
-                <Th champ="nom">Client</Th>
-                <Th champ="secteurActivite">Secteur</Th>
-                <Th champ="pays">Localisation</Th>
-                <th>Contacts</th>
-                <Th champ="commercialEnCharge">Commercial</Th>
-                <Th champ="chiffreAffaires">Chiffre d'affaires</Th>
+                <Th champ="nom">{t("clients.colClient")}</Th>
+                <Th champ="secteurActivite">{t("clients.colSecteur")}</Th>
+                <Th champ="pays">{t("clients.colLocalisation")}</Th>
+                <th>{t("clients.colContacts")}</th>
+                <Th champ="commercialEnCharge">{t("clients.colCommercial")}</Th>
+                <Th champ="chiffreAffaires">{t("clients.colChiffreAffaires")}</Th>
                 <th className="col-actions" />
               </tr>
             </thead>
@@ -481,7 +495,7 @@ export default function ClientsPage() {
                         type="checkbox"
                         checked={selectionne}
                         onChange={() => basculerLigne(c.id)}
-                        aria-label={`Sélectionner ${c.nom}`}
+                        aria-label={t("clients.selectionner", { nom: c.nom })}
                       />
                     </td>
                     <td className="td-main">
@@ -495,9 +509,9 @@ export default function ClientsPage() {
                         </div>
                       </div>
                     </td>
-                    <td data-label="Secteur">{c.secteurActivite ?? "-"}</td>
-                    <td data-label="Localisation">{[c.ville, c.pays].filter(Boolean).join(", ") || "-"}</td>
-                    <td data-label="Contacts">
+                    <td data-label={t("clients.colSecteur")}>{c.secteurActivite ?? "-"}</td>
+                    <td data-label={t("clients.colLocalisation")}>{[c.ville, c.pays].filter(Boolean).join(", ") || "-"}</td>
+                    <td data-label={t("clients.colContacts")}>
                       {contacts.length === 0 ? (
                         "-"
                       ) : (
@@ -511,9 +525,9 @@ export default function ClientsPage() {
                         </>
                       )}
                     </td>
-                    <td data-label="Commercial">{c.commercialEnCharge ?? "-"}</td>
-                    <td className="num" data-label="Chiffre d'affaires">
-                      {c.chiffreAffaires ? `${Number(c.chiffreAffaires).toLocaleString("fr-FR")} XAF` : "-"}
+                    <td data-label={t("clients.colCommercial")}>{c.commercialEnCharge ?? "-"}</td>
+                    <td className="num" data-label={t("clients.colChiffreAffaires")}>
+                      {c.chiffreAffaires ? `${nombre(Number(c.chiffreAffaires))} XAF` : "-"}
                     </td>
                     <td className="col-actions">
                       <div className="row-actions">
@@ -521,15 +535,15 @@ export default function ClientsPage() {
                           <a
                             className="icon-btn-xs"
                             href={`mailto:${contacts.join(",")}`}
-                            title={`Écrire à ${c.nom}`}
-                            aria-label={`Écrire à ${c.nom}`}
+                            title={t("clients.ecrireA", { nom: c.nom })}
+                            aria-label={t("clients.ecrireA", { nom: c.nom })}
                           >
                             <IconMail size={15} />
                           </a>
                         )}
                         <button
                           className="icon-btn-xs plain"
-                          aria-label={`Actions pour ${c.nom}`}
+                          aria-label={t("clients.actionsPour", { nom: c.nom })}
                           onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -551,19 +565,17 @@ export default function ClientsPage() {
                       <div className="empty-icon">
                         <IconInbox />
                       </div>
-                      <div className="empty-title">Aucun client trouvé</div>
+                      <div className="empty-title">{t("clients.aucunTitre")}</div>
                       <p className="empty-text" style={{ margin: 0 }}>
-                        {filtresActifs > 0
-                          ? "Aucun résultat pour ces critères. Essayez d'en retirer un."
-                          : "La base est vide, importez un fichier pour commencer."}
+                        {filtresActifs > 0 ? t("clients.aucunAvecFiltres") : t("clients.aucunSansFiltres")}
                       </p>
                       {filtresActifs > 0 ? (
                         <button className="btn btn-ghost btn-sm" onClick={resetFilters} style={{ marginTop: 6 }}>
-                          Réinitialiser les filtres
+                          {t("clients.reinitialiserFiltres")}
                         </button>
                       ) : (
                         <Link to="/import" className="btn btn-primary btn-sm" style={{ marginTop: 6 }}>
-                          Importer un fichier
+                          {t("clients.importerFichier")}
                         </Link>
                       )}
                     </div>
@@ -576,23 +588,19 @@ export default function ClientsPage() {
 
         {clients.length > 0 && (
           <div className="table-foot">
-            <span>
-              {debut} à {fin} sur {total.toLocaleString("fr-FR")}
-            </span>
+            <span>{t("clients.plage", { debut, fin, total: nombre(total) })}</span>
             <div className="pager">
-              <button disabled={page <= 1} onClick={() => setPage(1)} aria-label="Première page">
+              <button disabled={page <= 1} onClick={() => setPage(1)} aria-label={t("clients.premierePage")}>
                 <IconChevronsLeft />
               </button>
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="Page précédente">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label={t("clients.pagePrecedente")}>
                 <IconChevronLeft />
               </button>
-              <span className="pager-page">
-                Page {page} sur {totalPages}
-              </span>
-              <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Page suivante">
+              <span className="pager-page">{t("clients.pagination", { page, total: totalPages })}</span>
+              <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label={t("clients.pageSuivante")}>
                 <IconChevronRight />
               </button>
-              <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} aria-label="Dernière page">
+              <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} aria-label={t("clients.dernierePage")}>
                 <IconChevronsRight />
               </button>
             </div>
@@ -603,25 +611,26 @@ export default function ClientsPage() {
       {octroiOuvert && (
         <div className="modal-backdrop" onClick={() => setOctroiOuvert(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Donner accès à ces clients</h3>
+            <h3>{t("clients.octroiTitre")}</h3>
             <p className="modal-sub">
-              {selection.size} client{selection.size > 1 ? "s" : ""} sélectionné{selection.size > 1 ? "s" : ""}. Le
-              compte choisi pourra les consulter, en plus de ses propres prospects. Les comptes qui voient déjà toute
-              la base ne figurent pas dans cette liste.
+              {selection.size > 1
+                ? t("clients.octroiSousTitreN", { n: selection.size })
+                : t("clients.octroiSousTitreUn")}
             </p>
 
             {beneficiaires.length === 0 ? (
               <div className="alert alert-info">
                 <IconAlert />
-                Aucun compte à périmètre restreint pour le moment. Créez un commercial depuis la page Utilisateurs.
+                {t("clients.octroiAucunBeneficiaire")}
               </div>
             ) : (
               <div className="field">
-                <label htmlFor="beneficiaire">Compte bénéficiaire</label>
+                <label htmlFor="beneficiaire">{t("clients.octroiBeneficiaire")}</label>
                 <select id="beneficiaire" value={beneficiaire} onChange={(e) => setBeneficiaire(e.target.value)}>
                   {beneficiaires.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.nomComplet} · {LIBELLES_ROLES[b.role].toLowerCase()} · {b.nbAcces} accès
+                      {b.nomComplet} · {libelles.role(b.role).toLowerCase()} ·{" "}
+                      {t("clients.octroiAcces", { n: b.nbAcces })}
                     </option>
                   ))}
                 </select>
@@ -630,7 +639,7 @@ export default function ClientsPage() {
 
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setOctroiOuvert(false)}>
-                Annuler
+                {t("commun.annuler")}
               </button>
               <button
                 type="button"
@@ -638,7 +647,7 @@ export default function ClientsPage() {
                 onClick={validerOctroi}
                 disabled={octroiEnCours || beneficiaires.length === 0}
               >
-                {octroiEnCours ? "Ouverture…" : "Ouvrir l'accès"}
+                {octroiEnCours ? t("clients.octroiEnCours") : t("clients.octroiValider")}
               </button>
             </div>
           </div>
@@ -660,7 +669,7 @@ export default function ClientsPage() {
               }}
             >
               <IconCopy />
-              Copier les adresses
+              {t("clients.copierAdresses")}
             </button>
           )}
           {menu.client.siteWeb && (
@@ -672,7 +681,7 @@ export default function ClientsPage() {
               onClick={() => setMenu(null)}
             >
               <IconExternal />
-              Ouvrir le site web
+              {t("clients.ouvrirSite")}
             </a>
           )}
           <div className="menu-sep" />
@@ -681,11 +690,11 @@ export default function ClientsPage() {
             onClick={() => {
               const c = menu.client;
               setMenu(null);
-              supprimer([c.id], `« ${c.nom} »`);
+              supprimer([c.id], t("clients.libelleFiche", { nom: c.nom }));
             }}
           >
             <IconTrash />
-            Supprimer le client
+            {t("clients.supprimerClient")}
           </button>
         </div>
       )}

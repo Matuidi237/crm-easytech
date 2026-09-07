@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Utilisateur, changerMonMotDePasse, fetchMoi, updateMoi } from "../api";
 import { useAuth } from "../AuthContext";
+import { useLangue, useLibelles } from "../i18n";
 import { IconAlert, IconCheck, IconKey } from "../components/Icons";
 
 function initiales(nom: string) {
@@ -10,12 +11,9 @@ function initiales(nom: string) {
   return (mots[0][0] + mots[mots.length - 1][0]).toUpperCase();
 }
 
-function formatDate(iso: string | null) {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
-}
-
 export default function ProfilPage() {
+  const { t, dateHeure } = useLangue();
+  const libelles = useLibelles();
   const { rafraichir } = useAuth();
   const [moi, setMoi] = useState<Utilisateur | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -67,11 +65,11 @@ export default function ProfilPage() {
     setMdpOk(false);
 
     if (nouveau !== confirmation) {
-      setMdpErreur("La confirmation ne correspond pas au nouveau mot de passe.");
+      setMdpErreur(t("profil.mdpConfirmationDifferente"));
       return;
     }
     if (nouveau.length < 8) {
-      setMdpErreur("Le nouveau mot de passe doit faire au moins 8 caractères.");
+      setMdpErreur(t("profil.mdpTropCourt"));
       return;
     }
 
@@ -101,7 +99,7 @@ export default function ProfilPage() {
     return (
       <div className="card">
         <p className="muted-3" style={{ margin: 0 }}>
-          Chargement du profil…
+          {t("profil.chargement")}
         </p>
       </div>
     );
@@ -111,8 +109,8 @@ export default function ProfilPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Mon profil</h1>
-          <div className="page-sub">Vos informations et la sécurité de votre compte.</div>
+          <h1>{t("profil.titre")}</h1>
+          <div className="page-sub">{t("profil.sousTitre")}</div>
         </div>
       </div>
 
@@ -123,8 +121,8 @@ export default function ProfilPage() {
             <div style={{ minWidth: 0 }}>
               <div className="ph-name">{moi.nomComplet}</div>
               <div className="ph-sub">
-                <span className={`pill ${moi.role === "ADMIN" ? "pill-brand" : "pill-neutral"}`}>
-                  {moi.role === "ADMIN" ? "Administrateur" : "Commercial"}
+                <span className={`pill ${moi.role === "COMMERCIAL" ? "pill-neutral" : "pill-brand"}`}>
+                  {libelles.role(moi.role)}
                 </span>
                 {moi.fonction && <span style={{ marginLeft: 8 }}>{moi.fonction}</span>}
               </div>
@@ -141,13 +139,13 @@ export default function ProfilPage() {
             {infoOk && (
               <div className="alert alert-success" style={{ marginBottom: 16 }}>
                 <IconCheck />
-                Vos informations ont été enregistrées.
+                {t("profil.infosEnregistrees")}
               </div>
             )}
 
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="nomComplet">Nom complet</label>
+                <label htmlFor="nomComplet">{t("profil.nomComplet")}</label>
                 <input
                   id="nomComplet"
                   value={nomComplet}
@@ -158,11 +156,11 @@ export default function ProfilPage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="fonction">Fonction</label>
+                <label htmlFor="fonction">{t("profil.fonction")}</label>
                 <input
                   id="fonction"
                   value={fonction}
-                  placeholder="Responsable commercial…"
+                  placeholder={t("profil.fonctionPlaceholder")}
                   onChange={(e) => {
                     setFonction(e.target.value);
                     setInfoOk(false);
@@ -170,12 +168,12 @@ export default function ProfilPage() {
                 />
               </div>
               <div className="field full">
-                <label htmlFor="email">Adresse email</label>
+                <label htmlFor="email">{t("profil.email")}</label>
                 <input
                   id="email"
                   type="email"
                   value={email}
-                  placeholder="prenom.nom@easytechgroup.com"
+                  placeholder={t("profil.emailPlaceholder")}
                   onChange={(e) => {
                     setEmail(e.target.value);
                     setInfoOk(false);
@@ -186,7 +184,7 @@ export default function ProfilPage() {
 
             <div className="form-actions">
               <button className="btn btn-primary" type="submit" disabled={enregistrement}>
-                {enregistrement ? "Enregistrement…" : "Enregistrer"}
+                {enregistrement ? t("commun.enregistrement") : t("commun.enregistrer")}
               </button>
             </div>
           </form>
@@ -195,24 +193,24 @@ export default function ProfilPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div className="card">
             <div className="card-head">
-              <div className="card-title">Informations du compte</div>
+              <div className="card-title">{t("profil.infosCompte")}</div>
             </div>
             <div className="info-list">
               <div className="info-row">
-                <span className="ir-label">Identifiant</span>
+                <span className="ir-label">{t("profil.identifiant")}</span>
                 <span className="ir-value">{moi.identifiant}</span>
               </div>
               <div className="info-row">
-                <span className="ir-label">Rôle</span>
-                <span className="ir-value">{moi.role === "ADMIN" ? "Administrateur" : "Commercial"}</span>
+                <span className="ir-label">{t("profil.role")}</span>
+                <span className="ir-value">{libelles.role(moi.role)}</span>
               </div>
               <div className="info-row">
-                <span className="ir-label">Dernier accès</span>
-                <span className="ir-value">{formatDate(moi.dernierAcces)}</span>
+                <span className="ir-label">{t("profil.dernierAcces")}</span>
+                <span className="ir-value">{dateHeure(moi.dernierAcces) || t("commun.jamais")}</span>
               </div>
               <div className="info-row">
-                <span className="ir-label">Compte créé le</span>
-                <span className="ir-value">{formatDate(moi.createdAt)}</span>
+                <span className="ir-label">{t("profil.creeLe")}</span>
+                <span className="ir-value">{dateHeure(moi.createdAt)}</span>
               </div>
             </div>
           </div>
@@ -220,8 +218,8 @@ export default function ProfilPage() {
           <div className="card">
             <div className="card-head">
               <div>
-                <div className="card-title">Mot de passe</div>
-                <div className="card-sub">8 caractères minimum.</div>
+                <div className="card-title">{t("profil.motDePasse")}</div>
+                <div className="card-sub">{t("profil.motDePasseAide")}</div>
               </div>
               <IconKey />
             </div>
@@ -236,12 +234,12 @@ export default function ProfilPage() {
               {mdpOk && (
                 <div className="alert alert-success" style={{ marginBottom: 16 }}>
                   <IconCheck />
-                  Mot de passe mis à jour.
+                  {t("profil.mdpMisAJour")}
                 </div>
               )}
 
               <div className="field">
-                <label htmlFor="actuel">Mot de passe actuel</label>
+                <label htmlFor="actuel">{t("profil.mdpActuel")}</label>
                 <input
                   id="actuel"
                   type="password"
@@ -251,7 +249,7 @@ export default function ProfilPage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="nouveau">Nouveau mot de passe</label>
+                <label htmlFor="nouveau">{t("profil.mdpNouveau")}</label>
                 <input
                   id="nouveau"
                   type="password"
@@ -261,7 +259,7 @@ export default function ProfilPage() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="confirmation">Confirmer le nouveau mot de passe</label>
+                <label htmlFor="confirmation">{t("profil.mdpConfirmer")}</label>
                 <input
                   id="confirmation"
                   type="password"
@@ -273,7 +271,7 @@ export default function ProfilPage() {
 
               <div className="form-actions">
                 <button className="btn btn-ghost" type="submit" disabled={mdpEnCours}>
-                  {mdpEnCours ? "Modification…" : "Changer le mot de passe"}
+                  {mdpEnCours ? t("profil.mdpModification") : t("profil.mdpChanger")}
                 </button>
               </div>
             </form>

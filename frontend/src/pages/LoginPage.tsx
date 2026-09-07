@@ -1,9 +1,12 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
+import { useT } from "../i18n";
+import SelecteurLangue from "../components/SelecteurLangue";
 import { IconAlert } from "../components/Icons";
 
 export default function LoginPage() {
+  const t = useT();
   const [identifiant, setIdentifiant] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -29,21 +32,24 @@ export default function LoginPage() {
     <div className="login-shell">
       <aside className="login-aside">
         <div className="la-pitch">
-          <h2>Toute notre base clients, au même endroit.</h2>
-          <p>
-            Nous centralisons nos fichiers, filtrons nos clients par pays, secteur ou commercial, et adressons nos
-            campagnes aux bons interlocuteurs.
-          </p>
+          <h2>{t("login.accroche")}</h2>
+          <p>{t("login.pitch")}</p>
         </div>
-        <div className="la-foot">Outil interne, accès réservé aux collaborateurs.</div>
+        <div className="la-foot">{t("login.pied")}</div>
       </aside>
 
       <main className="login-main">
+        {/* La langue se choisit avant même de se connecter : c'est le premier
+            écran, et rien n'oblige à passer par le français pour y accéder. */}
+        <div className="login-lang">
+          <SelecteurLangue />
+        </div>
+
         <form className="login-card" onSubmit={handleSubmit}>
           <img src="/brand/easytech-logo.png" alt="EasyTech Group" className="login-logo" />
 
-          <h1>Connexion</h1>
-          <p className="lc-sub">Renseignez vos identifiants pour accéder au CRM.</p>
+          <h1>{t("login.titre")}</h1>
+          <p className="lc-sub">{t("login.sousTitre")}</p>
 
           {error && (
             <div className="alert alert-error" style={{ marginBottom: 18 }}>
@@ -53,7 +59,7 @@ export default function LoginPage() {
           )}
 
           <div className="field">
-            <label htmlFor="identifiant">Identifiant</label>
+            <label htmlFor="identifiant">{t("login.identifiant")}</label>
             <input
               id="identifiant"
               type="text"
@@ -65,7 +71,7 @@ export default function LoginPage() {
           </div>
 
           <div className="field">
-            <label htmlFor="motDePasse">Mot de passe</label>
+            <label htmlFor="motDePasse">{t("login.motDePasse")}</label>
             <input
               id="motDePasse"
               type="password"
@@ -76,12 +82,10 @@ export default function LoginPage() {
           </div>
 
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Connexion…" : "Se connecter"}
+            {loading ? t("login.connexion") : t("login.seConnecter")}
           </button>
 
-          <p className="lc-help">
-            Vous n'avez pas de compte ? Demandez à un administrateur de vous en créer un.
-          </p>
+          <p className="lc-help">{t("login.aide")}</p>
         </form>
       </main>
     </div>

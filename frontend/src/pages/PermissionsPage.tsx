@@ -9,9 +9,12 @@ import {
   reinitialiserPermissions,
 } from "../api";
 import { useAuth } from "../AuthContext";
+import { useLangue, useLibelles } from "../i18n";
 import { IconAlert, IconCheck, IconShield } from "../components/Icons";
 
 export default function PermissionsPage() {
+  const { t } = useLangue();
+  const libelles = useLibelles();
   const { rafraichir } = useAuth();
   const [catalogue, setCatalogue] = useState<LignePermission[]>([]);
   const [roles, setRoles] = useState<RolePermissions[]>([]);
@@ -73,8 +76,8 @@ export default function PermissionsPage() {
       for (const r of rolesModifies) {
         await enregistrerPermissions(r.role, [...brouillon[r.role]]);
       }
-      const noms = rolesModifies.map((r) => r.libelle).join(", ");
-      setSucces(`Permissions enregistrées pour : ${noms}. Effet immédiat pour tous les comptes concernés.`);
+      const noms = rolesModifies.map((r) => libelles.role(r.role)).join(", ");
+      setSucces(t("perms.succes", { roles: noms }));
       charger();
       rafraichir();
     } catch (e) {
@@ -85,11 +88,11 @@ export default function PermissionsPage() {
   }
 
   async function reinitialiser(r: RolePermissions) {
-    if (!confirm(`Rétablir les droits par défaut pour « ${r.libelle} » ?`)) return;
+    if (!confirm(t("perms.confirmerReset", { role: libelles.role(r.role) }))) return;
     setErreur(null);
     try {
       await reinitialiserPermissions(r.role);
-      setSucces(`Droits par défaut rétablis pour ${r.libelle}.`);
+      setSucces(t("perms.reinitialiseRole", { role: libelles.role(r.role) }));
       charger();
     } catch (e) {
       setErreur((e as Error).message);
@@ -100,7 +103,7 @@ export default function PermissionsPage() {
     return (
       <div className="card">
         <p className="muted-3" style={{ margin: 0 }}>
-          Chargement de la matrice…
+          {t("perms.chargement")}
         </p>
       </div>
     );
@@ -110,19 +113,19 @@ export default function PermissionsPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Permissions</h1>
+          <h1>{t("perms.titre")}</h1>
           <div className="head-meta">
             <IconShield size={15} />
-            <span>Ce que chaque rôle a le droit de faire</span>
+            <span>{t("perms.sousTitre")}</span>
           </div>
         </div>
         <div className="head-actions">
           <button className="btn btn-primary" onClick={enregistrer} disabled={rolesModifies.length === 0 || enregistrement}>
             {enregistrement
-              ? "Enregistrement…"
+              ? t("commun.enregistrement")
               : rolesModifies.length === 0
-                ? "Aucune modification"
-                : `Enregistrer (${rolesModifies.length})`}
+                ? t("perms.aucuneModification")
+                : t("perms.enregistrerN", { n: rolesModifies.length })}
           </button>
         </div>
       </div>
@@ -142,21 +145,14 @@ export default function PermissionsPage() {
 
       <div className="alert alert-info">
         <IconAlert />
-        <div>
-          Les droits du <strong>super administrateur</strong> ne sont pas modifiables. C'est ce qui garantit de pouvoir
-          toujours reprendre la main : sans cette règle, une case décochée par erreur verrouillerait l'application sans
-          aucun recours.
-        </div>
+        <div>{t("perms.avertissementSuperAdmin")}</div>
       </div>
 
       <div className="table-card">
         <div className="card-head">
           <div>
-            <div className="card-title">Matrice des droits</div>
-            <div className="card-sub">
-              Une pastille orange signale un rôle qui s'écarte de la configuration livrée. Les modifications prennent
-              effet dès l'enregistrement, sans reconnexion.
-            </div>
+            <div className="card-title">{t("perms.matriceTitre")}</div>
+            <div className="card-sub">{t("perms.matriceSousTitre")}</div>
           </div>
         </div>
 
@@ -164,16 +160,16 @@ export default function PermissionsPage() {
           <table className="matrice">
             <thead>
               <tr>
-                <th>Permission</th>
+                <th>{t("perms.colPermission")}</th>
                 {roles.map((r) => (
                   <th key={r.role} className="col-role">
                     <div className="role-tete">
-                      <span>{r.libelle}</span>
-                      {!r.modifiable && <span className="tag">verrouillé</span>}
-                      {r.surcharge && <span className="pill pill-warn">modifié</span>}
+                      <span>{libelles.role(r.role)}</span>
+                      {!r.modifiable && <span className="tag">{t("perms.verrouille")}</span>}
+                      {r.surcharge && <span className="pill pill-warn">{t("perms.modifie")}</span>}
                       {r.surcharge && (
                         <button className="link-action" onClick={() => reinitialiser(r)}>
-                          rétablir
+                          {t("perms.retablir")}
                         </button>
                       )}
                     </div>
@@ -185,13 +181,13 @@ export default function PermissionsPage() {
               {groupes.map(([groupe, lignes]) => (
                 <Fragment key={groupe}>
                   <tr className="ligne-groupe">
-                    <td colSpan={roles.length + 1}>{groupe}</td>
+                    <td colSpan={roles.length + 1}>{libelles.groupe(groupe)}</td>
                   </tr>
                   {lignes.map((l) => (
                     <tr key={l.cle}>
                       <td className="td-main">
-                        <div className="cc-name">{l.libelle}</div>
-                        <div className="cc-sub">{l.detail}</div>
+                        <div className="cc-name">{libelles.permissionLibelle(l.cle)}</div>
+                        <div className="cc-sub">{libelles.permissionDetail(l.cle)}</div>
                       </td>
                       {roles.map((r) => {
                         const coche = brouillon[r.role]?.has(l.cle) ?? false;
@@ -204,12 +200,15 @@ export default function PermissionsPage() {
                               checked={r.modifiable ? coche : true}
                               disabled={!r.modifiable}
                               onChange={() => basculer(r.role, l.cle)}
-                              aria-label={`${l.libelle} pour ${r.libelle}`}
+                              aria-label={t("perms.caseAria", {
+                                permission: libelles.permissionLibelle(l.cle),
+                                role: libelles.role(r.role),
+                              })}
                               title={
                                 ecart
                                   ? parDefaut
-                                    ? "Retiré par rapport à la configuration par défaut"
-                                    : "Ajouté par rapport à la configuration par défaut"
+                                    ? t("perms.ecartRetire")
+                                    : t("perms.ecartAjoute")
                                   : undefined
                               }
                             />

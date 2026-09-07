@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Newsletter, NewsletterFormat, createNewsletter, fetchAudience, fetchFacets, fetchNewsletters } from "../api";
+import { useLangue, type CleTraduction } from "../i18n";
 import { IconAlert, IconArrowRight, IconInbox, IconMail, IconPlus, IconUsers } from "../components/Icons";
 
-export const STATUT_PILL: Record<string, { label: string; cls: string }> = {
-  BROUILLON: { label: "Brouillon", cls: "pill-neutral" },
-  ENVOI_EN_COURS: { label: "Envoi en cours", cls: "pill-warn" },
-  ENVOYEE: { label: "Envoyée", cls: "pill-success" },
-  ECHEC: { label: "Échec", cls: "pill-danger" },
+/* Le statut ne porte que sa clé de traduction et sa teinte : le libellé se
+   résout à l'affichage, dans la langue de la page. */
+export const STATUT_PILL: Record<string, { cle: CleTraduction; cls: string }> = {
+  BROUILLON: { cle: "nl.statutBrouillon", cls: "pill-neutral" },
+  ENVOI_EN_COURS: { cle: "nl.statutEnvoiEnCours", cls: "pill-warn" },
+  ENVOYEE: { cle: "nl.statutEnvoyee", cls: "pill-success" },
+  ECHEC: { cle: "nl.statutEchec", cls: "pill-danger" },
 };
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
-}
-
 export default function NewslettersPage() {
+  const { t, nombre, dateHeure } = useLangue();
   const [newsletters, setNewsletters] = useState<Newsletter[]>([]);
   const [secteurs, setSecteurs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function NewslettersPage() {
 
   async function handleCreate() {
     if (!titre || !sujet || !contenu) {
-      setError("Titre, sujet et contenu sont requis.");
+      setError(t("nl.champsRequis"));
       return;
     }
     setSaving(true);
@@ -67,22 +67,22 @@ export default function NewslettersPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Newsletters</h1>
+          <h1>{t("nl.titre")}</h1>
           <div className="head-meta">
             <IconMail size={15} />
             <span>
-              Total : <b>{newsletters.length}</b>
+              {t("commun.total")} <b>{newsletters.length}</b>
             </span>
           </div>
         </div>
         <div className="head-actions">
           <button className={showForm ? "btn btn-ghost" : "btn btn-primary"} onClick={() => setShowForm((s) => !s)}>
             {showForm ? (
-              "Annuler"
+              t("commun.annuler")
             ) : (
               <>
                 <IconPlus />
-                Nouvelle newsletter
+                {t("nl.nouvelle")}
               </>
             )}
           </button>
@@ -100,42 +100,42 @@ export default function NewslettersPage() {
         <div className="card">
           <div className="card-head">
             <div>
-              <div className="card-title">Nouvelle newsletter</div>
-              <div className="card-sub">Elle sera créée en brouillon, vous déciderez de l'envoi ensuite.</div>
+              <div className="card-title">{t("nl.nouvelle")}</div>
+              <div className="card-sub">{t("nl.nouvelleSousTitre")}</div>
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div className="field">
-              <label htmlFor="nl-titre">Titre interne</label>
+              <label htmlFor="nl-titre">{t("nl.titreInterne")}</label>
               <input
                 id="nl-titre"
                 value={titre}
                 onChange={(e) => setTitre(e.target.value)}
-                placeholder="Offre partenaire Microsoft, septembre"
+                placeholder={t("nl.titreInternePlaceholder")}
               />
             </div>
             <div className="field">
-              <label htmlFor="nl-sujet">Objet de l'email</label>
+              <label htmlFor="nl-sujet">{t("nl.objet")}</label>
               <input
                 id="nl-sujet"
                 value={sujet}
                 onChange={(e) => setSujet(e.target.value)}
-                placeholder="Ce que verra le destinataire dans sa boîte mail"
+                placeholder={t("nl.objetPlaceholder")}
               />
             </div>
           </div>
 
           <div className="field" style={{ maxWidth: 320 }}>
-            <label htmlFor="nl-format">Format du contenu</label>
+            <label htmlFor="nl-format">{t("nl.format")}</label>
             <select id="nl-format" value={format} onChange={(e) => setFormat(e.target.value as NewsletterFormat)}>
-              <option value="TEXTE">Texte simple</option>
-              <option value="HTML">HTML (coller le code d'un partenaire)</option>
+              <option value="TEXTE">{t("nl.formatTexte")}</option>
+              <option value="HTML">{t("nl.formatHtml")}</option>
             </select>
           </div>
 
           <div className="field">
-            <label htmlFor="nl-contenu">Contenu</label>
+            <label htmlFor="nl-contenu">{t("nl.contenu")}</label>
             <textarea
               id="nl-contenu"
               value={contenu}
@@ -143,20 +143,16 @@ export default function NewslettersPage() {
               rows={format === "HTML" ? 12 : 7}
               style={{ fontFamily: format === "HTML" ? "ui-monospace, monospace" : undefined, fontSize: 13 }}
               placeholder={
-                format === "HTML"
-                  ? "<html>… collez ici le code reçu du partenaire, images comprises …</html>"
-                  : "Rédigez votre message. Pour intégrer des images, utilisez le format HTML."
+                format === "HTML" ? t("nl.contenuPlaceholderHtml") : t("nl.contenuPlaceholderTexte")
               }
             />
             <div className="field-hint">
-              {format === "HTML"
-                ? "Les images du partenaire restent hébergées chez lui. Un aperçu fidèle s'affichera après création."
-                : "Le texte sera mis en forme automatiquement dans un email propre."}
+              {format === "HTML" ? t("nl.aideHtml") : t("nl.aideTexte")}
             </div>
           </div>
 
           <div className="field">
-            <label>Secteurs ciblés</label>
+            <label>{t("nl.secteursCibles")}</label>
             <div className="chip-row">
               {secteurs.map((s) => (
                 <button
@@ -169,20 +165,20 @@ export default function NewslettersPage() {
                 </button>
               ))}
             </div>
-            <div className="field-hint">Aucun secteur sélectionné = envoi à tous les clients joignables.</div>
+            <div className="field-hint">{t("nl.aideSecteurs")}</div>
           </div>
 
           <div className="alert alert-info" style={{ marginBottom: 18 }}>
             <IconUsers size={16} />
             {audience === null
-              ? "Calcul de l'audience…"
-              : `${audience.toLocaleString("fr-FR")} client${audience > 1 ? "s" : ""} avec adresse email ${
-                  audience > 1 ? "recevront" : "recevra"
-                } cette newsletter.`}
+              ? t("nl.audienceCalcul")
+              : audience > 1
+                ? t("nl.audienceN", { n: nombre(audience) })
+                : t("nl.audienceUn")}
           </div>
 
           <button className="btn btn-primary" onClick={handleCreate} disabled={saving}>
-            {saving ? "Création…" : "Créer le brouillon"}
+            {saving ? t("nl.creation") : t("nl.creerBrouillon")}
           </button>
         </div>
       )}
@@ -193,14 +189,14 @@ export default function NewslettersPage() {
             <div className="empty-icon">
               <IconMail />
             </div>
-            <div className="empty-title">Aucune newsletter</div>
+            <div className="empty-title">{t("nl.aucuneTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              Créez une campagne et ciblez les clients par secteur d'activité.
+              {t("nl.aucuneTexte")}
             </p>
             {!showForm && (
               <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)} style={{ marginTop: 6 }}>
                 <IconPlus size={15} />
-                Nouvelle newsletter
+                {t("nl.nouvelle")}
               </button>
             )}
           </div>
@@ -209,29 +205,31 @@ export default function NewslettersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Campagne</th>
-                  <th>Statut</th>
-                  <th>Secteurs ciblés</th>
-                  <th>Destinataires</th>
-                  <th>Envoyée le</th>
+                  <th>{t("nl.colCampagne")}</th>
+                  <th>{t("nl.colStatut")}</th>
+                  <th>{t("nl.colSecteurs")}</th>
+                  <th>{t("nl.colDestinataires")}</th>
+                  <th>{t("nl.colEnvoyeeLe")}</th>
                   <th className="col-actions" />
                 </tr>
               </thead>
               <tbody>
                 {newsletters.map((n) => {
-                  const st = STATUT_PILL[n.statut] ?? { label: n.statut, cls: "pill-neutral" };
+                  const st = STATUT_PILL[n.statut];
                   return (
                     <tr key={n.id}>
                       <td className="td-main">
                         <div className="cc-name">{n.titre}</div>
                         <div className="cc-sub">{n.sujet}</div>
                       </td>
-                      <td data-label="Statut">
-                        <span className={`pill ${st.cls}`}>{st.label}</span>
+                      <td data-label={t("nl.colStatut")}>
+                        <span className={`pill ${st?.cls ?? "pill-neutral"}`}>
+                          {st ? t(st.cle) : n.statut}
+                        </span>
                       </td>
-                      <td data-label="Secteurs">
+                      <td data-label={t("nl.colSecteurs")}>
                         {n.secteursCibles.length === 0 ? (
-                          <span className="tag">Tous les clients</span>
+                          <span className="tag">{t("nl.tousLesClients")}</span>
                         ) : n.secteursCibles.length <= 2 ? (
                           n.secteursCibles.join(", ")
                         ) : (
@@ -243,10 +241,10 @@ export default function NewslettersPage() {
                           </>
                         )}
                       </td>
-                      <td className="num" data-label="Destinataires">
+                      <td className="num" data-label={t("nl.colDestinataires")}>
                         {n.nbDestinataires ?? "-"}
                       </td>
-                      <td data-label="Envoyée le">{n.envoyeeLe ? formatDate(n.envoyeeLe) : "-"}</td>
+                      <td data-label={t("nl.colEnvoyeeLe")}>{n.envoyeeLe ? dateHeure(n.envoyeeLe) : "-"}</td>
                       <td className="col-actions">
                         <div className="row-actions">
                           <Link
@@ -254,7 +252,7 @@ export default function NewslettersPage() {
                             className="link-action"
                             style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
                           >
-                            Ouvrir
+                            {t("commun.ouvrir")}
                             <IconArrowRight size={14} />
                           </Link>
                         </div>

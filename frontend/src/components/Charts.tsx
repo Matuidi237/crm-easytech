@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Repartition } from "../api";
+import { useLangue } from "../i18n";
 
 /* Rampe ordinale centrée sur le bleu du logo, définie une seule fois dans styles.css
    (tokens --viz-*). Le plus grand segment porte le pas le plus sombre ; la traîne
@@ -20,17 +21,21 @@ function Tooltip({ tip }: { tip: Tip }) {
   );
 }
 
-export function foldTail(data: Repartition[], keep: number): Repartition[] {
+/* « libelleReste » porte le libellé du repli, traduit par l'appelant : ce
+   module ne connaît pas la langue de la page qui l'affiche. */
+export function foldTail(data: Repartition[], keep: number, libelleReste = "Autres"): Repartition[] {
   if (data.length <= keep) return data;
   const reste = data.slice(keep).reduce((s, d) => s + d.count, 0);
   const head = data.slice(0, keep);
-  return reste > 0 ? [...head, { label: "Autres", count: reste }] : head;
+  return reste > 0 ? [...head, { label: libelleReste, count: reste }] : head;
 }
 
 /* ---------------------------------------------------------------- Barres */
 
-export function BarList({ data, total, unite = "clients" }: { data: Repartition[]; total: number; unite?: string }) {
+export function BarList({ data, total, unite }: { data: Repartition[]; total: number; unite?: string }) {
+  const { t } = useLangue();
   const [tip, setTip] = useState<Tip>(null);
+  const uniteLabel = unite ?? t("viz.uniteClients");
   const max = Math.max(1, ...data.map((d) => d.count));
 
   return (
@@ -43,7 +48,12 @@ export function BarList({ data, total, unite = "clients" }: { data: Repartition[
               className="bar-row"
               key={d.label}
               onMouseMove={(e) =>
-                setTip({ x: e.clientX, y: e.clientY, title: d.label, detail: `${d.count} ${unite} · ${part}% de la base` })
+                setTip({
+                  x: e.clientX,
+                  y: e.clientY,
+                  title: d.label,
+                  detail: t("viz.detailBarre", { n: d.count, unite: uniteLabel, part }),
+                })
               }
               onMouseLeave={() => setTip(null)}
             >
@@ -65,8 +75,10 @@ export function BarList({ data, total, unite = "clients" }: { data: Repartition[
 
 /* ----------------------------------------------------------------- Donut */
 
-export function Donut({ data, centerLabel = "clients" }: { data: Repartition[]; centerLabel?: string }) {
+export function Donut({ data, centerLabel }: { data: Repartition[]; centerLabel?: string }) {
+  const { t, nombre } = useLangue();
   const [tip, setTip] = useState<Tip>(null);
+  const labelCentre = centerLabel ?? t("viz.uniteClients");
 
   const total = data.reduce((s, d) => s + d.count, 0);
   const R = 62;
@@ -81,7 +93,7 @@ export function Donut({ data, centerLabel = "clients" }: { data: Repartition[]; 
     const len = Math.max(1, raw - GAP);
     const seg = {
       ...d,
-      color: d.label === "Autres" ? REST : RAMP[Math.min(i, RAMP.length - 1)],
+      color: d.label === t("viz.autres") ? REST : RAMP[Math.min(i, RAMP.length - 1)],
       len,
       offset: cursor,
       part: total > 0 ? Math.round(frac * 100) : 0,
@@ -95,7 +107,7 @@ export function Donut({ data, centerLabel = "clients" }: { data: Repartition[]; 
   return (
     <div className="donut-wrap">
       <div className="donut">
-        <svg width="190" height="190" viewBox="0 0 160 160" role="img" aria-label={`Répartition : ${description}`}>
+        <svg width="190" height="190" viewBox="0 0 160 160" role="img" aria-label={t("viz.repartition", { description })}>
           {segments.map((s) => (
             <circle
               key={s.label}
@@ -109,15 +121,20 @@ export function Donut({ data, centerLabel = "clients" }: { data: Repartition[]; 
               strokeDasharray={`${s.len} ${CIRC - s.len}`}
               strokeDashoffset={-s.offset}
               onMouseMove={(e) =>
-                setTip({ x: e.clientX, y: e.clientY, title: s.label, detail: `${s.count} clients · ${s.part}%` })
+                setTip({
+                  x: e.clientX,
+                  y: e.clientY,
+                  title: s.label,
+                  detail: t("viz.detailSegment", { n: s.count, part: s.part }),
+                })
               }
               onMouseLeave={() => setTip(null)}
             />
           ))}
         </svg>
         <div className="donut-center">
-          <div className="dc-value">{total.toLocaleString("fr-FR")}</div>
-          <div className="dc-label">{centerLabel}</div>
+          <div className="dc-value">{nombre(total)}</div>
+          <div className="dc-label">{labelCentre}</div>
         </div>
       </div>
 

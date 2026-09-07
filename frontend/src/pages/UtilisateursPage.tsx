@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  LIBELLES_ROLES,
   Role,
   Utilisateur,
   createUtilisateur,
@@ -11,6 +10,7 @@ import {
   updateUtilisateur,
 } from "../api";
 import { useAuth } from "../AuthContext";
+import { useLangue, useLibelles } from "../i18n";
 import { IconAlert, IconCheck, IconKey, IconMore, IconPlus, IconShield, IconTrash } from "../components/Icons";
 
 function initiales(nom: string) {
@@ -18,11 +18,6 @@ function initiales(nom: string) {
   if (mots.length === 0) return "?";
   if (mots.length === 1) return mots[0].slice(0, 2).toUpperCase();
   return (mots[0][0] + mots[mots.length - 1][0]).toUpperCase();
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "Jamais";
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
 }
 
 /** Teinte de pastille par famille de rôle, pour repérer la hiérarchie d'un coup d'œil. */
@@ -36,6 +31,8 @@ const TEINTE_ROLE: Record<Role, string> = {
 };
 
 export default function UtilisateursPage() {
+  const { t, dateHeure } = useLangue();
+  const libelles = useLibelles();
   const { utilisateur: moi } = useAuth();
   const [comptes, setComptes] = useState<Utilisateur[]>([]);
   const [options, setOptions] = useState<{
@@ -99,7 +96,7 @@ export default function UtilisateursPage() {
     setCreation(true);
     try {
       await createUtilisateur({ identifiant, nomComplet, email, fonction, role, motDePasse, responsableId: responsableId || null });
-      setSucces(`Compte « ${identifiant} » créé.`);
+      setSucces(t("users.compteCree", { identifiant }));
       setIdentifiant("");
       setNomComplet("");
       setEmail("");
@@ -127,11 +124,11 @@ export default function UtilisateursPage() {
   }
 
   async function supprimer(compte: Utilisateur) {
-    if (!confirm(`Supprimer définitivement le compte « ${compte.identifiant} » ?`)) return;
+    if (!confirm(t("users.confirmerSuppression", { identifiant: compte.identifiant }))) return;
     setErreur(null);
     try {
       await deleteUtilisateur(compte.id);
-      setSucces(`Compte « ${compte.identifiant} » supprimé.`);
+      setSucces(t("users.compteSupprime", { identifiant: compte.identifiant }));
       charger();
     } catch (err) {
       setErreur((err as Error).message);
@@ -142,12 +139,12 @@ export default function UtilisateursPage() {
     e.preventDefault();
     if (!resetCible) return;
     if (resetMdp.length < 8) {
-      setErreur("Le mot de passe doit faire au moins 8 caractères.");
+      setErreur(t("users.mdpTropCourt"));
       return;
     }
     try {
       await reinitialiserMotDePasse(resetCible.id, resetMdp);
-      setSucces(`Mot de passe réinitialisé pour « ${resetCible.identifiant} ».`);
+      setSucces(t("users.mdpReinitialise", { identifiant: resetCible.identifiant }));
       setResetCible(null);
       setResetMdp("");
     } catch (err) {
@@ -161,29 +158,29 @@ export default function UtilisateursPage() {
     const cible = roleCible;
     setRoleCible(null);
     await modifier(cible, { role: nouveauRole });
-    setSucces(`${cible.nomComplet} est désormais ${LIBELLES_ROLES[nouveauRole].toLowerCase()}.`);
+    setSucces(t("users.roleChange", { nom: cible.nomComplet, role: libelles.role(nouveauRole).toLowerCase() }));
   }
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Utilisateurs</h1>
+          <h1>{t("users.titre")}</h1>
           <div className="head-meta">
             <IconShield size={15} />
             <span>
-              Total : <b>{comptes.length}</b>
+              {t("commun.total")} <b>{comptes.length}</b>
             </span>
           </div>
         </div>
         <div className="head-actions">
           <button className={formOuvert ? "btn btn-ghost" : "btn btn-primary"} onClick={() => setFormOuvert((o) => !o)}>
             {formOuvert ? (
-              "Annuler"
+              t("commun.annuler")
             ) : (
               <>
                 <IconPlus />
-                Nouveau compte
+                {t("users.nouveauCompte")}
               </>
             )}
           </button>
@@ -207,34 +204,31 @@ export default function UtilisateursPage() {
         <div className="card">
           <div className="card-head">
             <div>
-              <div className="card-title">Nouveau compte</div>
-              <div className="card-sub">
-                Vous ne pouvez attribuer que des rôles inférieurs au vôtre. Un commercial ne voit que ses propres
-                prospects tant qu'on ne lui a pas ouvert d'accès.
-              </div>
+              <div className="card-title">{t("users.nouveauCompte")}</div>
+              <div className="card-sub">{t("users.nouveauSousTitre")}</div>
             </div>
           </div>
 
           <form onSubmit={creer}>
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="u-identifiant">Identifiant de connexion</label>
-                <input id="u-identifiant" value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} placeholder="p.nom" autoComplete="off" required />
+                <label htmlFor="u-identifiant">{t("users.identifiant")}</label>
+                <input id="u-identifiant" value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} placeholder={t("users.identifiantPlaceholder")} autoComplete="off" required />
               </div>
               <div className="field">
-                <label htmlFor="u-nom">Nom complet</label>
-                <input id="u-nom" value={nomComplet} onChange={(e) => setNomComplet(e.target.value)} placeholder="Prénom Nom" required />
+                <label htmlFor="u-nom">{t("users.nomComplet")}</label>
+                <input id="u-nom" value={nomComplet} onChange={(e) => setNomComplet(e.target.value)} placeholder={t("users.nomCompletPlaceholder")} required />
               </div>
               <div className="field">
-                <label htmlFor="u-email">Adresse email</label>
-                <input id="u-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom.nom@easytechgroup.net" />
+                <label htmlFor="u-email">{t("users.email")}</label>
+                <input id="u-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("users.emailPlaceholder")} />
               </div>
               <div className="field">
-                <label htmlFor="u-fonction">Fonction</label>
-                <input id="u-fonction" value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder="Commercial grands comptes" />
+                <label htmlFor="u-fonction">{t("users.fonction")}</label>
+                <input id="u-fonction" value={fonction} onChange={(e) => setFonction(e.target.value)} placeholder={t("users.fonctionPlaceholder")} />
               </div>
               <div className="field">
-                <label htmlFor="u-role">Rôle</label>
+                <label htmlFor="u-role">{t("users.role")}</label>
                 <select id="u-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
                   {options.roles.map((r) => (
                     <option key={r.valeur} value={r.valeur}>
@@ -245,26 +239,26 @@ export default function UtilisateursPage() {
               </div>
               {moi?.role !== "RESPONSABLE_COMMERCIAL" && (
                 <div className="field">
-                  <label htmlFor="u-resp">Rattaché à</label>
+                  <label htmlFor="u-resp">{t("users.rattacheA")}</label>
                   <select id="u-resp" value={responsableId} onChange={(e) => setResponsableId(e.target.value)}>
-                    <option value="">Aucun responsable</option>
+                    <option value="">{t("users.aucunResponsable")}</option>
                     {options.responsables.map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.nomComplet} ({LIBELLES_ROLES[r.role].toLowerCase()})
+                        {r.nomComplet} ({libelles.role(r.role).toLowerCase()})
                       </option>
                     ))}
                   </select>
                 </div>
               )}
               <div className="field full">
-                <label htmlFor="u-mdp">Mot de passe provisoire</label>
-                <input id="u-mdp" type="text" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} placeholder="8 caractères minimum" autoComplete="off" required />
+                <label htmlFor="u-mdp">{t("users.mdpProvisoire")}</label>
+                <input id="u-mdp" type="text" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} placeholder={t("users.mdpPlaceholder")} autoComplete="off" required />
               </div>
             </div>
 
             <div className="form-actions">
               <button className="btn btn-primary" type="submit" disabled={creation}>
-                {creation ? "Création…" : "Créer le compte"}
+                {creation ? t("users.creation") : t("users.creerCompte")}
               </button>
             </div>
           </form>
@@ -277,9 +271,9 @@ export default function UtilisateursPage() {
             <div className="empty-icon">
               <IconShield />
             </div>
-            <div className="empty-title">Aucun compte</div>
+            <div className="empty-title">{t("users.aucunTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              Créez un compte pour chaque personne devant accéder au CRM.
+              {t("users.aucunTexte")}
             </p>
           </div>
         ) : (
@@ -287,12 +281,12 @@ export default function UtilisateursPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Utilisateur</th>
-                  <th>Rôle</th>
-                  <th>Rattaché à</th>
-                  <th>Périmètre</th>
-                  <th>Dernier accès</th>
-                  <th>Statut</th>
+                  <th>{t("users.colUtilisateur")}</th>
+                  <th>{t("users.colRole")}</th>
+                  <th>{t("users.colRattacheA")}</th>
+                  <th>{t("users.colPerimetre")}</th>
+                  <th>{t("users.colDernierAcces")}</th>
+                  <th>{t("users.colStatut")}</th>
                   <th className="col-actions" />
                 </tr>
               </thead>
@@ -310,7 +304,11 @@ export default function UtilisateursPage() {
                           <div style={{ minWidth: 0 }}>
                             <div className="cc-name">
                               {c.nomComplet}
-                              {cestMoi && <span className="tag" style={{ marginLeft: 7 }}>vous</span>}
+                              {cestMoi && (
+                                <span className="tag" style={{ marginLeft: 7 }}>
+                                  {t("users.vous")}
+                                </span>
+                              )}
                             </div>
                             <div className="cc-sub">
                               {c.identifiant}
@@ -319,33 +317,37 @@ export default function UtilisateursPage() {
                           </div>
                         </div>
                       </td>
-                      <td data-label="Rôle">
-                        <span className={`pill ${TEINTE_ROLE[c.role]}`}>{LIBELLES_ROLES[c.role]}</span>
+                      <td data-label={t("users.colRole")}>
+                        <span className={`pill ${TEINTE_ROLE[c.role]}`}>{libelles.role(c.role)}</span>
                       </td>
-                      <td data-label="Rattaché à">{c.responsable?.nomComplet ?? "-"}</td>
-                      <td data-label="Périmètre">
+                      <td data-label={t("users.colRattacheA")}>{c.responsable?.nomComplet ?? "-"}</td>
+                      <td data-label={t("users.colPerimetre")}>
                         {restreint ? (
                           <>
-                            {c.nbClientsPossedes ?? 0} créés
+                            {t("users.perimetreCrees", { n: c.nbClientsPossedes ?? 0 })}
                             {(c.nbAccesAccordes ?? 0) > 0 && (
-                              <span className="tag" style={{ marginLeft: 6 }}>+{c.nbAccesAccordes} ouverts</span>
+                              <span className="tag" style={{ marginLeft: 6 }}>
+                                {t("users.perimetreOuverts", { n: c.nbAccesAccordes ?? 0 })}
+                              </span>
                             )}
                           </>
                         ) : (
-                          <span className="muted-3">Base entière</span>
+                          <span className="muted-3">{t("users.perimetreTout")}</span>
                         )}
                       </td>
-                      <td data-label="Dernier accès">{formatDate(c.dernierAcces)}</td>
-                      <td data-label="Statut">
+                      <td data-label={t("users.colDernierAcces")}>
+                        {dateHeure(c.dernierAcces) || t("commun.jamais")}
+                      </td>
+                      <td data-label={t("users.colStatut")}>
                         <span className={`pill ${c.actif ? "pill-success" : "pill-danger"}`}>
-                          {c.actif ? "Actif" : "Désactivé"}
+                          {c.actif ? t("users.actif") : t("users.desactive")}
                         </span>
                       </td>
                       <td className="col-actions">
                         <div className="row-actions">
                           <button
                             className="icon-btn-xs plain"
-                            aria-label={`Actions pour ${c.nomComplet}`}
+                            aria-label={t("users.actionsPour", { nom: c.nomComplet })}
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                               const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -381,7 +383,7 @@ export default function UtilisateursPage() {
             }}
           >
             <IconShield size={16} />
-            Changer le rôle
+            {t("users.changerRole")}
           </button>
           <button
             className="menu-item"
@@ -392,7 +394,7 @@ export default function UtilisateursPage() {
             }}
           >
             <IconKey size={16} />
-            Réinitialiser le mot de passe
+            {t("users.reinitialiserMdp")}
           </button>
           <button
             className="menu-item"
@@ -403,7 +405,7 @@ export default function UtilisateursPage() {
             }}
           >
             <IconAlert size={16} />
-            {menu.compte.actif ? "Désactiver le compte" : "Réactiver le compte"}
+            {menu.compte.actif ? t("users.desactiverCompte") : t("users.reactiverCompte")}
           </button>
           <div className="menu-sep" />
           <button
@@ -416,7 +418,7 @@ export default function UtilisateursPage() {
             }}
           >
             <IconTrash size={16} />
-            Supprimer le compte
+            {t("users.supprimerCompte")}
           </button>
         </div>
       )}
@@ -424,13 +426,10 @@ export default function UtilisateursPage() {
       {roleCible && (
         <div className="modal-backdrop" onClick={() => setRoleCible(null)}>
           <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={validerRole}>
-            <h3>Changer le rôle</h3>
-            <p className="modal-sub">
-              Compte de <strong>{roleCible.nomComplet}</strong>. Passer un commercial à un rôle qui voit toute la base
-              rend ses accès nominatifs sans objet : ils sont alors retirés.
-            </p>
+            <h3>{t("users.changerRole")}</h3>
+            <p className="modal-sub">{t("users.modaleRoleSousTitre", { nom: roleCible.nomComplet })}</p>
             <div className="field">
-              <label htmlFor="role-cible">Nouveau rôle</label>
+              <label htmlFor="role-cible">{t("users.nouveauRole")}</label>
               <select id="role-cible" value={nouveauRole} onChange={(e) => setNouveauRole(e.target.value as Role)}>
                 {options.roles.map((r) => (
                   <option key={r.valeur} value={r.valeur}>
@@ -441,10 +440,10 @@ export default function UtilisateursPage() {
             </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setRoleCible(null)}>
-                Annuler
+                {t("commun.annuler")}
               </button>
               <button type="submit" className="btn btn-primary">
-                Appliquer
+                {t("commun.appliquer")}
               </button>
             </div>
           </form>
@@ -454,21 +453,23 @@ export default function UtilisateursPage() {
       {resetCible && (
         <div className="modal-backdrop" onClick={() => setResetCible(null)}>
           <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={validerReset}>
-            <h3>Réinitialiser le mot de passe</h3>
+            <h3>{t("users.reinitialiserMdp")}</h3>
             <p className="modal-sub">
-              Nouveau mot de passe pour <strong>{resetCible.nomComplet}</strong> ({resetCible.identifiant}).
-              Communiquez-le lui pour qu'il le change depuis son profil.
+              {t("users.modaleResetSousTitre", {
+                nom: resetCible.nomComplet,
+                identifiant: resetCible.identifiant,
+              })}
             </p>
             <div className="field">
-              <label htmlFor="reset-mdp">Nouveau mot de passe</label>
-              <input id="reset-mdp" ref={resetInput} type="text" value={resetMdp} onChange={(e) => setResetMdp(e.target.value)} placeholder="8 caractères minimum" autoComplete="off" />
+              <label htmlFor="reset-mdp">{t("profil.mdpNouveau")}</label>
+              <input id="reset-mdp" ref={resetInput} type="text" value={resetMdp} onChange={(e) => setResetMdp(e.target.value)} placeholder={t("users.mdpPlaceholder")} autoComplete="off" />
             </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setResetCible(null)}>
-                Annuler
+                {t("commun.annuler")}
               </button>
               <button type="submit" className="btn btn-primary">
-                Réinitialiser
+                {t("commun.reinitialiser")}
               </button>
             </div>
           </form>

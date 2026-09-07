@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ImportFile, PreviewResponse, commitImport, deleteImportFile, fetchImportFiles, previewImport } from "../api";
+import { useLangue, type CleTraduction } from "../i18n";
+import { fr } from "../i18n/fr";
+import { en } from "../i18n/en";
 import {
   IconAlert,
   IconArrowRight,
@@ -10,37 +13,34 @@ import {
   IconTrash,
 } from "../components/Icons";
 
-const FIELD_LABELS: Record<string, string> = {
-  nom: "Nom du client",
-  adressePhysique: "Adresse physique",
-  ville: "Ville",
-  pays: "Pays",
-  siteWeb: "Site web",
-  emailContact: "Adresse mail",
-  telephone: "Téléphone",
-  nomContactInterne: "Nom du contact (interne)",
-  commercialEnCharge: "Commercial en charge",
-  secteurActivite: "Secteur d'activité",
-  chiffreAffaires: "Chiffre d'affaires",
-  notes: "Notes",
-};
-
-function guessMapping(headers: string[], fields: string[]): Record<string, string | null> {
+/**
+ * Devine l'association colonne du fichier -> champ du CRM.
+ *
+ * L'entête du fichier est comparée aux libellés des DEUX langues : un fichier
+ * français reste reconnu même si l'interface est en anglais, et l'inverse.
+ */
+function guessMapping(
+  headers: string[],
+  fields: string[],
+  libelles: (champ: string) => string[]
+): Record<string, string | null> {
   const mapping: Record<string, string | null> = {};
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   for (const header of headers) {
     const normHeader = normalize(header);
-    const match = fields.find((f) => normalize(FIELD_LABELS[f] ?? f) === normHeader || normalize(f) === normHeader);
+    const match = fields.find(
+      (f) => normalize(f) === normHeader || libelles(f).some((l) => normalize(l) === normHeader)
+    );
     mapping[header] = match ?? null;
   }
   return mapping;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" });
-}
-
 export default function ImportPage() {
+  const { t, nombre, dateHeure } = useLangue();
+  const champ = (f: string) => t(`champ.${f}` as CleTraduction);
+  const champToutesLangues = (f: string) => [fr[`champ.${f}` as keyof typeof fr], en[`champ.${f}` as keyof typeof en]];
+
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [mapping, setMapping] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function ImportPage() {
     try {
       const res = await previewImport(file);
       setPreview(res);
-      setMapping(guessMapping(res.headers, res.clientFields));
+      setMapping(guessMapping(res.headers, res.clientFields, champToutesLangues));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -86,12 +86,7 @@ export default function ImportPage() {
   }
 
   async function handleDeleteFile(file: ImportFile) {
-    if (
-      !confirm(
-        `Supprimer « ${file.nomFichier} » ? Les ${file.nbClientsActuels} client(s) importés depuis ce fichier seront également supprimés.`
-      )
-    )
-      return;
+    if (!confirm(t("import.confirmerSuppression", { fichier: file.nomFichier, n: file.nbClientsActuels }))) return;
     setDeletingId(file.id);
     try {
       await deleteImportFile(file.id);
@@ -110,11 +105,11 @@ export default function ImportPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Importer des clients</h1>
-          <div className="page-sub">Ajoutez des clients depuis un fichier CSV, Excel ou JSON.</div>
+          <h1>{t("import.titre")}</h1>
+          <div className="page-sub">{t("import.sousTitre")}</div>
         </div>
         <Link to="/clients" className="btn btn-ghost">
-          Voir les clients
+          {t("import.voirClients")}
           <IconArrowRight size={15} />
         </Link>
       </div>
@@ -130,17 +125,13 @@ export default function ImportPage() {
         <div className={result.errors.length > 0 ? "alert alert-warn" : "alert alert-success"}>
           {result.errors.length > 0 ? <IconAlert /> : <IconCheck />}
           <div>
-            <strong>
-              {result.importedRows} / {result.totalRows} lignes importées.
-            </strong>
+            <strong>{t("import.resultat", { importees: result.importedRows, total: result.totalRows })}</strong>
             {result.errors.length > 0 && (
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 {result.errors.slice(0, 8).map((err, i) => (
-                  <li key={i}>
-                    Ligne {err.ligne} : {err.message}
-                  </li>
+                  <li key={i}>{t("import.ligneErreur", { ligne: err.ligne, message: err.message })}</li>
                 ))}
-                {result.errors.length > 8 && <li>… et {result.errors.length - 8} autres.</li>}
+                {result.errors.length > 8 && <li>{t("import.autresErreurs", { n: result.errors.length - 8 })}</li>}
               </ul>
             )}
           </div>
@@ -150,7 +141,7 @@ export default function ImportPage() {
       <div className="card">
         <div className="steps">
           <span className="step-num">1</span>
-          <div className="card-title">Choisir un fichier</div>
+          <div className="card-title">{t("import.etape1")}</div>
         </div>
         <div
           className={`dropzone${drag ? " drag" : ""}`}
@@ -171,8 +162,8 @@ export default function ImportPage() {
           <div className="dz-icon">
             <IconImport size={22} />
           </div>
-          <div className="dz-title">Glissez-déposez votre fichier ici</div>
-          <div className="dz-text">ou cliquez pour parcourir. CSV, XLSX ou JSON, 25 Mo maximum</div>
+          <div className="dz-title">{t("import.deposer")}</div>
+          <div className="dz-text">{t("import.parcourir")}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -192,12 +183,15 @@ export default function ImportPage() {
             <div>
               <div className="steps">
                 <span className="step-num">2</span>
-                <div className="card-title">Associer les colonnes</div>
+                <div className="card-title">{t("import.etape2")}</div>
               </div>
               <div className="card-sub" style={{ marginTop: 6 }}>
-                {preview.fileName} · {preview.totalRows.toLocaleString("fr-FR")} lignes détectées ·{" "}
-                {champsMappes} colonne{champsMappes > 1 ? "s" : ""} associée{champsMappes > 1 ? "s" : ""} sur{" "}
-                {preview.headers.length}
+                {t("import.apercu", {
+                  fichier: preview.fileName,
+                  lignes: nombre(preview.totalRows),
+                  mappees: champsMappes,
+                  total: preview.headers.length,
+                })}
               </div>
             </div>
             <span className="pill pill-brand">{preview.format.toUpperCase()}</span>
@@ -217,10 +211,10 @@ export default function ImportPage() {
                   value={mapping[header] ?? ""}
                   onChange={(e) => setMapping((m) => ({ ...m, [header]: e.target.value || null }))}
                 >
-                  <option value="">Ignorer cette colonne</option>
+                  <option value="">{t("import.ignorerColonne")}</option>
                   {preview.clientFields.map((field) => (
                     <option key={field} value={field}>
-                      {FIELD_LABELS[field] ?? field}
+                      {champ(field)}
                     </option>
                   ))}
                 </select>
@@ -231,16 +225,16 @@ export default function ImportPage() {
           {!nomMappe && (
             <div className="alert alert-warn" style={{ marginTop: 16 }}>
               <IconAlert />
-              Associez une colonne au champ « Nom du client » pour pouvoir importer.
+              {t("import.nomObligatoire")}
             </div>
           )}
 
           <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
             <button className="btn btn-primary" onClick={handleCommit} disabled={importing || !nomMappe}>
-              {importing ? "Import en cours…" : `Importer ${preview.totalRows.toLocaleString("fr-FR")} lignes`}
+              {importing ? t("import.enCours") : t("import.lancer", { n: nombre(preview.totalRows) })}
             </button>
             <button className="btn btn-ghost" onClick={() => setPreview(null)} disabled={importing}>
-              Annuler
+              {t("commun.annuler")}
             </button>
           </div>
         </div>
@@ -249,8 +243,8 @@ export default function ImportPage() {
       <div className="table-card">
         <div className="card-head">
           <div>
-            <div className="card-title">Fichiers importés</div>
-            <div className="card-sub">Supprimer un fichier retire aussi les clients qui en proviennent.</div>
+            <div className="card-title">{t("import.fichiersTitre")}</div>
+            <div className="card-sub">{t("import.fichiersSousTitre")}</div>
           </div>
         </div>
 
@@ -259,9 +253,9 @@ export default function ImportPage() {
             <div className="empty-icon">
               <IconInbox />
             </div>
-            <div className="empty-title">Aucun fichier importé</div>
+            <div className="empty-title">{t("import.aucunFichierTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              Les fichiers que vous importez apparaîtront ici, avec le nombre de clients qui en découlent.
+              {t("import.aucunFichierTexte")}
             </p>
           </div>
         ) : (
@@ -269,11 +263,11 @@ export default function ImportPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Fichier</th>
-                  <th>Importé le</th>
-                  <th>Clients actuels</th>
-                  <th>Lignes</th>
-                  <th>Erreurs</th>
+                  <th>{t("import.colFichier")}</th>
+                  <th>{t("import.colImporteLe")}</th>
+                  <th>{t("import.colClientsActuels")}</th>
+                  <th>{t("import.colLignes")}</th>
+                  <th>{t("import.colErreurs")}</th>
                   <th className="col-actions" />
                 </tr>
               </thead>
@@ -283,16 +277,16 @@ export default function ImportPage() {
                     <td className="td-strong td-main">
                       {f.nomFichier} <span className="tag">{f.formatSource}</span>
                     </td>
-                    <td data-label="Importé le">{formatDate(f.createdAt)}</td>
-                    <td className="num" data-label="Clients actuels">
-                      {f.nbClientsActuels.toLocaleString("fr-FR")}
+                    <td data-label={t("import.colImporteLe")}>{dateHeure(f.createdAt)}</td>
+                    <td className="num" data-label={t("import.colClientsActuels")}>
+                      {nombre(f.nbClientsActuels)}
                     </td>
-                    <td className="num" data-label="Lignes">
-                      {f.nbLignesImportees.toLocaleString("fr-FR")} / {f.nbLignesTotal.toLocaleString("fr-FR")}
+                    <td className="num" data-label={t("import.colLignes")}>
+                      {nombre(f.nbLignesImportees)} / {nombre(f.nbLignesTotal)}
                     </td>
-                    <td data-label="Erreurs">
+                    <td data-label={t("import.colErreurs")}>
                       {f.nbErreurs === 0 ? (
-                        <span className="pill pill-success">Aucune</span>
+                        <span className="pill pill-success">{t("commun.aucun")}</span>
                       ) : (
                         <span className="pill pill-warn">{f.nbErreurs}</span>
                       )}
@@ -304,7 +298,7 @@ export default function ImportPage() {
                           onClick={() => handleDeleteFile(f)}
                           disabled={deletingId === f.id}
                         >
-                          {deletingId === f.id ? "Suppression…" : "Supprimer"}
+                          {deletingId === f.id ? t("commun.suppression") : t("commun.supprimer")}
                         </button>
                       </div>
                     </td>

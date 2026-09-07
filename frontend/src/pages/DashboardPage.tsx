@@ -1,6 +1,7 @@
 import { ComponentType, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Stats, fetchStats } from "../api";
+import { useLangue } from "../i18n";
 import { BarList, Donut, foldTail } from "../components/Charts";
 import { IconAlert, IconArrowRight, IconInbox, IconLayers, IconMail, IconSend, IconUsers } from "../components/Icons";
 
@@ -31,6 +32,7 @@ function StatCard({ label, value, note, icon: Icon, fg, bg }: StatDef) {
 }
 
 export default function DashboardPage() {
+  const { t, nombre } = useLangue();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,44 +53,51 @@ export default function DashboardPage() {
     return (
       <div className="card">
         <p className="muted-3" style={{ margin: 0 }}>
-          Chargement des données…
+          {t("commun.chargementDonnees")}
         </p>
       </div>
     );
   }
 
   const topSecteur = stats.repartitionSecteur[0];
-  const nombre = (n: number) => n.toLocaleString("fr-FR");
 
   const cards: StatDef[] = [
     {
-      label: "Clients",
+      label: t("dash.carte.clients"),
       value: nombre(stats.totalClients),
-      note: stats.nbPays > 0 ? `Répartis sur ${stats.nbPays} pays` : "Aucun pays renseigné",
+      note: stats.nbPays > 0 ? t("dash.carte.clientsNote", { n: stats.nbPays }) : t("dash.carte.clientsNoteVide"),
       icon: IconUsers,
       fg: "#2a79ae",
       bg: "#e8f3fb",
     },
     {
-      label: "Contacts email",
+      label: t("dash.carte.contacts"),
       value: nombre(stats.nbContacts),
-      note: `${nombre(stats.nbClientsAvecEmail)} clients joignables sur ${nombre(stats.totalClients)}`,
+      note: t("dash.carte.contactsNote", {
+        joignables: nombre(stats.nbClientsAvecEmail),
+        total: nombre(stats.totalClients),
+      }),
       icon: IconMail,
       fg: "#0c8074",
       bg: "#e2f4f1",
     },
     {
-      label: "Secteurs d'activité",
+      label: t("dash.carte.secteurs"),
       value: nombre(stats.nbSecteurs),
-      note: topSecteur ? `Principal : ${topSecteur.label} (${topSecteur.count})` : "Aucun secteur renseigné",
+      note: topSecteur
+        ? t("dash.carte.secteursNote", { label: topSecteur.label, n: topSecteur.count })
+        : t("dash.carte.secteursNoteVide"),
       icon: IconLayers,
       fg: "#5b4bc4",
       bg: "#eeebfa",
     },
     {
-      label: "Newsletters envoyées",
+      label: t("dash.carte.newsletters"),
       value: nombre(stats.newslettersEnvoyees),
-      note: stats.newslettersEnvoyees > 0 ? "Historique disponible par campagne" : "Aucune campagne envoyée",
+      note:
+        stats.newslettersEnvoyees > 0
+          ? t("dash.carte.newslettersNote")
+          : t("dash.carte.newslettersNoteVide"),
       icon: IconSend,
       fg: "#9e6b06",
       bg: "#fcf2e0",
@@ -96,7 +105,7 @@ export default function DashboardPage() {
   ];
 
   const secteursTop = stats.repartitionSecteur.slice(0, 8);
-  const paysDonut = foldTail(stats.repartitionPays, 5);
+  const paysDonut = foldTail(stats.repartitionPays, 5, t("viz.autres"));
   const clientsLocalises = stats.repartitionPays.reduce((s, p) => s + p.count, 0);
   const sansPays = stats.totalClients - clientsLocalises;
   const vide = stats.totalClients === 0;
@@ -105,11 +114,11 @@ export default function DashboardPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Tableau de bord</h1>
-          <div className="page-sub">Vue d'ensemble de la base clients</div>
+          <h1>{t("dash.titre")}</h1>
+          <div className="page-sub">{t("dash.sousTitre")}</div>
         </div>
         <Link to="/import" className="btn btn-soft">
-          Importer des clients
+          {t("dash.importerClients")}
         </Link>
       </div>
 
@@ -125,12 +134,12 @@ export default function DashboardPage() {
             <div className="empty-icon">
               <IconInbox />
             </div>
-            <div className="empty-title">Aucun client dans la base</div>
+            <div className="empty-title">{t("dash.videTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              Importez un fichier CSV, Excel ou JSON pour commencer à exploiter vos données.
+              {t("dash.videTexte")}
             </p>
             <Link to="/import" className="btn btn-primary" style={{ marginTop: 6 }}>
-              Importer un fichier
+              {t("dash.importerFichier")}
             </Link>
           </div>
         </div>
@@ -140,13 +149,13 @@ export default function DashboardPage() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <div className="card-title">Secteurs d'activité</div>
+                  <div className="card-title">{t("dash.secteursTitre")}</div>
                   <div className="card-sub">
-                    {secteursTop.length} principaux sur {stats.nbSecteurs}
+                    {t("dash.secteursSousTitre", { n: secteursTop.length, total: stats.nbSecteurs })}
                   </div>
                 </div>
                 <Link to="/clients" className="btn btn-ghost btn-sm">
-                  Filtrer
+                  {t("dash.filtrer")}
                 </Link>
               </div>
               <BarList data={secteursTop} total={stats.totalClients} />
@@ -155,26 +164,26 @@ export default function DashboardPage() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <div className="card-title">Répartition par pays</div>
+                  <div className="card-title">{t("dash.paysTitre")}</div>
                   <div className="card-sub">
-                    {stats.nbPays} pays représentés
-                    {sansPays > 0 && ` · ${sansPays} clients sans pays renseigné`}
+                    {t("dash.paysSousTitre", { n: stats.nbPays })}
+                    {sansPays > 0 && t("dash.paysSansPays", { n: sansPays })}
                   </div>
                 </div>
               </div>
-              <Donut data={paysDonut} centerLabel="clients localisés" />
+              <Donut data={paysDonut} centerLabel={t("dash.clientsLocalises")} />
             </div>
           </div>
 
           <div className="table-card">
             <div className="card-head">
-              <div className="card-title">Derniers clients ajoutés</div>
+              <div className="card-title">{t("dash.derniersClients")}</div>
               <Link
                 to="/clients"
                 className="link-action"
                 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
               >
-                Tous les clients
+                {t("dash.tousLesClients")}
                 <IconArrowRight size={15} />
               </Link>
             </div>
@@ -182,19 +191,19 @@ export default function DashboardPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Client</th>
-                    <th>Secteur</th>
-                    <th>Pays</th>
-                    <th>Contact</th>
+                    <th>{t("dash.colClient")}</th>
+                    <th>{t("dash.colSecteur")}</th>
+                    <th>{t("dash.colPays")}</th>
+                    <th>{t("dash.colContact")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {stats.dernierClients.map((c) => (
                     <tr key={c.id}>
                       <td className="td-strong td-main">{c.nom}</td>
-                      <td data-label="Secteur">{c.secteurActivite ?? "-"}</td>
-                      <td data-label="Pays">{c.pays ?? "-"}</td>
-                      <td data-label="Contact">{c.emailContact?.split(";")[0].trim() ?? "-"}</td>
+                      <td data-label={t("dash.colSecteur")}>{c.secteurActivite ?? "-"}</td>
+                      <td data-label={t("dash.colPays")}>{c.pays ?? "-"}</td>
+                      <td data-label={t("dash.colContact")}>{c.emailContact?.split(";")[0].trim() ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>

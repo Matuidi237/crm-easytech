@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { LIBELLES_ROLES } from "./api";
+import { useLangue, useLibelles, type CleTraduction } from "./i18n";
+import SelecteurLangue from "./components/SelecteurLangue";
 import {
   IconClose,
   IconDashboard,
@@ -18,10 +19,10 @@ import {
 
 /** « requiert » vide = visible par tous les comptes connectés. */
 const NAV = [
-  { to: "/", label: "Tableau de bord", icon: IconDashboard, end: true, requiert: null },
-  { to: "/clients", label: "Clients", icon: IconUsers, end: false, requiert: null },
-  { to: "/import", label: "Importer", icon: IconImport, end: false, requiert: "clients.importer" },
-  { to: "/newsletters", label: "Newsletters", icon: IconMail, end: false, requiert: "newsletters.voir" },
+  { to: "/", cle: "nav.dashboard", icon: IconDashboard, end: true, requiert: null },
+  { to: "/clients", cle: "nav.clients", icon: IconUsers, end: false, requiert: null },
+  { to: "/import", cle: "nav.import", icon: IconImport, end: false, requiert: "clients.importer" },
+  { to: "/newsletters", cle: "nav.newsletters", icon: IconMail, end: false, requiert: "newsletters.voir" },
 ] as const;
 
 function initiales(nom: string) {
@@ -33,6 +34,8 @@ function initiales(nom: string) {
 
 export default function Layout() {
   const { logout, utilisateur, peut } = useAuth();
+  const { t } = useLangue();
+  const libelles = useLibelles();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState("");
@@ -40,8 +43,8 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const nom = utilisateur?.nomComplet ?? "Utilisateur";
-  const roleLabel = utilisateur ? LIBELLES_ROLES[utilisateur.role] : "";
+  const nom = utilisateur?.nomComplet ?? "";
+  const roleLabel = utilisateur ? libelles.role(utilisateur.role) : "";
 
   // Le tiroir de navigation se referme dès qu'on change de page (mobile).
   useEffect(() => {
@@ -91,50 +94,50 @@ export default function Layout() {
       <aside className={`sidebar${navOpen ? " open" : ""}`}>
         <div className="sidebar-brand">
           <img src="/brand/easytech-logo-blanc.png" alt="EasyTech Group" className="brand-logo" />
-          <button className="sidebar-close" onClick={() => setNavOpen(false)} aria-label="Fermer le menu">
+          <button className="sidebar-close" onClick={() => setNavOpen(false)} aria-label={t("topbar.fermerMenu")}>
             <IconClose size={18} />
           </button>
         </div>
-        <div className="sidebar-tag">CRM Clients</div>
+        <div className="sidebar-tag">{t("nav.marque")}</div>
 
-        <nav className="sidebar-nav" aria-label="Navigation principale">
-          {NAV.filter((n) => !n.requiert || peut(n.requiert)).map(({ to, label, icon: Icon, end }) => (
+        <nav className="sidebar-nav" aria-label={t("nav.principale")}>
+          {NAV.filter((n) => !n.requiert || peut(n.requiert)).map(({ to, cle, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
               <Icon />
-              <span>{label}</span>
+              <span>{t(cle as CleTraduction)}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="nav-section">
-          <nav className="sidebar-nav" aria-label="Compte">
+          <nav className="sidebar-nav" aria-label={t("nav.compte")}>
             <NavLink to="/profil" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
               <IconUserCircle />
-              <span>Mon profil</span>
+              <span>{t("nav.profil")}</span>
             </NavLink>
             {peut("permissions.gerer") && (
               <NavLink to="/permissions" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
                 <IconKey />
-                <span>Permissions</span>
+                <span>{t("nav.permissions")}</span>
               </NavLink>
             )}
             {peut("utilisateurs.gerer") && (
               <NavLink to="/utilisateurs" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
                 <IconShield />
-                <span>Utilisateurs</span>
+                <span>{t("nav.utilisateurs")}</span>
               </NavLink>
             )}
           </nav>
           <button className="btn-logout" onClick={handleLogout}>
             <IconLogout />
-            <span>Se déconnecter</span>
+            <span>{t("nav.deconnexion")}</span>
           </button>
         </div>
       </aside>
 
       <div className="main">
         <header className="topbar">
-          <button className="burger" onClick={() => setNavOpen(true)} aria-label="Ouvrir le menu">
+          <button className="burger" onClick={() => setNavOpen(true)} aria-label={t("topbar.ouvrirMenu")}>
             <IconMenu />
           </button>
 
@@ -142,20 +145,25 @@ export default function Layout() {
             <IconSearch />
             <input
               type="search"
-              placeholder="Rechercher un client…"
+              placeholder={t("topbar.rechercher")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              aria-label="Rechercher un client"
+              aria-label={t("topbar.rechercherAria")}
             />
           </form>
 
           <div className="topbar-right">
+            <SelecteurLangue />
+
+            <span className="topbar-sep" aria-hidden />
+
             <div ref={menuRef} style={{ position: "relative" }}>
               <button
                 className="user-chip"
                 onClick={() => setMenuOpen((o) => !o)}
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
+                aria-label={t("topbar.monCompte")}
               >
                 <div className="avatar">{initiales(nom)}</div>
                 <div className="uc-meta">
@@ -182,22 +190,32 @@ export default function Layout() {
                 <div className="menu" role="menu">
                   <div className="menu-head">
                     <div className="menu-head-name">{nom}</div>
-                    <div className="menu-head-sub">{utilisateur?.identifiant}</div>
+                    <div className="menu-head-sub">
+                      {utilisateur?.identifiant} · {roleLabel}
+                    </div>
                   </div>
                   <button className="menu-item" role="menuitem" onClick={() => navigate("/profil")}>
                     <IconUserCircle size={16} />
-                    Mon profil
+                    {t("nav.profil")}
                   </button>
                   {peut("utilisateurs.gerer") && (
                     <button className="menu-item" role="menuitem" onClick={() => navigate("/utilisateurs")}>
                       <IconShield size={16} />
-                      Gérer les utilisateurs
+                      {t("nav.gererUtilisateurs")}
                     </button>
                   )}
+
+                  {/* Le sélecteur est repris ici : sur mobile la barre du haut
+                      est trop étroite pour l'afficher en permanence. */}
+                  <div className="menu-lang">
+                    <span>{t("topbar.langue")}</span>
+                    <SelecteurLangue compact />
+                  </div>
+
                   <div className="menu-sep" />
                   <button className="menu-item danger" role="menuitem" onClick={handleLogout}>
                     <IconLogout size={16} />
-                    Se déconnecter
+                    {t("nav.deconnexion")}
                   </button>
                 </div>
               )}
