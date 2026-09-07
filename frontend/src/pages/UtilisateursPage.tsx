@@ -24,6 +24,7 @@ function initiales(nom: string) {
 const TEINTE_ROLE: Record<Role, string> = {
   SUPER_ADMIN: "pill-danger",
   ADMIN: "pill-brand",
+  DG: "pill-danger",
   RESPONSABLE_COMMERCIAL: "pill-brand",
   CHEF_DE_PROJET: "pill-warn",
   COMPTABLE: "pill-warn",

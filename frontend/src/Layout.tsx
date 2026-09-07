@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
-import { useLangue, useLibelles, type CleTraduction } from "./i18n";
+import { useLangue, useLibelles } from "./i18n";
+import { navDe } from "./vues";
 import SelecteurLangue from "./components/SelecteurLangue";
 import {
   IconClose,
   IconDashboard,
+  IconHandshake,
   IconImport,
   IconLogout,
   IconMail,
@@ -13,17 +15,21 @@ import {
   IconSearch,
   IconKey,
   IconShield,
+  IconTeam,
   IconUserCircle,
   IconUsers,
 } from "./components/Icons";
 
-/** « requiert » vide = visible par tous les comptes connectés. */
-const NAV = [
-  { to: "/", cle: "nav.dashboard", icon: IconDashboard, end: true, requiert: null },
-  { to: "/clients", cle: "nav.clients", icon: IconUsers, end: false, requiert: null },
-  { to: "/import", cle: "nav.import", icon: IconImport, end: false, requiert: "clients.importer" },
-  { to: "/newsletters", cle: "nav.newsletters", icon: IconMail, end: false, requiert: "newsletters.voir" },
-] as const;
+/* La navigation dépend de la vue attribuée au rôle (voir vues.ts) ; ce
+   tableau ne fait que relier un nom d'icône à son composant. */
+const ICONES: Record<string, typeof IconDashboard> = {
+  dashboard: IconDashboard,
+  users: IconUsers,
+  import: IconImport,
+  mail: IconMail,
+  team: IconTeam,
+  handshake: IconHandshake,
+};
 
 function initiales(nom: string) {
   const mots = nom.trim().split(/\s+/).filter(Boolean);
@@ -45,6 +51,7 @@ export default function Layout() {
 
   const nom = utilisateur?.nomComplet ?? "";
   const roleLabel = utilisateur ? libelles.role(utilisateur.role) : "";
+  const entrees = navDe(utilisateur?.role);
 
   // Le tiroir de navigation se referme dès qu'on change de page (mobile).
   useEffect(() => {
@@ -101,12 +108,22 @@ export default function Layout() {
         <div className="sidebar-tag">{t("nav.marque")}</div>
 
         <nav className="sidebar-nav" aria-label={t("nav.principale")}>
-          {NAV.filter((n) => !n.requiert || peut(n.requiert)).map(({ to, cle, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
-              <Icon />
-              <span>{t(cle as CleTraduction)}</span>
-            </NavLink>
-          ))}
+          {entrees
+            .filter((n) => !n.requiert || peut(n.requiert))
+            .map(({ to, cle, icone, end }) => {
+              const Icone = ICONES[icone];
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+                >
+                  <Icone />
+                  <span>{t(cle)}</span>
+                </NavLink>
+              );
+            })}
         </nav>
 
         <div className="nav-section">
@@ -204,13 +221,6 @@ export default function Layout() {
                       {t("nav.gererUtilisateurs")}
                     </button>
                   )}
-
-                  {/* Le sélecteur est repris ici : sur mobile la barre du haut
-                      est trop étroite pour l'afficher en permanence. */}
-                  <div className="menu-lang">
-                    <span>{t("topbar.langue")}</span>
-                    <SelecteurLangue compact />
-                  </div>
 
                   <div className="menu-sep" />
                   <button className="menu-item danger" role="menuitem" onClick={handleLogout}>

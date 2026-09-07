@@ -388,6 +388,54 @@ export const fr = {
   "perms.ecartRetire": "Retiré par rapport à la configuration par défaut",
   "perms.ecartAjoute": "Ajouté par rapport à la configuration par défaut",
 
+  /* ------------------------------------------------- Vue direction (DG) */
+  "nav.equipes": "Équipes",
+  "nav.partenaires": "Partenaires",
+
+  "dg.bienvenue": "Bienvenue {nom}",
+  "dg.sousTitre": "Voici où en est l'activité aujourd'hui.",
+  "dg.periodeDepuisToujours": "Sur l'ensemble des ventes enregistrées",
+  "dg.ca": "Chiffre d'affaires",
+  "dg.caNote": "{n} ventes auprès de {clients} clients",
+  "dg.caNoteSansClient": "{n} ventes enregistrées",
+  "dg.meilleurVendeur": "Meilleur vendeur",
+  "dg.meilleurVendeurNote": "{ca} XAF, soit {part}% du chiffre d'affaires",
+  "dg.meilleurProduit": "Meilleur produit / service",
+  "dg.meilleurProduitNote": "{n} ventes, soit {part}% des ventes",
+  "dg.beneficeMoyen": "Bénéfice moyen",
+  "dg.beneficeMoyenNote": "Par vente, soit {marge}% de marge",
+  "dg.aucuneDonnee": "Pas encore de donnée",
+  "dg.videTitre": "Aucune vente enregistrée",
+  "dg.videTexte":
+    "Ces quatre indicateurs se calculent à partir des ventes : produit vendu, vendeur, prix d'achat et prix de revente. Tant qu'aucune vente n'est saisie, ils resteraient à zéro, ce qui se lirait à tort comme une mauvaise période.",
+  "dg.videAide": "Le chiffre d'affaires porté par les fiches clients ne peut pas les remplacer : il ne dit ni quand, ni par qui, ni sur quoi.",
+
+  "equipes.titre": "Équipes",
+  "equipes.sousTitre": "Les forces commerciales et ce que chacune réalise",
+  "equipes.aucuneTitre": "Aucune équipe constituée",
+  "equipes.aucuneTexte":
+    "Une équipe se forme dès qu'un commercial est rattaché à un responsable, depuis la page Utilisateurs.",
+  "equipes.sansEquipe": "Sans responsable",
+  "equipes.sansEquipeAide": "Ces comptes ne sont rattachés à personne et n'apparaissent donc dans aucune équipe.",
+  "equipes.membresUn": "1 membre",
+  "equipes.membresN": "{n} membres",
+  "equipes.aucunMembre": "Aucun commercial rattaché pour le moment.",
+  "equipes.colMembre": "Membre",
+  "equipes.colClients": "Clients",
+  "equipes.colVentes": "Ventes",
+  "equipes.colCa": "Chiffre d'affaires",
+  "equipes.colBenefice": "Bénéfice",
+  "equipes.responsable": "responsable",
+  "equipes.inactif": "désactivé",
+
+  "partenaires.titre": "Partenaires",
+  "partenaires.sousTitre": "Les partenaires technologiques d'EasyTech Group",
+  "partenaires.aDefinirTitre": "Module à définir",
+  "partenaires.aDefinirTexte":
+    "Cette page attend son contenu. Les partenaires ne sont pas encore modélisés dans la base : ni fiche, ni contact, ni contrat.",
+  "partenaires.aDefinirAide":
+    "Dites-nous ce qu'un partenaire doit porter (contacts, accords commerciaux, catalogue de produits revendus, campagnes fournies) et la page se construit sur cette base.",
+
   /* --------------------------------------------------------------- Rôles */
   "role.SUPER_ADMIN": "Super administrateur",
   "role.ADMIN": "Administrateur",

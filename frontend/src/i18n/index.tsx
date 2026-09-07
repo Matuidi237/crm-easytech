@@ -95,9 +95,36 @@ export function LangueProvider({ children }: { children: ReactNode }) {
   return <LangueContext.Provider value={valeur}>{children}</LangueContext.Provider>;
 }
 
+/**
+ * Contexte de repli, utilisé si le fournisseur manque à l'appel.
+ *
+ * Volontairement pas une exception : la langue est une préoccupation
+ * d'affichage, avec un défaut évident. Faire échouer le rendu de toute
+ * l'application parce qu'un contexte manque coûterait un écran blanc là où
+ * du français correct suffit. Le cas se produit en développement quand le
+ * rechargement à chaud remplace ce module alors que des composants pointent
+ * encore sur l'ancien contexte.
+ */
+const REPLI: ContexteLangue = {
+  langue: "fr",
+  definirLangue: () => {},
+  t: (cle, valeurs) => {
+    let texte: string = fr[cle] ?? cle;
+    if (valeurs) for (const [n, v] of Object.entries(valeurs)) texte = texte.split(`{${n}}`).join(String(v));
+    return texte;
+  },
+  nombre: (n) => n.toLocaleString(LOCALES.fr),
+  dateHeure: (iso) => (iso ? new Date(iso).toLocaleString(LOCALES.fr, { dateStyle: "medium", timeStyle: "short" }) : ""),
+  date: (iso) => (iso ? new Date(iso).toLocaleDateString(LOCALES.fr, { dateStyle: "medium" }) : ""),
+  locale: LOCALES.fr,
+};
+
 export function useLangue() {
   const ctx = useContext(LangueContext);
-  if (!ctx) throw new Error("useLangue doit être utilisé dans un LangueProvider.");
+  if (!ctx) {
+    console.warn("useLangue appelé hors LangueProvider : repli sur le français.");
+    return REPLI;
+  }
   return ctx;
 }
 

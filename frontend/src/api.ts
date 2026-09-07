@@ -9,6 +9,7 @@ const USER_KEY = "crm_utilisateur";
 export const ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
+  "DG",
   "RESPONSABLE_COMMERCIAL",
   "COMMERCIAL",
   "COMPTABLE",
@@ -18,14 +19,6 @@ export const ROLES = [
 export type Role = (typeof ROLES)[number];
 
 /** Libellés affichés. La matrice des droits, elle, vit uniquement côté serveur. */
-export const LIBELLES_ROLES: Record<Role, string> = {
-  SUPER_ADMIN: "Super administrateur",
-  ADMIN: "Administrateur",
-  RESPONSABLE_COMMERCIAL: "Responsable commercial",
-  COMMERCIAL: "Commercial",
-  COMPTABLE: "Comptable",
-  CHEF_DE_PROJET: "Chef de projet",
-};
 
 export type Permission =
   | "clients.voirTous" | "clients.creer" | "clients.modifier" | "clients.supprimer"
@@ -536,4 +529,49 @@ export async function sendNewsletter(id: string) {
   const res = await authedFetch(`/api/newsletters/${id}/send`, { method: "POST" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'envoi.");
   return res.json() as Promise<{ newsletter: Newsletter; mailerLive: boolean }>;
+}
+
+/* ------------------------------------------------------------- Direction */
+
+export type IndicateursDirection = {
+  aDesVentes: boolean;
+  nbVentes: number;
+  chiffreAffaires: number;
+  meilleurVendeur: { nom: string; ca: number; nbVentes: number; partPct: number } | null;
+  meilleurProduit: { nom: string; nbVentes: number; ca: number; partPct: number } | null;
+  beneficeMoyen: number | null;
+  beneficeTotal?: number;
+  margeMoyennePct: number | null;
+  nbClientsFactures: number;
+};
+
+export async function fetchIndicateursDirection() {
+  const res = await authedFetch("/api/direction/tableau-de-bord");
+  if (!res.ok) throw new Error("Erreur lors du chargement des indicateurs.");
+  return res.json() as Promise<IndicateursDirection>;
+}
+
+export type MembreEquipe = {
+  id: string;
+  nomComplet: string;
+  identifiant: string;
+  fonction: string | null;
+  role: Role;
+  actif: boolean;
+  dernierAcces: string | null;
+  nbClients: number;
+  nbVentes: number;
+  chiffreAffaires: number;
+  benefice: number;
+};
+
+export type Equipes = {
+  equipes: { responsable: MembreEquipe; membres: MembreEquipe[]; chiffreAffaires: number; nbVentes: number }[];
+  sansEquipe: MembreEquipe[];
+};
+
+export async function fetchEquipes() {
+  const res = await authedFetch("/api/direction/equipes");
+  if (!res.ok) throw new Error("Erreur lors du chargement des équipes.");
+  return res.json() as Promise<Equipes>;
 }

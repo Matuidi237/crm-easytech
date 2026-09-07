@@ -387,6 +387,53 @@ export const en: Record<keyof typeof fr, string> = {
   "perms.ecartRetire": "Removed compared with the default configuration",
   "perms.ecartAjoute": "Added compared with the default configuration",
 
+  /* -------------------------------------------- Managing director's view */
+  "nav.equipes": "Teams",
+  "nav.partenaires": "Partners",
+
+  "dg.bienvenue": "Welcome {nom}",
+  "dg.sousTitre": "Here is where the business stands today.",
+  "dg.periodeDepuisToujours": "Across every recorded sale",
+  "dg.ca": "Revenue",
+  "dg.caNote": "{n} sales to {clients} clients",
+  "dg.caNoteSansClient": "{n} sales recorded",
+  "dg.meilleurVendeur": "Top seller",
+  "dg.meilleurVendeurNote": "{ca} XAF, that is {part}% of revenue",
+  "dg.meilleurProduit": "Top product / service",
+  "dg.meilleurProduitNote": "{n} sales, that is {part}% of all sales",
+  "dg.beneficeMoyen": "Average profit",
+  "dg.beneficeMoyenNote": "Per sale, a {marge}% margin",
+  "dg.aucuneDonnee": "No data yet",
+  "dg.videTitre": "No sale recorded",
+  "dg.videTexte":
+    "These four indicators are computed from sales: product sold, seller, purchase price and resale price. With no sale on record they would all read zero, which would wrongly look like a bad period.",
+  "dg.videAide": "The revenue figure held on client records cannot stand in for them: it says nothing about when, by whom, or on what.",
+
+  "equipes.titre": "Teams",
+  "equipes.sousTitre": "The sales teams and what each one achieves",
+  "equipes.aucuneTitre": "No team set up",
+  "equipes.aucuneTexte": "A team forms as soon as an account manager reports to a head of sales, from the Users page.",
+  "equipes.sansEquipe": "No manager",
+  "equipes.sansEquipeAide": "These accounts report to nobody and therefore appear in no team.",
+  "equipes.membresUn": "1 member",
+  "equipes.membresN": "{n} members",
+  "equipes.aucunMembre": "No account manager reports here yet.",
+  "equipes.colMembre": "Member",
+  "equipes.colClients": "Clients",
+  "equipes.colVentes": "Sales",
+  "equipes.colCa": "Revenue",
+  "equipes.colBenefice": "Profit",
+  "equipes.responsable": "head of sales",
+  "equipes.inactif": "disabled",
+
+  "partenaires.titre": "Partners",
+  "partenaires.sousTitre": "EasyTech Group's technology partners",
+  "partenaires.aDefinirTitre": "Module to be defined",
+  "partenaires.aDefinirTexte":
+    "This page is waiting for its content. Partners are not modelled in the database yet: no record, no contact, no contract.",
+  "partenaires.aDefinirAide":
+    "Tell us what a partner should carry (contacts, commercial agreements, catalogue of resold products, supplied campaigns) and the page gets built on that.",
+
   /* -------------------------------------------------------------- Roles */
   "role.SUPER_ADMIN": "Super administrator",
   "role.ADMIN": "Administrator",

@@ -35,6 +35,7 @@ model Client {
   proprietaire   Utilisateur? @relation("Proprietaire", fields: [proprietaireId], references: [id], onDelete: SetNull)
   proprietaireId String?
   acces          AccesClient[]
+  ventes         Vente[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -65,6 +66,7 @@ model ImportJob {
 enum RoleUtilisateur {
   SUPER_ADMIN
   ADMIN
+  DG
   RESPONSABLE_COMMERCIAL
   COMMERCIAL
   COMPTABLE
@@ -92,8 +94,53 @@ model Utilisateur {
 
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
+  ventes          Vente[]       @relation("Vendeur")
 
   @@index([responsableId])
+}
+
+/// Une vente réalisée : c'est la seule source des indicateurs de direction.
+///
+/// Le champ « chiffreAffaires » porté par Client est un montant global saisi
+/// à la main lors des imports ; il ne dit ni quand, ni par qui, ni sur quoi.
+/// Les quatre indicateurs du tableau de bord du DG (chiffre d'affaires,
+/// meilleur vendeur, meilleur produit, bénéfice moyen) se calculent tous ici.
+///
+/// Les prix sont unitaires et hors taxes, en XAF, comme le reste de l'outil.
+model Vente {
+  id        String @id @default(uuid())
+
+  /// La fiche client peut disparaître (suppression d'un fichier importé)
+  /// sans que la vente ne s'efface : le nom en garde la trace lisible.
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String
+
+  /// Idem pour le vendeur : un compte fermé ne doit pas retirer sa
+  /// contribution du chiffre d'affaires déjà réalisé.
+  vendeur    Utilisateur? @relation("Vendeur", fields: [vendeurId], references: [id], onDelete: SetNull)
+  vendeurId  String?
+  vendeurNom String
+
+  /// Produit ou service vendu. Texte libre volontairement : le catalogue
+  /// d'EasyTech n'est pas encore modélisé, et l'imposer maintenant figerait
+  /// des choix qui n'ont pas été arbitrés.
+  produit  String
+  quantite Int @default(1)
+
+  /// Coût unitaire d'acquisition et prix unitaire facturé. Leur écart donne
+  /// la marge, d'où le bénéfice moyen.
+  prixAchat Decimal @db.Decimal(18, 2)
+  prixVente Decimal @db.Decimal(18, 2)
+
+  dateVente DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vendeurId])
+  @@index([clientId])
+  @@index([produit])
+  @@index([dateVente])
 }
 
 /// Surcharge de la matrice de permissions pour un rôle. Absent = le rôle

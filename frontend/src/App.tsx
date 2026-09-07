@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
+import { estVueDirection } from "./vues";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -13,6 +14,28 @@ import NewsletterDetailPage from "./pages/NewsletterDetailPage";
 import ProfilPage from "./pages/ProfilPage";
 import UtilisateursPage from "./pages/UtilisateursPage";
 import PermissionsPage from "./pages/PermissionsPage";
+import DirectionPage from "./pages/DirectionPage";
+import EquipesPage from "./pages/EquipesPage";
+import PartenairesPage from "./pages/PartenairesPage";
+
+/**
+ * L'accueil dépend de la vue du rôle : le directeur général ouvre sur ses
+ * indicateurs, tout le monde sur l'état de la base clients.
+ */
+function Accueil() {
+  const { utilisateur } = useAuth();
+  return estVueDirection(utilisateur?.role) ? <DirectionPage /> : <DashboardPage />;
+}
+
+/**
+ * Réservée à la vue direction. Un autre rôle qui taperait l'adresse est
+ * renvoyé chez lui : ce n'est pas une protection (le serveur reste seul juge)
+ * mais la page n'aurait aucun sens dans son parcours.
+ */
+function RouteDirection({ children }: { children: JSX.Element }) {
+  const { utilisateur } = useAuth();
+  return estVueDirection(utilisateur?.role) ? children : <Navigate to="/" replace />;
+}
 
 /** Redirige vers l accueil si le compte ne dispose pas du droit demandé. */
 function RouteProtegee({ requiert, children }: { requiert: Permission; children: JSX.Element }) {
@@ -28,11 +51,27 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/" element={<Accueil />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/import" element={<RouteProtegee requiert="clients.importer"><ImportPage /></RouteProtegee>} />
             <Route path="/newsletters" element={<RouteProtegee requiert="newsletters.voir"><NewslettersPage /></RouteProtegee>} />
             <Route path="/newsletters/:id" element={<RouteProtegee requiert="newsletters.voir"><NewsletterDetailPage /></RouteProtegee>} />
+            <Route
+              path="/equipes"
+              element={
+                <RouteDirection>
+                  <EquipesPage />
+                </RouteDirection>
+              }
+            />
+            <Route
+              path="/partenaires"
+              element={
+                <RouteDirection>
+                  <PartenairesPage />
+                </RouteDirection>
+              }
+            />
             <Route path="/profil" element={<ProfilPage />} />
             <Route
               path="/permissions"

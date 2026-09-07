@@ -8,6 +8,7 @@ import { newslettersRouter } from "./routes/newsletters.js";
 import { utilisateursRouter } from "./routes/utilisateurs.js";
 import { accesRouter } from "./routes/acces.js";
 import { permissionsRouter, rechargerPermissions } from "./routes/permissions.js";
+import { directionRouter } from "./routes/direction.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -37,6 +38,8 @@ app.use("/api/newsletters", requireAuth, requirePermission("newsletters.voir"), 
 app.use("/api/utilisateurs", requireAuth, requirePermission("utilisateurs.gerer"), utilisateursRouter);
 app.use("/api/acces", requireAuth, accesRouter);
 app.use("/api/permissions", requireAuth, requirePermission("permissions.gerer"), permissionsRouter);
+// Indicateurs de direction : la même capacité que le reste du pilotage.
+app.use("/api/direction", requireAuth, requirePermission("stats.globales"), directionRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

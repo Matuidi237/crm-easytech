@@ -68,6 +68,13 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
   ADMIN: TOUTES.filter((p) => p !== "utilisateurs.gererAdmins" && p !== "permissions.gerer"),
 
   /**
+   * Direction générale. Mêmes droits qu'un administrateur : le DG se
+   * distingue par ce qu'il voit en premier, pas par ce qu'il a le droit de
+   * faire. Son interface est décrite côté frontend (VUE_PAR_ROLE).
+   */
+  DG: TOUTES.filter((p) => p !== "utilisateurs.gererAdmins" && p !== "permissions.gerer"),
+
+  /**
    * Voit toute la base et distribue les accès à ses commerciaux.
    * Il administre des comptes, mais seulement ceux de son équipe : cette
    * restriction-là ne s'exprime pas en capacité, elle est vérifiée dans la
@@ -127,6 +134,7 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
 export const LIBELLES_ROLES: Record<RoleUtilisateur, string> = {
   SUPER_ADMIN: "Super administrateur",
   ADMIN: "Administrateur",
+  DG: "Directeur général",
   RESPONSABLE_COMMERCIAL: "Responsable commercial",
   COMMERCIAL: "Commercial",
   COMPTABLE: "Comptable",
@@ -137,6 +145,9 @@ export const LIBELLES_ROLES: Record<RoleUtilisateur, string> = {
 const RANG: Record<RoleUtilisateur, number> = {
   SUPER_ADMIN: 100,
   ADMIN: 80,
+  /* Même rang qu'un administrateur : aucun des deux ne peut donc agir sur
+     l'autre, « peutAgirSur » exigeant un rang strictement supérieur. */
+  DG: 80,
   RESPONSABLE_COMMERCIAL: 60,
   CHEF_DE_PROJET: 50,
   COMPTABLE: 40,
