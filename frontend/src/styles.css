@@ -141,9 +141,10 @@ button {
    ========================================================================== */
 
 .shell {
+  --gouttiere: 18px;
   display: flex;
   gap: 18px;
-  padding: 18px;
+  padding: var(--gouttiere);
   min-height: 100vh;
 }
 
@@ -311,7 +312,7 @@ button {
    Collante, elle reste accessible quelle que soit la longueur de la page. */
 .topbar {
   position: sticky;
-  top: 18px;
+  top: var(--gouttiere);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -323,6 +324,23 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-card);
+}
+
+/* Le contenu défilait dans la gouttière au-dessus de la barre et le long de
+   ses angles arrondis : la barre est collée à 18 px du haut, pas à 0, et ces
+   18 px laissaient voir les cartes passer derrière. Ce calque opaque, à la
+   couleur du fond de page, couvre la gouttière haute et déborde sur les côtés
+   pour masquer les angles. Il est peint derrière la barre elle-même, mais
+   au-dessus du contenu, la barre formant son propre plan d'empilement. */
+.topbar::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--gouttiere) * -1 - 1px);
+  left: calc(var(--gouttiere) * -1);
+  right: calc(var(--gouttiere) * -1);
+  bottom: 0;
+  background: var(--page);
+  z-index: -1;
 }
 
 .search {
@@ -2057,8 +2075,8 @@ td.col-actions {
     display: grid;
   }
 
-  .topbar {
-    top: 14px;
+  .shell {
+    --gouttiere: 14px;
   }
 
   .login-shell {
@@ -2129,8 +2147,11 @@ td.col-actions {
     font-size: 11.5px;
   }
 
+  .shell {
+    --gouttiere: 12px;
+  }
+
   .topbar {
-    top: 12px;
     min-height: 56px;
     padding: 8px 10px;
     gap: 10px;
@@ -2593,45 +2614,6 @@ td.col-actions {
   opacity: 0.45;
 }
 
-/* Bascule de représentation, à droite du sélecteur de dimension ---------- */
-
-.vue-switch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.vue-opt {
-  width: 30px;
-  height: 27px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-3);
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.vue-opt:hover {
-  color: var(--ink);
-}
-
-.vue-opt.on {
-  background: var(--surface);
-  color: var(--brand-700);
-  box-shadow: var(--shadow-card);
-}
-
-.card-head-outils {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
 
 /* Entrée des cartes ------------------------------------------------------ */
 
@@ -2943,5 +2925,39 @@ td.col-actions {
 @media (max-width: 1240px) {
   .delta-libelle {
     display: none;
+  }
+}
+
+/* Évolution mensuelle sur petit écran ------------------------------------ */
+
+/* À 375 px, douze colonnes laissent 19 px chacune : « sept. » y déborde et
+   les mois se chevauchent. On garde les douze barres, qui portent la donnée,
+   et on n'écrit qu'un mois sur deux. Le dernier reste visible, c'est celui
+   qu'on cherche en premier. */
+@media (max-width: 700px) {
+  .evo {
+    gap: 5px;
+    height: 168px;
+  }
+
+  .evo-col:nth-child(odd) .evo-mois {
+    visibility: hidden;
+  }
+
+  .evo-mois {
+    font-size: 10.5px;
+  }
+}
+
+/* Sous 420 px, le donut et sa légende cèdent aussi quelques pixels. */
+@media (max-width: 420px) {
+  .donut-wrap-large .donut,
+  .donut-wrap-large .donut svg {
+    width: 180px;
+    height: 180px;
+  }
+
+  .legend {
+    grid-template-columns: 1fr;
   }
 }

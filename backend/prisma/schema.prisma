@@ -137,6 +137,16 @@ model Vente {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Vente issue du jeu de démonstration.
+  ///
+  /// Sans ce drapeau, le nettoyage en production dépendrait des comptes qui
+  /// ont porté ces ventes : si l'un d'eux est supprimé à la main, la relation
+  /// passe à null et la vente devient introuvable, tout en continuant de
+  /// gonfler le chiffre d'affaires. Le drapeau rend la suppression sûre et
+  /// vérifiable, indépendamment de ce qui est arrivé aux comptes.
+  estDemo Boolean @default(false)
+
+  @@index([estDemo])
   @@index([vendeurId])
   @@index([clientId])
   @@index([produit])

@@ -172,47 +172,6 @@ const CAT_RESTE = "var(--cat-rest)";
    toujours de la géométrie finale, elle ne peut pas rester bloquée. Le rejeu
    au changement de filtre se fait par la clé de remontage côté page. */
 
-export type LigneValeur = { label: string; valeur: number; valeurCourte: string; detail: string };
-
-/**
- * Classement à une seule mesure : barres horizontales, une teinte.
- *
- * Horizontal parce que les libellés sont longs (« République démocratique du
- * Congo », « Conseil & services professionnels ») : à la verticale ils
- * seraient tronqués ou penchés.
- *
- * La barre porte la valeur principale ; le reste (nombre de ventes, part)
- * passe au survol, sinon la colonne de droite mange la place du graphique.
- */
-export function Classement({ lignes }: { lignes: LigneValeur[] }) {
-  const [tip, setTip] = useState<Tip>(null);
-  const max = Math.max(1, ...lignes.map((l) => l.valeur));
-
-  return (
-    <>
-      <div className="bars">
-        {lignes.map((l) => (
-          <div
-            className="bar-row bar-row-valeur"
-            key={l.label}
-            onMouseMove={(e) => setTip({ x: e.clientX, y: e.clientY, title: l.label, detail: l.detail })}
-            onMouseLeave={() => setTip(null)}
-          >
-            <span className="bar-label" title={l.label}>
-              {l.label}
-            </span>
-            <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${(l.valeur / max) * 100}%` }} />
-            </div>
-            <span className="bar-value bar-value-large">{l.valeurCourte}</span>
-          </div>
-        ))}
-      </div>
-      <Tooltip tip={tip} />
-    </>
-  );
-}
-
 export type LigneProduit = {
   groupe: string;
   produit: string;
@@ -315,11 +274,13 @@ export function DonutInteractif({
   libelleCentre,
   totalFormate,
 }: {
-  lignes: { label: string; valeur: number; valeurCourte: string }[];
+  /** « valeurCourte » est abrégée pour l'affichage, « detail » exact pour le survol. */
+  lignes: { label: string; valeur: number; valeurCourte: string; detail: string }[];
   libelleCentre: string;
   totalFormate: string;
 }) {
   const [actif, setActif] = useState<string | null>(null);
+  const [tip, setTip] = useState<Tip>(null);
 
   const total = lignes.reduce((s, l) => s + l.valeur, 0);
   const R = 62;
@@ -365,7 +326,13 @@ export function DonutInteractif({
                 strokeDasharray={`${s.longueur} ${CIRC - s.longueur}`}
                 strokeDashoffset={-s.decalage}
                 onMouseEnter={() => setActif(s.label)}
-                onMouseLeave={() => setActif(null)}
+                onMouseLeave={() => {
+                  setActif(null);
+                  setTip(null);
+                }}
+                onMouseMove={(e) =>
+                  setTip({ x: e.clientX, y: e.clientY, title: s.label, detail: s.detail })
+                }
               />
             ))}
           </g>
@@ -387,7 +354,11 @@ export function DonutInteractif({
             }`}
             key={s.label}
             onMouseEnter={() => setActif(s.label)}
-            onMouseLeave={() => setActif(null)}
+            onMouseLeave={() => {
+              setActif(null);
+              setTip(null);
+            }}
+            onMouseMove={(e) => setTip({ x: e.clientX, y: e.clientY, title: s.label, detail: s.detail })}
           >
             <span className="legend-dot" style={{ background: s.couleur }} />
             <span className="legend-name" title={s.label}>
@@ -397,6 +368,8 @@ export function DonutInteractif({
           </div>
         ))}
       </div>
+
+      <Tooltip tip={tip} />
     </div>
   );
 }

@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "demo:dg": "node scripts/demo-direction.mjs",
-    "demo:dg:supprimer": "node scripts/demo-direction.mjs --supprimer"
+    "demo:dg:supprimer": "node scripts/demo-direction.mjs --supprimer",
+    "demo:dg:etat": "node scripts/demo-direction.mjs --etat"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

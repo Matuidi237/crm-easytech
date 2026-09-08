@@ -379,28 +379,7 @@ export function IconCoins({ size = 19, strokeWidth = 1.7, className }: IconProps
   );
 }
 
-/** Vue circulaire. */
-export function IconDonut({ size = 19, strokeWidth = 1.7, className }: IconProps) {
-  return (
-    <svg {...base(size, strokeWidth)} className={className}>
-      <circle cx="12" cy="12" r="8.6" />
-      <circle cx="12" cy="12" r="3.4" />
-      <path d="M12 3.4v5.2" />
-      <path d="M19.4 16.2 14.9 13.7" />
-    </svg>
-  );
-}
 
-/** Vue en barres. */
-export function IconBars({ size = 19, strokeWidth = 1.7, className }: IconProps) {
-  return (
-    <svg {...base(size, strokeWidth)} className={className}>
-      <path d="M3.5 6.5h15" />
-      <path d="M3.5 12h10" />
-      <path d="M3.5 17.5h6" />
-    </svg>
-  );
-}
 
 /** Flèche de hausse, doublant la couleur de la puce de variation. */
 export function IconArrowUp({ size = 19, strokeWidth = 2.2, className }: IconProps) {

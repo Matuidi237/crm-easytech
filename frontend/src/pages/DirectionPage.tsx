@@ -9,16 +9,14 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue, type CleTraduction } from "../i18n";
-import { Classement, DonutInteractif, EvolutionMensuelle, Jauge, TopProduits } from "../components/Charts";
+import { DonutInteractif, EvolutionMensuelle, Jauge, TopProduits } from "../components/Charts";
 import {
   IconAlert,
   IconArrowDown,
   IconArrowUp,
   IconAward,
-  IconBars,
   IconBox,
   IconCoins,
-  IconDonut,
   IconInbox,
   IconTrend,
 } from "../components/Icons";
@@ -34,14 +32,22 @@ const DIMS_TOP: DimensionTop[] = ["commercial", "pays", "secteur"];
    barres, elle, n'a pas cette limite et garde les huit lignes. */
 const MAX_PARTS = 6;
 
-type PartDonut = { label: string; valeur: number; valeurCourte: string };
+type PartDonut = { label: string; valeur: number; valeurCourte: string; detail: string };
 
 /** Replie tout ce qui dépasse la lisibilité du donut en une part « Autres ». */
-function replierParts(parts: PartDonut[], libelleReste: string, formater: (n: number) => string): PartDonut[] {
+function replierParts(
+  parts: PartDonut[],
+  libelleReste: string,
+  formater: (n: number) => string,
+  detailReste: (n: number) => string
+): PartDonut[] {
   if (parts.length <= MAX_PARTS) return parts;
   const tete = parts.slice(0, MAX_PARTS - 1);
   const reste = parts.slice(MAX_PARTS - 1).reduce((s, p) => s + p.valeur, 0);
-  return [...tete, { label: libelleReste, valeur: reste, valeurCourte: `${formater(reste)} XAF` }];
+  return [
+    ...tete,
+    { label: libelleReste, valeur: reste, valeurCourte: formater(reste), detail: detailReste(reste) },
+  ];
 }
 
 function SelecteurDimension<T extends string>({
@@ -150,7 +156,7 @@ function CarteIndicateur({
  * ont rapporté.
  */
 export default function DirectionPage() {
-  const { t, nombre, dateHeure, locale } = useLangue();
+  const { t, nombre, montant, montantCompact, dateHeure, locale } = useLangue();
   const { utilisateur } = useAuth();
   const [ind, setInd] = useState<IndicateursDirection | null>(null);
   const [analyses, setAnalyses] = useState<AnalysesDirection | null>(null);
@@ -169,8 +175,6 @@ export default function DirectionPage() {
       .then(setAnalyses)
       .catch((e) => setErreur(e.message));
   }, []);
-
-  const [vueCa, setVueCa] = useState<"donut" | "barres">("donut");
 
   const libelleDim = (d: string) => t(`dg.dim${d[0].toUpperCase()}${d.slice(1)}` as CleTraduction);
   const libelleDimMin = (d: string) => t(`dg.dim${d[0].toUpperCase()}${d.slice(1)}Min` as CleTraduction);
@@ -209,13 +213,13 @@ export default function DirectionPage() {
     );
   }
 
-  const xaf = (montant: number) => `${nombre(montant)} XAF`;
   const rien = t("dg.aucuneDonnee");
 
   const cartes: Carte[] = [
     {
       label: t("dg.ca"),
-      valeur: ind.aDesVentes ? xaf(ind.chiffreAffaires) : rien,
+      // Abrégé : « 194,2 M XAF » se compare d'un coup d'œil, pas neuf chiffres.
+      valeur: ind.aDesVentes ? montantCompact(ind.chiffreAffaires) : rien,
       note: ind.aDesVentes
         ? ind.nbClientsFactures > 0
           ? t("dg.caNote", { n: nombre(ind.nbVentes), clients: nombre(ind.nbClientsFactures) })
@@ -231,7 +235,7 @@ export default function DirectionPage() {
       valeur: ind.meilleurVendeur?.nom ?? rien,
       note: ind.meilleurVendeur
         ? t("dg.meilleurVendeurNote", {
-            ca: nombre(ind.meilleurVendeur.ca),
+            ca: montantCompact(ind.meilleurVendeur.ca).replace(" XAF", ""),
             part: ind.meilleurVendeur.partPct,
           })
         : t("dg.periodeDepuisToujours"),
@@ -259,7 +263,7 @@ export default function DirectionPage() {
     },
     {
       label: t("dg.beneficeMoyen"),
-      valeur: ind.beneficeMoyen === null ? rien : xaf(ind.beneficeMoyen),
+      valeur: ind.beneficeMoyen === null ? rien : montantCompact(ind.beneficeMoyen),
       note:
         ind.beneficeMoyen === null
           ? t("dg.periodeDepuisToujours")
@@ -313,71 +317,36 @@ export default function DirectionPage() {
                     {t("dg.caSousTitre", { dimension: libelleDimMin(dimCa) })}
                   </div>
                 </div>
-                <div className="card-head-outils">
-                  <SelecteurDimension
-                    dimensions={DIMS_CA}
-                    active={dimCa}
-                    onChange={setDimCa}
-                    libelle={libelleDim}
-                    etiquette={t("dg.changerDimension")}
-                  />
-                  {/* Le donut répond à « quelle part » ; les barres à « combien,
-                      et dans quel ordre ». Deux questions, deux vues. */}
-                  <div className="vue-switch" role="group" aria-label={t("dg.changerVue")}>
-                    <button
-                      type="button"
-                      className={`vue-opt${vueCa === "donut" ? " on" : ""}`}
-                      onClick={() => setVueCa("donut")}
-                      aria-pressed={vueCa === "donut"}
-                      title={t("dg.vueCirculaire")}
-                      aria-label={t("dg.vueCirculaire")}
-                    >
-                      <IconDonut size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`vue-opt${vueCa === "barres" ? " on" : ""}`}
-                      onClick={() => setVueCa("barres")}
-                      aria-pressed={vueCa === "barres"}
-                      title={t("dg.vueBarres")}
-                      aria-label={t("dg.vueBarres")}
-                    >
-                      <IconBars size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {/* La clé remonte le graphique quand la vue ou la dimension
-                  change : c'est ce qui rejoue l'animation d'entrée. */}
-              {vueCa === "donut" ? (
-                <DonutInteractif
-                  key={`donut-${dimCa}`}
-                  lignes={replierParts(
-                    analyses.chiffreAffaires[dimCa].map((l) => ({
-                      label: l.label,
-                      valeur: l.montant,
-                      valeurCourte: `${nombre(l.montant)} XAF`,
-                    })),
-                    t("dg.autres"),
-                    nombre
-                  )}
-                  libelleCentre={t("dg.totalCentre")}
-                  totalFormate={`${nombre(ind.chiffreAffaires)} XAF`}
+                <SelecteurDimension
+                  dimensions={DIMS_CA}
+                  active={dimCa}
+                  onChange={setDimCa}
+                  libelle={libelleDim}
+                  etiquette={t("dg.changerDimension")}
                 />
-              ) : (
-                <Classement
-                  key={`barres-${dimCa}`}
-                  lignes={analyses.chiffreAffaires[dimCa].map((l) => ({
+              </div>
+              {/* La clé remonte le graphique à chaque changement de dimension :
+                  c'est ce qui rejoue l'animation d'entrée. */}
+              <DonutInteractif
+                key={`donut-${dimCa}`}
+                lignes={replierParts(
+                  analyses.chiffreAffaires[dimCa].map((l) => ({
                     label: l.label,
                     valeur: l.montant,
-                    valeurCourte: `${nombre(l.montant)} XAF`,
+                    valeurCourte: montantCompact(l.montant),
+                    // Le montant exact et le nombre de ventes restent au survol.
                     detail:
                       l.nbVentes === 1
                         ? t("dg.caDetailUn", { montant: nombre(l.montant) })
                         : t("dg.caDetail", { montant: nombre(l.montant), n: nombre(l.nbVentes) }),
-                  }))}
-                />
-              )}
+                  })),
+                  t("dg.autres"),
+                  montantCompact,
+                  (n) => t("dg.caDetailReste", { montant: nombre(n) })
+                )}
+                libelleCentre={t("dg.totalCentre")}
+                totalFormate={montantCompact(ind.chiffreAffaires)}
+              />
             </div>
 
             <div className="card">
@@ -448,15 +417,15 @@ export default function DirectionPage() {
                       <td className="num" data-label={t("dg.colQuantite")}>
                         {nombre(v.quantite)}
                       </td>
-                      <td className="num" data-label={t("dg.colMontant")}>
-                        {nombre(v.montant)} XAF
+                      <td className="num" data-label={t("dg.colMontant")} title={montant(v.montant)}>
+                        {montantCompact(v.montant)}
                       </td>
                       <td
                         className={`num ${v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
                         data-label={t("dg.colBenefice")}
                       >
                         {v.benefice >= 0 ? "+" : ""}
-                        {nombre(v.benefice)} XAF
+                        {montantCompact(v.benefice)}
                       </td>
                     </tr>
                   ))}

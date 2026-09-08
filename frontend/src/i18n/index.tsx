@@ -29,6 +29,9 @@ const DICTIONNAIRES: Record<Langue, Record<CleTraduction, string>> = { fr, en };
 /** Locales utilisées pour les nombres et les dates. */
 const LOCALES: Record<Langue, string> = { fr: "fr-FR", en: "en-GB" };
 
+/** Locales du seul format abrégé. Voir le commentaire à son point d'usage. */
+const LOCALES_COMPACT: Record<Langue, string> = { fr: "fr-FR", en: "en-US" };
+
 const CLE_STOCKAGE = "crm.langue";
 
 function langueInitiale(): Langue {
@@ -45,6 +48,15 @@ type ContexteLangue = {
   t: (cle: CleTraduction, valeurs?: Record<string, string | number>) => string;
   /** Formate un nombre selon la langue active. */
   nombre: (n: number) => string;
+  /**
+   * Montant abrégé, unité comprise : « 31,5 M XAF » en français,
+   * « 31.5M XAF » en anglais. Pour les graphiques et les tuiles, où le montant
+   * exact tient rarement et n'aide pas à comparer. La valeur exacte reste
+   * accessible au survol.
+   */
+  montantCompact: (n: number) => string;
+  /** Montant exact avec sa devise : « 31 500 000 XAF ». */
+  montant: (n: number) => string;
   /** Formate une date ISO en date et heure lisibles. */
   dateHeure: (iso: string | null | undefined) => string;
   /** Formate une date ISO sans l'heure. */
@@ -80,12 +92,26 @@ export function LangueProvider({ children }: { children: ReactNode }) {
 
   const valeur = useMemo<ContexteLangue>(() => {
     const locale = LOCALES[langue];
+
+    /* « compact » produit « 31,5 M » et « 31.5M », espace insécable et
+       abréviation compris ; le faire à la main reviendrait à réécrire ces
+       règles typographiques langue par langue.
+       L'anglais utilise ici une locale distincte de celle des dates : en-GB
+       abrège en minuscule (« 194.2m »), ce qui se lit comme des mètres sur un
+       montant, là où en-US donne « 194.2M ». */
+    const abrege = new Intl.NumberFormat(LOCALES_COMPACT[langue], {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    });
+
     return {
       langue,
       definirLangue: setLangue,
       t,
       locale,
       nombre: (n) => n.toLocaleString(locale),
+      montant: (n) => `${n.toLocaleString(locale)} XAF`,
+      montantCompact: (n) => `${abrege.format(n)} XAF`,
       dateHeure: (iso) =>
         iso ? new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : "",
       date: (iso) => (iso ? new Date(iso).toLocaleDateString(locale, { dateStyle: "medium" }) : ""),
@@ -114,6 +140,9 @@ const REPLI: ContexteLangue = {
     return texte;
   },
   nombre: (n) => n.toLocaleString(LOCALES.fr),
+  montant: (n) => `${n.toLocaleString(LOCALES.fr)} XAF`,
+  montantCompact: (n) =>
+    `${new Intl.NumberFormat(LOCALES_COMPACT.fr, { notation: "compact", maximumFractionDigits: 1 }).format(n)} XAF`,
   dateHeure: (iso) => (iso ? new Date(iso).toLocaleString(LOCALES.fr, { dateStyle: "medium", timeStyle: "short" }) : ""),
   date: (iso) => (iso ? new Date(iso).toLocaleDateString(LOCALES.fr, { dateStyle: "medium" }) : ""),
   locale: LOCALES.fr,
