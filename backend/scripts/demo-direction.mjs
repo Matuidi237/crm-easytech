@@ -23,7 +23,7 @@ const MOT_DE_PASSE = "DemoDG2026!";
 const PREFIXE = "demo-";
 
 const COMPTES = [
-  { identifiant: "demo-dg", nomComplet: "Awa Directrice", role: "DG", fonction: "Directrice générale" },
+  { identifiant: "demo-dg", nomComplet: "Cyrille YOUMBI", role: "DG", fonction: "Directeur général" },
   {
     identifiant: "demo-resp",
     nomComplet: "Paul Responsable",
