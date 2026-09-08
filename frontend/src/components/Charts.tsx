@@ -400,3 +400,129 @@ export function DonutInteractif({
     </div>
   );
 }
+
+/**
+ * Jauge circulaire compacte, posée dans une tuile d'indicateur.
+ *
+ * Elle ne remplace pas le chiffre, elle le double : un pourcentage se lit plus
+ * vite en fraction de cercle qu'en caractères, mais reste écrit au centre.
+ * Le rail gris donne l'échelle, sans quoi 30% et 80% se ressembleraient.
+ */
+export function Jauge({
+  valeurPct,
+  couleur = "var(--brand)",
+  taille = 54,
+  epaisseur = 6,
+}: {
+  valeurPct: number;
+  couleur?: string;
+  taille?: number;
+  epaisseur?: number;
+}) {
+  const borne = Math.max(0, Math.min(100, valeurPct));
+  const r = (taille - epaisseur) / 2;
+  const circ = 2 * Math.PI * r;
+  const rempli = (borne / 100) * circ;
+
+  return (
+    <div className="jauge" style={{ width: taille, height: taille }}>
+      <svg width={taille} height={taille} aria-hidden>
+        <g transform={`rotate(-90 ${taille / 2} ${taille / 2})`}>
+          <circle
+            cx={taille / 2}
+            cy={taille / 2}
+            r={r}
+            fill="none"
+            stroke="var(--viz-track)"
+            strokeWidth={epaisseur}
+          />
+          <circle
+            className="jauge-arc"
+            cx={taille / 2}
+            cy={taille / 2}
+            r={r}
+            fill="none"
+            stroke={couleur}
+            strokeWidth={epaisseur}
+            strokeLinecap="round"
+            strokeDasharray={`${rempli} ${circ - rempli}`}
+          />
+        </g>
+      </svg>
+      <span className="jauge-valeur">{borne}%</span>
+    </div>
+  );
+}
+
+export type PointMois = { mois: string; libelle: string; ca: number; benefice: number; nbVentes: number };
+
+/**
+ * Évolution mensuelle du chiffre d'affaires.
+ *
+ * Colonnes et non courbe : les mois sont des périodes closes, pas un continuum,
+ * et une colonne se survole plus facilement qu'un point. Chaque colonne est
+ * posée sur un rail clair qui matérialise le maximum : sans lui, un mois faible
+ * ressemble à un mois manquant.
+ *
+ * Le bénéfice se superpose en teinte foncée à l'intérieur de la colonne : les
+ * deux grandeurs partagent la même échelle en XAF, il n'y a donc qu'un seul
+ * axe, et le bénéfice est toujours une part du chiffre d'affaires.
+ */
+export function EvolutionMensuelle({ points }: { points: PointMois[] }) {
+  const { t, nombre } = useLangue();
+  const [tip, setTip] = useState<Tip>(null);
+  const max = Math.max(1, ...points.map((p) => p.ca));
+
+  return (
+    <>
+      <div className="evo">
+        {points.map((p) => {
+          const hCa = (p.ca / max) * 100;
+          const hBenefice = p.ca > 0 ? (p.benefice / p.ca) * 100 : 0;
+          return (
+            <div
+              className="evo-col"
+              key={p.mois}
+              onMouseMove={(e) =>
+                setTip({
+                  x: e.clientX,
+                  y: e.clientY,
+                  title: p.libelle,
+                  detail:
+                    p.nbVentes === 0
+                      ? t("dg.moisSansVente")
+                      : t("dg.moisDetail", {
+                          ca: nombre(p.ca),
+                          benefice: nombre(p.benefice),
+                          n: nombre(p.nbVentes),
+                        }),
+                })
+              }
+              onMouseLeave={() => setTip(null)}
+            >
+              <div className="evo-rail">
+                <div className="evo-ca" style={{ height: `${hCa}%` }}>
+                  <div className="evo-benefice" style={{ height: `${hBenefice}%` }} />
+                </div>
+              </div>
+              <span className="evo-mois">{p.libelle}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="legend legend-inline">
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: "var(--viz-4)" }} />
+          <span className="legend-name">{t("dg.legendeCa")}</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: "var(--viz-1)" }} />
+          <span className="legend-name">{t("dg.legendeBenefice")}</span>
+        </div>
+      </div>
+
+      <Tooltip tip={tip} />
+    </>
+  );
+}

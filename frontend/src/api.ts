@@ -543,6 +543,12 @@ export type IndicateursDirection = {
   beneficeTotal?: number;
   margeMoyennePct: number | null;
   nbClientsFactures: number;
+  /** Mois en cours comparé au précédent. null = pas de base de comparaison. */
+  variations: {
+    chiffreAffaires: number | null;
+    nbVentes: number | null;
+    beneficeMoyen: number | null;
+  };
 };
 
 export async function fetchIndicateursDirection() {
@@ -602,6 +608,7 @@ export type AnalysesDirection = {
   meilleursProduits: Record<DimensionTop, LigneTopProduit[]>;
   /** Ordre global des produits : c'est lui qui fixe leur couleur à l'écran. */
   ordreProduits: string[];
+  parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[];
   dernieresVentes: VenteRecente[];
 };
 

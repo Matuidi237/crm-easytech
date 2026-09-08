@@ -2712,3 +2712,236 @@ td.col-actions {
   transform-origin: 80px 80px;
   animation: apparaitre 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ==========================================================================
+   Tuiles d'indicateur expressives
+   ========================================================================== */
+
+/* L'icône passe en haut à droite, dans un carré arrondi teinté : elle nomme la
+   tuile sans disputer la place au chiffre, qui reste l'élément le plus grand. */
+.stat-riche {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stat-riche-haut {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stat-riche .stat-label {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.stat-riche-valeur {
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-top: 6px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Une valeur textuelle (nom de vendeur, de produit) ne tient pas au corps
+   prévu pour des chiffres : elle passe plus petite, sur deux lignes au plus. */
+.stat-riche-valeur.texte {
+  font-size: 19px;
+  letter-spacing: -0.015em;
+  font-variant-numeric: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.stat-icone {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.stat-riche-bas {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+/* Puce de variation : la flèche double la couleur, jamais l'inverse. Un
+   daltonien lit la direction sans avoir à distinguer vert et rouge. */
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.delta-hausse {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.delta-baisse {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.delta-neutre {
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+
+.stat-riche .stat-note {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+/* Jauge circulaire --------------------------------------------------------- */
+
+.jauge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.jauge svg {
+  position: absolute;
+  inset: 0;
+}
+
+/* Le remplissage se déploie à l'entrée, comme les autres marques. */
+@keyframes jauge-remplir {
+  from {
+    stroke-dasharray: 0 999;
+  }
+}
+
+.jauge-arc {
+  animation: jauge-remplir 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.jauge-valeur {
+  position: relative;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Évolution mensuelle ------------------------------------------------------ */
+
+.evo {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 190px;
+  margin-top: 4px;
+}
+
+.evo-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  cursor: default;
+}
+
+/* Le rail matérialise le maximum : sans lui, un mois faible se confondrait
+   avec un mois sans vente. */
+.evo-rail {
+  flex: 1;
+  width: 100%;
+  max-width: 34px;
+  /* Plus clair que le rail des barres horizontales : sur douze colonnes, un
+     gris trop présent ferait des mois sans vente le sujet du graphique. */
+  background: #f2f0ed;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  transition: background 0.15s ease;
+}
+
+.evo-col:hover .evo-rail {
+  background: #e6e2de;
+}
+
+.evo-ca {
+  width: 100%;
+  background: var(--viz-4);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transform-origin: bottom center;
+  animation: pousser 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Le bénéfice est une part du chiffre d'affaires, il se loge donc dedans :
+   une seule échelle, un seul axe, aucune comparaison trompeuse. */
+.evo-benefice {
+  width: 100%;
+  background: var(--viz-1);
+  border-radius: 8px;
+}
+
+@keyframes pousser {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.evo-mois {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Tableau : montants signés ------------------------------------------------ */
+
+/* Le bénéfice d'une vente peut être négatif : la couleur le dit, le signe
+   aussi, l'un ne dépend pas de l'autre. */
+.num-positif {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.num-negatif {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Le libellé de la variation reste en encre neutre : la couleur appartient au
+   chiffre, pas à la phrase qui l'accompagne. Il disparaît sur petit écran,
+   où la puce doit rester compacte. */
+.delta-libelle {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+@media (max-width: 1240px) {
+  .delta-libelle {
+    display: none;
+  }
+}

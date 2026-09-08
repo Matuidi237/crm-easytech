@@ -9,9 +9,11 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue, type CleTraduction } from "../i18n";
-import { Classement, DonutInteractif, TopProduits } from "../components/Charts";
+import { Classement, DonutInteractif, EvolutionMensuelle, Jauge, TopProduits } from "../components/Charts";
 import {
   IconAlert,
+  IconArrowDown,
+  IconArrowUp,
   IconAward,
   IconBars,
   IconBox,
@@ -75,25 +77,67 @@ function SelecteurDimension<T extends string>({
 type Carte = {
   label: string;
   valeur: string;
+  /** Vrai pour un nom : le corps prévu pour des chiffres serait trop grand. */
+  valeurTexte?: boolean;
   note: string;
   icone: ComponentType<{ size?: number }>;
   fg: string;
   bg: string;
+  /** Variation mois à mois. null = aucune base de comparaison. */
+  variationPct?: number | null;
+  /** Jauge circulaire, quand un pourcentage double utilement le chiffre. */
+  jauge?: { valeurPct: number; couleur: string };
 };
 
-function CarteIndicateur({ label, valeur, note, icone: Icone, fg, bg }: Carte) {
+/** Puce de variation. La flèche double la couleur, elle ne la remplace pas. */
+function Delta({ pct, libelle, libelleAbsent }: { pct: number | null | undefined; libelle: string; libelleAbsent: string }) {
+  if (pct === null || pct === undefined) {
+    return <span className="delta delta-neutre">{libelleAbsent}</span>;
+  }
+  const hausse = pct >= 0;
   return (
-    <div className="stat">
-      <div className="stat-top">
-        <div className="stat-badge" style={{ background: bg, color: fg }}>
-          <Icone size={21} />
-        </div>
+    <span className={`delta ${hausse ? "delta-hausse" : "delta-baisse"}`}>
+      {hausse ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />}
+      {hausse ? "+" : ""}
+      {pct}% <span className="delta-libelle">{libelle}</span>
+    </span>
+  );
+}
+
+function CarteIndicateur({
+  label,
+  valeur,
+  valeurTexte,
+  note,
+  icone: Icone,
+  fg,
+  bg,
+  variationPct,
+  jauge,
+  libelleVariation,
+  libelleSansVariation,
+}: Carte & { libelleVariation: string; libelleSansVariation: string }) {
+  return (
+    <div className="stat stat-riche">
+      <div className="stat-riche-haut">
         <div style={{ minWidth: 0 }}>
           <div className="stat-label">{label}</div>
-          <div className="stat-value stat-value-texte">{valeur}</div>
+          <div className={`stat-riche-valeur${valeurTexte ? " texte" : ""}`}>{valeur}</div>
         </div>
+        {jauge ? (
+          <Jauge valeurPct={jauge.valeurPct} couleur={jauge.couleur} />
+        ) : (
+          <div className="stat-icone" style={{ background: bg, color: fg }}>
+            <Icone size={21} />
+          </div>
+        )}
       </div>
-      <div className="stat-note">{note}</div>
+      <div className="stat-riche-bas">
+        {variationPct !== undefined && (
+          <Delta pct={variationPct} libelle={libelleVariation} libelleAbsent={libelleSansVariation} />
+        )}
+        <span className="stat-note">{note}</span>
+      </div>
     </div>
   );
 }
@@ -106,7 +150,7 @@ function CarteIndicateur({ label, valeur, note, icone: Icone, fg, bg }: Carte) {
  * ont rapporté.
  */
 export default function DirectionPage() {
-  const { t, nombre, dateHeure } = useLangue();
+  const { t, nombre, dateHeure, locale } = useLangue();
   const { utilisateur } = useAuth();
   const [ind, setInd] = useState<IndicateursDirection | null>(null);
   const [analyses, setAnalyses] = useState<AnalysesDirection | null>(null);
@@ -180,6 +224,7 @@ export default function DirectionPage() {
       icone: IconTrend,
       fg: "#0c8074",
       bg: "#e2f4f1",
+      variationPct: ind.variations.chiffreAffaires,
     },
     {
       label: t("dg.meilleurVendeur"),
@@ -193,6 +238,9 @@ export default function DirectionPage() {
       icone: IconAward,
       fg: "#9e6b06",
       bg: "#fcf2e0",
+      valeurTexte: true,
+      // La part du meilleur vendeur se lit mieux en fraction de cercle.
+      jauge: ind.meilleurVendeur ? { valeurPct: ind.meilleurVendeur.partPct, couleur: "#c07a00" } : undefined,
     },
     {
       label: t("dg.meilleurProduit"),
@@ -206,6 +254,8 @@ export default function DirectionPage() {
       icone: IconBox,
       fg: "#5b4bc4",
       bg: "#eeebfa",
+      valeurTexte: true,
+      jauge: ind.meilleurProduit ? { valeurPct: ind.meilleurProduit.partPct, couleur: "#7c4dcc" } : undefined,
     },
     {
       label: t("dg.beneficeMoyen"),
@@ -217,6 +267,7 @@ export default function DirectionPage() {
       icone: IconCoins,
       fg: "#2a79ae",
       bg: "#e8f3fb",
+      variationPct: ind.variations.beneficeMoyen,
     },
   ];
 
@@ -226,12 +277,33 @@ export default function DirectionPage() {
 
       <div className="stat-grid">
         {cartes.map((c) => (
-          <CarteIndicateur key={c.label} {...c} />
+          <CarteIndicateur
+            key={c.label}
+            {...c}
+            libelleVariation={t("dg.depuisMoisDernier")}
+            libelleSansVariation={t("dg.pasDeComparaison")}
+          />
         ))}
       </div>
 
       {ind.aDesVentes && analyses && (
         <>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">{t("dg.evolutionTitre")}</div>
+                <div className="card-sub">{t("dg.evolutionSousTitre")}</div>
+              </div>
+              <span className="tag">{t("dg.moisEnCours")}</span>
+            </div>
+            <EvolutionMensuelle
+              points={analyses.parMois.map((m) => ({
+                ...m,
+                libelle: new Date(`${m.mois}-01T00:00:00`).toLocaleDateString(locale, { month: "short" }),
+              }))}
+            />
+          </div>
+
           <div className="dash-grid dash-grid-egal">
             <div className="card">
               <div className="card-head card-head-filtre">
@@ -379,7 +451,11 @@ export default function DirectionPage() {
                       <td className="num" data-label={t("dg.colMontant")}>
                         {nombre(v.montant)} XAF
                       </td>
-                      <td className="num" data-label={t("dg.colBenefice")}>
+                      <td
+                        className={`num ${v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
+                        data-label={t("dg.colBenefice")}
+                      >
+                        {v.benefice >= 0 ? "+" : ""}
                         {nombre(v.benefice)} XAF
                       </td>
                     </tr>

@@ -19,6 +19,25 @@ export const directionRouter = Router();
 /** Les Decimal de Prisma arrivent en objet ; on les ramène à un nombre. */
 const nb = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
 
+/** Premier jour du mois courant, puis du mois precedent. */
+function bornesMensuelles(reference = new Date()) {
+  const debutMois = new Date(reference.getFullYear(), reference.getMonth(), 1);
+  const debutMoisPrecedent = new Date(reference.getFullYear(), reference.getMonth() - 1, 1);
+  return { debutMois, debutMoisPrecedent };
+}
+
+/**
+ * Variation en pourcentage d'une periode a l'autre.
+ *
+ * Renvoie null quand la periode de reference est vide : afficher « +100% »
+ * parce qu'on partait de zero ne veut rien dire, et « 0% » serait faux.
+ * L'interface affiche alors « pas de comparaison » plutot qu'un chiffre.
+ */
+function variation(actuel: number, precedent: number): number | null {
+  if (precedent <= 0) return null;
+  return Math.round(((actuel - precedent) / precedent) * 100);
+}
+
 directionRouter.get("/tableau-de-bord", async (_req, res) => {
   const nbVentes = await prisma.vente.count();
 
@@ -34,6 +53,7 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
       beneficeMoyen: null,
       margeMoyennePct: null,
       nbClientsFactures: 0,
+      variations: { chiffreAffaires: null, nbVentes: null, beneficeMoyen: null },
     });
   }
 
@@ -46,8 +66,16 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
       quantite: true,
       prixAchat: true,
       prixVente: true,
+      dateVente: true,
     },
   });
+
+  const { debutMois, debutMoisPrecedent } = bornesMensuelles();
+  /* Deux compteurs paralleles pour la comparaison mois a mois. Le mois en
+     cours est incomplet par nature : l'interface le dit, plutot que de laisser
+     croire a une chute le 2 du mois. */
+  const moisCourant = { ca: 0, benefice: 0, nbVentes: 0 };
+  const moisPrecedent = { ca: 0, benefice: 0, nbVentes: 0 };
 
   let chiffreAffaires = 0;
   let coutTotal = 0;
@@ -60,6 +88,14 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
     const cout = nb(v.prixAchat) * v.quantite;
     chiffreAffaires += montant;
     coutTotal += cout;
+
+    const periode =
+      v.dateVente >= debutMois ? moisCourant : v.dateVente >= debutMoisPrecedent ? moisPrecedent : null;
+    if (periode) {
+      periode.ca += montant;
+      periode.benefice += montant - cout;
+      periode.nbVentes += 1;
+    }
 
     // Un vendeur dont le compte a été supprimé garde sa ligne, sous son nom.
     const cleVendeur = v.vendeurId ?? `nom:${v.vendeurNom}`;
@@ -109,6 +145,18 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
     beneficeTotal: Math.round(beneficeTotal),
     margeMoyennePct: chiffreAffaires > 0 ? Math.round((beneficeTotal / chiffreAffaires) * 100) : 0,
     nbClientsFactures: clientsFactures.size,
+
+    /* Mois en cours compare au mois precedent. Seuls trois indicateurs s'y
+       pretent : un « meilleur vendeur » ou un « meilleur produit » sont des
+       noms, leur variation n'aurait aucun sens. */
+    variations: {
+      chiffreAffaires: variation(moisCourant.ca, moisPrecedent.ca),
+      nbVentes: variation(moisCourant.nbVentes, moisPrecedent.nbVentes),
+      beneficeMoyen: variation(
+        moisCourant.nbVentes > 0 ? moisCourant.benefice / moisCourant.nbVentes : 0,
+        moisPrecedent.nbVentes > 0 ? moisPrecedent.benefice / moisPrecedent.nbVentes : 0
+      ),
+    },
   });
 });
 
@@ -246,10 +294,36 @@ directionRouter.get("/analyses", async (_req, res) => {
      d'une vue à l'autre. La couleur doit suivre l'entité, jamais son rang. */
   const ordreProduits = classement(ca.produit).map((l) => l.label);
 
+  /* Evolution des douze derniers mois, mois vides compris : un trou dans une
+     serie temporelle est une information, le masquer donnerait une courbe
+     faussement reguliere. */
+  const maintenant = new Date();
+  const parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+    parMois.push({
+      mois: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      ca: 0,
+      benefice: 0,
+      nbVentes: 0,
+    });
+  }
+  const indexMois = new Map(parMois.map((m, i) => [m.mois, i]));
+  for (const v of ventes) {
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const i = indexMois.get(cle);
+    if (i === undefined) continue;
+    const montant = nb(v.prixVente) * v.quantite;
+    parMois[i].ca += montant;
+    parMois[i].benefice += montant - nb(v.prixAchat) * v.quantite;
+    parMois[i].nbVentes += 1;
+  }
+
   res.json({
     chiffreAffaires,
     meilleursProduits,
     ordreProduits,
+    parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
     dernieresVentes: ventes.slice(0, 8).map((v) => ({
       dateVente: v.dateVente,
       clientNom: v.clientNom,

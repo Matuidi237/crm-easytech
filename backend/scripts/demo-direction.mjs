@@ -75,7 +75,15 @@ async function creer() {
   }
   const cl = (i) => clients[i % Math.max(1, clients.length)] ?? null;
 
-  const vente = (compte, produit, quantite, prixAchat, prixVente, i) => ({
+  /* « ilYAMois » etale les ventes sur plusieurs mois : sans cela, tout tombe
+     le meme jour, la courbe d'evolution est un pic unique et la comparaison
+     mois a mois n'a rien a comparer. */
+  const auMois = (ilYAMois, jour) => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() - ilYAMois, jour, 10, 0, 0);
+  };
+
+  const vente = (compte, produit, quantite, prixAchat, prixVente, i, ilYAMois, jour) => ({
     clientId: cl(i)?.id ?? null,
     clientNom: cl(i)?.nom ?? "Client de démonstration",
     vendeurId: ids[compte],
@@ -84,6 +92,7 @@ async function creer() {
     quantite,
     prixAchat,
     prixVente,
+    dateVente: auMois(ilYAMois, jour),
   });
 
   /* Jeu choisi pour que les indicateurs ne soient pas triviaux : le meilleur
@@ -92,14 +101,28 @@ async function creer() {
      plus de ventes. */
   await prisma.vente.createMany({
     data: [
-      vente("demo-nerea", "Licences Microsoft 365", 12, 250000, 400000, 0),
-      vente("demo-nerea", "Serveur Dell PowerEdge", 2, 1100000, 1500000, 1),
-      vente("demo-nerea", "Licences Microsoft 365", 5, 250000, 400000, 2),
-      vente("demo-victor", "Pare-feu Fortinet", 3, 600000, 900000, 2),
-      vente("demo-victor", "Licences Microsoft 365", 8, 250000, 400000, 3),
-      vente("demo-victor", "Formation cybersécurité", 4, 120000, 300000, 1),
-      vente("demo-resp", "Audit infrastructure", 1, 800000, 2200000, 0),
-      vente("demo-resp", "Licences Microsoft 365", 6, 250000, 400000, 3),
+      // Il y a cinq mois
+      vente("demo-victor", "Licences Microsoft 365", 4, 250000, 400000, 1, 5, 12),
+      vente("demo-nerea", "Formation cybersécurité", 2, 120000, 300000, 2, 5, 24),
+      // Il y a quatre mois
+      vente("demo-nerea", "Licences Microsoft 365", 6, 250000, 400000, 0, 4, 8),
+      vente("demo-resp", "Pare-feu Fortinet", 1, 600000, 900000, 3, 4, 19),
+      // Il y a trois mois
+      vente("demo-victor", "Serveur Dell PowerEdge", 1, 1100000, 1500000, 2, 3, 5),
+      vente("demo-nerea", "Licences Microsoft 365", 9, 250000, 400000, 1, 3, 21),
+      vente("demo-victor", "Formation cybersécurité", 3, 120000, 300000, 0, 3, 28),
+      // Il y a deux mois
+      vente("demo-resp", "Audit infrastructure", 1, 800000, 2200000, 0, 2, 6),
+      vente("demo-nerea", "Serveur Dell PowerEdge", 2, 1100000, 1500000, 1, 2, 15),
+      // Le mois dernier
+      vente("demo-nerea", "Licences Microsoft 365", 12, 250000, 400000, 0, 1, 4),
+      vente("demo-victor", "Pare-feu Fortinet", 3, 600000, 900000, 2, 1, 11),
+      vente("demo-resp", "Licences Microsoft 365", 6, 250000, 400000, 3, 1, 22),
+      vente("demo-victor", "Formation cybersécurité", 4, 120000, 300000, 1, 1, 27),
+      // Ce mois-ci
+      vente("demo-nerea", "Licences Microsoft 365", 5, 250000, 400000, 2, 0, 3),
+      vente("demo-victor", "Licences Microsoft 365", 8, 250000, 400000, 3, 0, 6),
+      vente("demo-resp", "Audit infrastructure", 1, 800000, 2200000, 1, 0, 9),
     ],
   });
 

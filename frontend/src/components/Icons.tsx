@@ -401,3 +401,23 @@ export function IconBars({ size = 19, strokeWidth = 1.7, className }: IconProps)
     </svg>
   );
 }
+
+/** Flèche de hausse, doublant la couleur de la puce de variation. */
+export function IconArrowUp({ size = 19, strokeWidth = 2.2, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </svg>
+  );
+}
+
+/** Flèche de baisse. */
+export function IconArrowDown({ size = 19, strokeWidth = 2.2, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </svg>
+  );
+}
