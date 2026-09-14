@@ -2961,3 +2961,294 @@ td.col-actions {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   Équipes
+   ========================================================================== */
+
+.equipes-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* La carte est un bouton : c'est elle entière qui ouvre l'équipe, pas un
+   petit lien au fond. La cible fait toute la surface. */
+.equipe-carte {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.equipe-carte:not(.equipe-carte-inactive):hover {
+  transform: translateY(-3px);
+  border-color: var(--brand-200);
+  box-shadow: 0 6px 20px rgba(36, 31, 30, 0.09);
+}
+
+/* Une carte sans destination ne se soulève pas et n'attire pas le curseur :
+   promettre un clic qui ne mène nulle part est pire que ne rien promettre. */
+.equipe-carte-inactive {
+  cursor: default;
+  background: var(--surface-2);
+}
+
+.equipe-haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.equipe-icone {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.equipe-icone-vente {
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.equipe-icone-projet {
+  background: #eeebfa;
+  color: #5b4bc4;
+}
+
+.equipe-effectif {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 4px 11px;
+  border-radius: 999px;
+}
+
+.equipe-carte-inactive .equipe-effectif {
+  background: var(--surface);
+}
+
+.equipe-corps {
+  flex: 1;
+}
+
+.equipe-titre {
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.equipe-libelle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.equipe-chiffres {
+  display: flex;
+  gap: 28px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.equipe-chiffre {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.equipe-chiffre-label {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.equipe-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.equipe-portee {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.equipe-portee-attente {
+  flex: 1 1 200px;
+  line-height: 1.45;
+}
+
+.equipe-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+.equipe-carte:hover .equipe-lien {
+  gap: 9px;
+}
+
+/* Retour vers la page parente ---------------------------------------------- */
+
+.lien-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-2);
+  padding: 5px 10px 5px 6px;
+  margin-left: -6px;
+  border-radius: 999px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.lien-retour:hover {
+  background: var(--surface);
+  color: var(--brand-700);
+}
+
+/* Liste de l'équipe commerciale -------------------------------------------- */
+
+.search-large {
+  flex: 1 1 340px;
+  max-width: 440px;
+}
+
+/* La ligne entière ouvre la fiche. Elle est focalisable au clavier, sans quoi
+   l'information ne serait atteignable qu'à la souris. */
+.ligne-cliquable {
+  cursor: pointer;
+}
+
+.ligne-cliquable:hover td {
+  background: var(--surface-2);
+}
+
+.ligne-cliquable:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* Fiche d'un commercial ---------------------------------------------------- */
+
+.fiche-tete {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.fiche-nom {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.fiche-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.fiche-sous-meta {
+  display: flex;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.fiche-rang {
+  text-align: right;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.fiche-rang-valeur {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--brand-700);
+  letter-spacing: -0.02em;
+}
+
+.fiche-rang-label {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+/* Trois tuiles : une grille à quatre colonnes en laisserait une orpheline. */
+.stat-grid-trois {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.valeur-negative {
+  color: var(--danger);
+}
+
+@media (max-width: 1100px) {
+  .stat-grid-trois {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .equipes-grille {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .equipe-carte {
+    padding: 18px;
+  }
+
+  .fiche-tete {
+    gap: 14px;
+  }
+
+  .fiche-nom {
+    font-size: 22px;
+  }
+
+  .fiche-rang {
+    width: 100%;
+    text-align: left;
+  }
+}

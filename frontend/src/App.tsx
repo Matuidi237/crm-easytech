@@ -16,6 +16,8 @@ import UtilisateursPage from "./pages/UtilisateursPage";
 import PermissionsPage from "./pages/PermissionsPage";
 import DirectionPage from "./pages/DirectionPage";
 import EquipesPage from "./pages/EquipesPage";
+import EquipeCommercialePage from "./pages/EquipeCommercialePage";
+import FicheCommercialPage from "./pages/FicheCommercialPage";
 import PartenairesPage from "./pages/PartenairesPage";
 
 /**
@@ -61,6 +63,22 @@ export default function App() {
               element={
                 <RouteDirection>
                   <EquipesPage />
+                </RouteDirection>
+              }
+            />
+            <Route
+              path="/equipes/commerciale"
+              element={
+                <RouteDirection>
+                  <EquipeCommercialePage />
+                </RouteDirection>
+              }
+            />
+            <Route
+              path="/equipes/commerciale/:id"
+              element={
+                <RouteDirection>
+                  <FicheCommercialPage />
                 </RouteDirection>
               }
             />

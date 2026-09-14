@@ -80,6 +80,23 @@ model Utilisateur {
   email          String?
   fonction       String?
   motDePasseHash String
+
+  /// Pays de rattachement du commercial, son territoire.
+  ///
+  /// Distinct du pays de ses clients : un commercial basé au Cameroun peut
+  /// vendre au Kenya. C'est bien son affectation qui est filtrée dans la vue
+  /// Équipe commerciale, pas la provenance de ses ventes.
+  pays String?
+
+  /// Taux de commission, en pourcentage (12.5 = 12,5 %).
+  ///
+  /// Appliqué au BÉNÉFICE et non au chiffre d'affaires : c'est la marge qui
+  /// rémunère l'entreprise, et commissionner sur le chiffre d'affaires
+  /// récompenserait une vente à perte. Voir « commissionDe » dans
+  /// src/lib/commissions.ts, seul endroit où cette règle est écrite.
+  /// Null tant qu'aucun taux n'a été fixé : l'interface affiche alors
+  /// « taux non défini » plutôt qu'un montant inventé.
+  tauxCommissionPct Decimal? @db.Decimal(5, 2)
   role           RoleUtilisateur @default(COMMERCIAL)
   actif          Boolean         @default(true)
   dernierAcces   DateTime?

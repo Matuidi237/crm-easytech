@@ -57,6 +57,12 @@ type ContexteLangue = {
   montantCompact: (n: number) => string;
   /** Montant exact avec sa devise : « 31 500 000 XAF ». */
   montant: (n: number) => string;
+  /**
+   * Rang ordinal : « 1er », « 2e » en français ; « 1st », « 2nd », « 3rd »,
+   * « 4th » en anglais. L'anglais n'a pas de suffixe unique, un « 2th » écrit
+   * en dur saute aux yeux d'un anglophone.
+   */
+  rang: (n: number) => string;
   /** Formate une date ISO en date et heure lisibles. */
   dateHeure: (iso: string | null | undefined) => string;
   /** Formate une date ISO sans l'heure. */
@@ -104,12 +110,21 @@ export function LangueProvider({ children }: { children: ReactNode }) {
       maximumFractionDigits: 1,
     });
 
+    /* Intl connaît les catégories ordinales de chaque langue ; les réécrire
+       à la main reviendrait à maintenir une table de suffixes par locale. */
+    const categories = new Intl.PluralRules(locale, { type: "ordinal" });
+    const SUFFIXES: Record<Langue, Record<string, string>> = {
+      fr: { one: "er", other: "e" },
+      en: { one: "st", two: "nd", few: "rd", other: "th" },
+    };
+
     return {
       langue,
       definirLangue: setLangue,
       t,
       locale,
       nombre: (n) => n.toLocaleString(locale),
+      rang: (n) => `${n}${SUFFIXES[langue][categories.select(n)] ?? SUFFIXES[langue].other}`,
       montant: (n) => `${n.toLocaleString(locale)} XAF`,
       montantCompact: (n) => `${abrege.format(n)} XAF`,
       dateHeure: (iso) =>
@@ -140,6 +155,7 @@ const REPLI: ContexteLangue = {
     return texte;
   },
   nombre: (n) => n.toLocaleString(LOCALES.fr),
+  rang: (n) => `${n}${n === 1 ? "er" : "e"}`,
   montant: (n) => `${n.toLocaleString(LOCALES.fr)} XAF`,
   montantCompact: (n) =>
     `${new Intl.NumberFormat(LOCALES_COMPACT.fr, { notation: "compact", maximumFractionDigits: 1 }).format(n)} XAF`,

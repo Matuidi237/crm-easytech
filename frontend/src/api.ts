@@ -557,30 +557,6 @@ export async function fetchIndicateursDirection() {
   return res.json() as Promise<IndicateursDirection>;
 }
 
-export type MembreEquipe = {
-  id: string;
-  nomComplet: string;
-  identifiant: string;
-  fonction: string | null;
-  role: Role;
-  actif: boolean;
-  dernierAcces: string | null;
-  nbClients: number;
-  nbVentes: number;
-  chiffreAffaires: number;
-  benefice: number;
-};
-
-export type Equipes = {
-  equipes: { responsable: MembreEquipe; membres: MembreEquipe[]; chiffreAffaires: number; nbVentes: number }[];
-  sansEquipe: MembreEquipe[];
-};
-
-export async function fetchEquipes() {
-  const res = await authedFetch("/api/direction/equipes");
-  if (!res.ok) throw new Error("Erreur lors du chargement des équipes.");
-  return res.json() as Promise<Equipes>;
-}
 
 export type DimensionCa = "pays" | "secteur" | "commercial" | "produit";
 export type DimensionTop = "commercial" | "pays" | "secteur";
@@ -616,4 +592,99 @@ export async function fetchAnalysesDirection() {
   const res = await authedFetch("/api/direction/analyses");
   if (!res.ok) throw new Error("Erreur lors du chargement des analyses.");
   return res.json() as Promise<AnalysesDirection>;
+}
+
+/* ---------------------------------------------------------------- Équipes */
+
+export type ApercuEquipes = {
+  commerciale: {
+    effectif: number;
+    effectifActif: number;
+    nbPays: number;
+    chiffreAffaires: number;
+    benefice: number;
+    nbVentes: number;
+  };
+  projet: { effectif: number; effectifActif: number };
+};
+
+export async function fetchApercuEquipes() {
+  const res = await authedFetch("/api/direction/equipes");
+  if (!res.ok) throw new Error("Erreur lors du chargement des équipes.");
+  return res.json() as Promise<ApercuEquipes>;
+}
+
+export type MembreCommercial = {
+  id: string;
+  nomComplet: string;
+  identifiant: string;
+  email: string | null;
+  fonction: string | null;
+  role: Role;
+  actif: boolean;
+  pays: string | null;
+  chiffreAffaires: number;
+  benefice: number;
+  nbVentes: number;
+  derniereVente: string | null;
+  /** null quand aucun taux de commission n'a été fixé pour ce compte. */
+  commission: number | null;
+};
+
+export type EquipeCommerciale = { membres: MembreCommercial[]; pays: string[] };
+
+export async function fetchEquipeCommerciale(filtres: { recherche?: string; pays?: string } = {}) {
+  const params = new URLSearchParams();
+  if (filtres.recherche) params.set("recherche", filtres.recherche);
+  if (filtres.pays) params.set("pays", filtres.pays);
+  const suffixe = params.toString() ? `?${params}` : "";
+  const res = await authedFetch(`/api/direction/equipe-commerciale${suffixe}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de l'équipe commerciale.");
+  return res.json() as Promise<EquipeCommerciale>;
+}
+
+export type VenteCommercial = {
+  id: string;
+  dateVente: string;
+  clientNom: string;
+  produit: string;
+  quantite: number;
+  montant: number;
+  benefice: number;
+  commission: number | null;
+};
+
+export type FicheCommercial = {
+  membre: {
+    id: string;
+    nomComplet: string;
+    identifiant: string;
+    email: string | null;
+    fonction: string | null;
+    role: Role;
+    actif: boolean;
+    pays: string | null;
+    dernierAcces: string | null;
+    responsable: { id: string; nomComplet: string } | null;
+    tauxCommissionPct: number | null;
+  };
+  chiffreAffaires: number;
+  benefice: number;
+  commissions: number | null;
+  margePct: number;
+  nbVentes: number;
+  nbClients: number;
+  partEquipePct: number;
+  rang: number;
+  effectifEquipe: number;
+  derniereVente: string | null;
+  parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[];
+  ventes: VenteCommercial[];
+};
+
+export async function fetchFicheCommercial(id: string) {
+  const res = await authedFetch(`/api/direction/commercial/${id}`);
+  if (res.status === 404) throw new Error("Commercial introuvable.");
+  if (!res.ok) throw new Error("Erreur lors du chargement de la fiche.");
+  return res.json() as Promise<FicheCommercial>;
 }

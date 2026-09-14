@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { commissionDe, tauxEnNombre } from "../lib/commissions.js";
 
 export const directionRouter = Router();
 
@@ -336,81 +337,284 @@ directionRouter.get("/analyses", async (_req, res) => {
   });
 });
 
+
+/* ==========================================================================
+   Équipes
+   ========================================================================== */
+
 /**
- * Vue « Équipes » : chaque responsable commercial avec les comptes qui lui
- * sont rattachés, et ce que chacun a réalisé.
+ * Agrégats de vente par vendeur.
+ *
+ * groupBy ne sait pas multiplier deux colonnes ; le chiffre d'affaires se
+ * recompose donc ligne à ligne. La table des ventes reste petite et cette
+ * lecture sert plusieurs vues, autant la factoriser.
+ */
+async function agregatsParVendeur() {
+  const lignes = await prisma.vente.findMany({
+    select: { vendeurId: true, prixVente: true, prixAchat: true, quantite: true, dateVente: true },
+  });
+
+  const par = new Map<string, { ca: number; benefice: number; nbVentes: number; derniereVente: Date | null }>();
+  for (const l of lignes) {
+    if (!l.vendeurId) continue;
+    const acc = par.get(l.vendeurId) ?? { ca: 0, benefice: 0, nbVentes: 0, derniereVente: null };
+    acc.ca += nb(l.prixVente) * l.quantite;
+    acc.benefice += (nb(l.prixVente) - nb(l.prixAchat)) * l.quantite;
+    acc.nbVentes += 1;
+    if (!acc.derniereVente || l.dateVente > acc.derniereVente) acc.derniereVente = l.dateVente;
+    par.set(l.vendeurId, acc);
+  }
+  return par;
+}
+
+/** Rôles qui composent chaque équipe affichée au directeur général. */
+const ROLES_COMMERCIALE = ["RESPONSABLE_COMMERCIAL", "COMMERCIAL"] as const;
+const ROLES_PROJET = ["CHEF_DE_PROJET"] as const;
+
+/**
+ * Page « Nos équipes » : un encart par équipe, sans le détail.
+ *
+ * On ne renvoie que ce que les encarts affichent. Le détail d'une équipe a sa
+ * propre route : charger toutes les ventes de tout le monde pour dessiner deux
+ * vignettes serait du gaspillage.
  */
 directionRouter.get("/equipes", async (_req, res) => {
-  const comptes = await prisma.utilisateur.findMany({
-    where: { role: { in: ["RESPONSABLE_COMMERCIAL", "COMMERCIAL"] } },
+  const [commerciaux, chefsProjet, agregats] = await Promise.all([
+    prisma.utilisateur.findMany({
+      where: { role: { in: [...ROLES_COMMERCIALE] } },
+      select: { id: true, actif: true, pays: true },
+    }),
+    prisma.utilisateur.findMany({
+      where: { role: { in: [...ROLES_PROJET] } },
+      select: { id: true, actif: true },
+    }),
+    agregatsParVendeur(),
+  ]);
+
+  const cumul = commerciaux.reduce(
+    (acc, c) => {
+      const a = agregats.get(c.id);
+      if (a) {
+        acc.ca += a.ca;
+        acc.benefice += a.benefice;
+        acc.nbVentes += a.nbVentes;
+      }
+      return acc;
+    },
+    { ca: 0, benefice: 0, nbVentes: 0 }
+  );
+
+  res.json({
+    commerciale: {
+      effectif: commerciaux.length,
+      effectifActif: commerciaux.filter((c) => c.actif).length,
+      // Pays distincts couverts, ce que l'encart annonce comme portée.
+      nbPays: new Set(commerciaux.map((c) => c.pays).filter(Boolean)).size,
+      chiffreAffaires: Math.round(cumul.ca),
+      benefice: Math.round(cumul.benefice),
+      nbVentes: cumul.nbVentes,
+    },
+    projet: {
+      effectif: chefsProjet.length,
+      effectifActif: chefsProjet.filter((c) => c.actif).length,
+    },
+  });
+});
+
+/**
+ * Liste de l'équipe commerciale.
+ *
+ * La recherche et le filtre pays sont appliqués en base plutôt qu'à l'écran :
+ * la liste a vocation à grandir, et filtrer côté navigateur obligerait à tout
+ * télécharger. « mode: insensitive » parce qu'on cherche un nom, pas une
+ * chaîne exacte.
+ */
+directionRouter.get("/equipe-commerciale", async (req, res) => {
+  const recherche = String(req.query.recherche ?? "").trim();
+  const pays = String(req.query.pays ?? "").trim();
+
+  const filtres: Record<string, unknown> = { role: { in: [...ROLES_COMMERCIALE] } };
+  if (pays) filtres.pays = pays;
+  if (recherche) {
+    filtres.OR = [
+      { nomComplet: { contains: recherche, mode: "insensitive" } },
+      { email: { contains: recherche, mode: "insensitive" } },
+      { identifiant: { contains: recherche, mode: "insensitive" } },
+    ];
+  }
+
+  const [membres, tousPays, agregats] = await Promise.all([
+    prisma.utilisateur.findMany({
+      where: filtres,
+      select: {
+        id: true,
+        nomComplet: true,
+        identifiant: true,
+        email: true,
+        fonction: true,
+        role: true,
+        actif: true,
+        pays: true,
+        tauxCommissionPct: true,
+      },
+    }),
+    /* Facette du filtre : calculée sur toute l'équipe et non sur le résultat
+       courant, sinon choisir un pays effacerait les autres choix de la liste
+       et on ne pourrait plus en changer. */
+    prisma.utilisateur.findMany({
+      where: { role: { in: [...ROLES_COMMERCIALE] }, pays: { not: null } },
+      select: { pays: true },
+      distinct: ["pays"],
+      orderBy: { pays: "asc" },
+    }),
+    agregatsParVendeur(),
+  ]);
+
+  const lignes = membres
+    .map((m) => {
+      const a = agregats.get(m.id);
+      const benefice = Math.round(a?.benefice ?? 0);
+      return {
+        id: m.id,
+        nomComplet: m.nomComplet,
+        identifiant: m.identifiant,
+        email: m.email,
+        fonction: m.fonction,
+        role: m.role,
+        actif: m.actif,
+        pays: m.pays,
+        chiffreAffaires: Math.round(a?.ca ?? 0),
+        benefice,
+        nbVentes: a?.nbVentes ?? 0,
+        derniereVente: a?.derniereVente ?? null,
+        commission: commissionDe(benefice, m.tauxCommissionPct),
+      };
+    })
+    /* Du plus gros contributeur au plus petit : c'est le classement que
+       cherche un directeur général, pas l'ordre alphabétique. */
+    .sort((a, b) => b.chiffreAffaires - a.chiffreAffaires || a.nomComplet.localeCompare(b.nomComplet));
+
+  res.json({ membres: lignes, pays: tousPays.map((p) => p.pays as string) });
+});
+
+/** Fiche d'un commercial : ce qu'il a réalisé, et le détail de ses ventes. */
+directionRouter.get("/commercial/:id", async (req, res) => {
+  const membre = await prisma.utilisateur.findFirst({
+    where: { id: req.params.id, role: { in: [...ROLES_COMMERCIALE] } },
     select: {
       id: true,
       nomComplet: true,
       identifiant: true,
+      email: true,
       fonction: true,
       role: true,
       actif: true,
-      responsableId: true,
+      pays: true,
       dernierAcces: true,
-      _count: { select: { clientsPossedes: true } },
+      tauxCommissionPct: true,
+      responsable: { select: { id: true, nomComplet: true } },
     },
-    orderBy: { nomComplet: "asc" },
   });
 
-  const ventes = await prisma.vente.groupBy({
-    by: ["vendeurId"],
-    _sum: { quantite: true },
-    _count: { _all: true },
+  /* 404 et non 403 : on ne révèle pas qu'un identifiant existe mais désigne
+     quelqu'un d'autre qu'un commercial. Cohérent avec les fiches clients. */
+  if (!membre) return res.status(404).json({ error: "Commercial introuvable." });
+
+  const ventes = await prisma.vente.findMany({
+    where: { vendeurId: membre.id },
+    orderBy: { dateVente: "desc" },
+    select: {
+      id: true,
+      dateVente: true,
+      clientNom: true,
+      produit: true,
+      quantite: true,
+      prixAchat: true,
+      prixVente: true,
+    },
   });
 
-  // groupBy ne sait pas multiplier deux colonnes : le chiffre d'affaires par
-  // vendeur se recompose donc à partir des lignes.
-  const lignes = await prisma.vente.findMany({
-    select: { vendeurId: true, prixVente: true, prixAchat: true, quantite: true },
-  });
-  const caParVendeur = new Map<string, { ca: number; benefice: number }>();
-  for (const l of lignes) {
-    if (!l.vendeurId) continue;
-    const acc = caParVendeur.get(l.vendeurId) ?? { ca: 0, benefice: 0 };
-    acc.ca += nb(l.prixVente) * l.quantite;
-    acc.benefice += (nb(l.prixVente) - nb(l.prixAchat)) * l.quantite;
-    caParVendeur.set(l.vendeurId, acc);
+  let ca = 0;
+  let benefice = 0;
+  const clients = new Set<string>();
+  const maintenant = new Date();
+  const parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+    parMois.push({
+      mois: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      ca: 0,
+      benefice: 0,
+      nbVentes: 0,
+    });
   }
-  const nbVentesParVendeur = new Map(ventes.map((v) => [v.vendeurId ?? "", v._count._all]));
+  const indexMois = new Map(parMois.map((m, i) => [m.mois, i]));
 
-  const enrichir = (c: (typeof comptes)[number]) => ({
-    id: c.id,
-    nomComplet: c.nomComplet,
-    identifiant: c.identifiant,
-    fonction: c.fonction,
-    role: c.role,
-    actif: c.actif,
-    dernierAcces: c.dernierAcces,
-    nbClients: c._count.clientsPossedes,
-    nbVentes: nbVentesParVendeur.get(c.id) ?? 0,
-    chiffreAffaires: Math.round(caParVendeur.get(c.id)?.ca ?? 0),
-    benefice: Math.round(caParVendeur.get(c.id)?.benefice ?? 0),
-  });
+  const detail = ventes.map((v) => {
+    const montant = nb(v.prixVente) * v.quantite;
+    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    ca += montant;
+    benefice += marge;
+    clients.add(v.clientNom);
 
-  const responsables = comptes.filter((c) => c.role === "RESPONSABLE_COMMERCIAL");
-  const commerciaux = comptes.filter((c) => c.role === "COMMERCIAL");
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const i = indexMois.get(cle);
+    if (i !== undefined) {
+      parMois[i].ca += montant;
+      parMois[i].benefice += marge;
+      parMois[i].nbVentes += 1;
+    }
 
-  const equipes = responsables.map((r) => {
-    const membres = commerciaux.filter((c) => c.responsableId === r.id).map(enrichir);
-    const chef = enrichir(r);
     return {
-      responsable: chef,
-      membres,
-      // Le responsable vend aussi : son propre chiffre compte dans l'équipe.
-      chiffreAffaires: chef.chiffreAffaires + membres.reduce((s, m) => s + m.chiffreAffaires, 0),
-      nbVentes: chef.nbVentes + membres.reduce((s, m) => s + m.nbVentes, 0),
+      id: v.id,
+      dateVente: v.dateVente,
+      clientNom: v.clientNom,
+      produit: v.produit,
+      quantite: v.quantite,
+      montant: Math.round(montant),
+      benefice: Math.round(marge),
+      /* Commission ligne à ligne : c'est ainsi qu'elle se vérifie. Un total
+         seul ne se conteste pas, et une commission se conteste. */
+      commission: commissionDe(marge, membre.tauxCommissionPct),
     };
   });
 
+  // Position du commercial dans le chiffre d'affaires de toute l'équipe.
+  const agregats = await agregatsParVendeur();
+  const equipe = await prisma.utilisateur.findMany({
+    where: { role: { in: [...ROLES_COMMERCIALE] } },
+    select: { id: true },
+  });
+  const caEquipe = equipe.reduce((s, e) => s + (agregats.get(e.id)?.ca ?? 0), 0);
+  const classement = equipe
+    .map((e) => ({ id: e.id, ca: agregats.get(e.id)?.ca ?? 0 }))
+    .sort((a, b) => b.ca - a.ca);
+
   res.json({
-    equipes,
-    // Un commercial sans responsable n'apparaîtrait dans aucune équipe : on
-    // le montre à part plutôt que de le laisser disparaître de la vue.
-    sansEquipe: commerciaux.filter((c) => !c.responsableId).map(enrichir),
+    membre: {
+      id: membre.id,
+      nomComplet: membre.nomComplet,
+      identifiant: membre.identifiant,
+      email: membre.email,
+      fonction: membre.fonction,
+      role: membre.role,
+      actif: membre.actif,
+      pays: membre.pays,
+      dernierAcces: membre.dernierAcces,
+      responsable: membre.responsable,
+      tauxCommissionPct: tauxEnNombre(membre.tauxCommissionPct),
+    },
+    chiffreAffaires: Math.round(ca),
+    benefice: Math.round(benefice),
+    commissions: commissionDe(benefice, membre.tauxCommissionPct),
+    margePct: ca > 0 ? Math.round((benefice / ca) * 100) : 0,
+    nbVentes: ventes.length,
+    nbClients: clients.size,
+    partEquipePct: caEquipe > 0 ? Math.round((ca / caEquipe) * 100) : 0,
+    rang: classement.findIndex((c) => c.id === membre.id) + 1,
+    effectifEquipe: equipe.length,
+    derniereVente: ventes[0]?.dateVente ?? null,
+    parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
+    ventes: detail,
   });
 });

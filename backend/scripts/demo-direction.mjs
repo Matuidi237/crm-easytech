@@ -22,23 +22,91 @@ const prisma = new PrismaClient();
 const MOT_DE_PASSE = "DemoDG2026!";
 const PREFIXE = "demo-";
 
+/* Le taux de commission porte sur le bénéfice, pas sur le chiffre d'affaires
+   (voir src/lib/commissions.ts). Les taux varient d'une personne à l'autre,
+   comme dans la réalité : un taux unique rendrait la colonne inutile. */
 const COMPTES = [
-  { identifiant: "demo-dg", nomComplet: "Cyrille YOUMBI", role: "DG", fonction: "Directeur général" },
+  {
+    identifiant: "demo-dg",
+    nomComplet: "Cyrille YOUMBI",
+    role: "DG",
+    fonction: "Directeur général",
+    email: "cyrille.youmbi@easytechgroup.net",
+    pays: "Cameroun",
+  },
   {
     identifiant: "demo-resp",
     nomComplet: "Paul Responsable",
     role: "RESPONSABLE_COMMERCIAL",
     fonction: "Responsable commercial",
+    email: "paul.responsable@easytechgroup.net",
+    pays: "Cameroun",
+    tauxCommissionPct: 8,
   },
   {
     identifiant: "demo-nerea",
     nomComplet: "Nerea Vendeuse",
     role: "COMMERCIAL",
     fonction: "Commerciale grands comptes",
+    email: "nerea.vendeuse@easytechgroup.net",
+    pays: "Kenya",
+    tauxCommissionPct: 6.5,
   },
-  { identifiant: "demo-victor", nomComplet: "Victor Vendeur", role: "COMMERCIAL", fonction: "Commercial" },
-  { identifiant: "demo-joseph", nomComplet: "Joseph Kamga", role: "COMMERCIAL", fonction: "Commercial secteur public" },
-  { identifiant: "demo-vanessa", nomComplet: "Vanessa Ndongo", role: "COMMERCIAL", fonction: "Commerciale PME" },
+  {
+    identifiant: "demo-victor",
+    nomComplet: "Victor Vendeur",
+    role: "COMMERCIAL",
+    fonction: "Commercial",
+    email: "victor.vendeur@easytechgroup.net",
+    pays: "Nigeria",
+    tauxCommissionPct: 6.5,
+  },
+  {
+    identifiant: "demo-joseph",
+    nomComplet: "Joseph Kamga",
+    role: "COMMERCIAL",
+    fonction: "Commercial secteur public",
+    email: "joseph.kamga@easytechgroup.net",
+    pays: "Cameroun",
+    tauxCommissionPct: 5,
+  },
+  {
+    identifiant: "demo-vanessa",
+    nomComplet: "Vanessa Ndongo",
+    role: "COMMERCIAL",
+    fonction: "Commerciale PME",
+    email: "vanessa.ndongo@easytechgroup.net",
+    pays: "Côte d'Ivoire",
+    tauxCommissionPct: 7,
+  },
+  /* Un commercial sans taux fixé : la fiche doit afficher « taux non défini »
+     et non un zéro, sinon on ne distingue plus « rien touché » de « règle pas
+     encore arbitrée ». */
+  {
+    identifiant: "demo-samuel",
+    nomComplet: "Samuel Eto'o",
+    role: "COMMERCIAL",
+    fonction: "Commercial grands comptes",
+    email: "samuel.etoo@easytechgroup.net",
+    pays: "Congo",
+  },
+  // Équipe projet : elle a son propre encart sur la page Équipes.
+  {
+    identifiant: "demo-chef1",
+    nomComplet: "Aline Mbarga",
+    role: "CHEF_DE_PROJET",
+    fonction: "Cheffe de projet infrastructure",
+    email: "aline.mbarga@easytechgroup.net",
+    pays: "Cameroun",
+  },
+  {
+    identifiant: "demo-chef2",
+    nomComplet: "Idriss Fotso",
+    role: "CHEF_DE_PROJET",
+    fonction: "Chef de projet cybersécurité",
+    email: "idriss.fotso@easytechgroup.net",
+    pays: "Cameroun",
+  },
 ];
 
 /**
@@ -59,7 +127,7 @@ const CATALOGUE = [
   { produit: "Hébergement cloud", achat: 180000, vente: 520000 },
 ];
 
-const VENDEURS = ["demo-nerea", "demo-victor", "demo-joseph", "demo-vanessa", "demo-resp"];
+const VENDEURS = ["demo-nerea", "demo-victor", "demo-joseph", "demo-vanessa", "demo-resp", "demo-samuel"];
 
 /* Générateur déterministe : deux exécutions donnent le même jeu, donc les
    captures d'écran et les vérifications restent comparables d'une fois sur
@@ -118,7 +186,7 @@ async function creer() {
     ids[c.identifiant] = u.id;
   }
   await prisma.utilisateur.updateMany({
-    where: { identifiant: { in: ["demo-nerea", "demo-victor", "demo-joseph", "demo-vanessa"] } },
+    where: { role: "COMMERCIAL", identifiant: { startsWith: PREFIXE } },
     data: { responsableId: ids["demo-resp"] },
   });
 
