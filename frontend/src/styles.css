@@ -3256,3 +3256,118 @@ td.col-actions {
     text-align: left;
   }
 }
+
+/* ==========================================================================
+   Barre latérale repliable (écrans larges)
+   ========================================================================== */
+
+/* Repliée, elle ne garde que ses icônes. Elle ne disparaît pas comme sur
+   mobile : sur un grand écran, la place gagnée ne vaut pas de transformer
+   chaque navigation en deux clics. */
+.sidebar {
+  transition: flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar.replie {
+  flex-basis: 78px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Le logo est un logotype horizontal : réduit à 54 px il ne se lirait plus.
+   Il s'efface, et le chevron prend seul la place de l'entête. */
+.sidebar.replie .brand-logo,
+.sidebar.replie .sidebar-tag,
+.sidebar.replie .nav-item span,
+.sidebar.replie .btn-logout span {
+  display: none;
+}
+
+.sidebar.replie .sidebar-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar.replie .nav-item,
+.sidebar.replie .btn-logout {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+  gap: 0;
+}
+
+/* La séparation de l'entête suivait le bloc « CRM CLIENTS », qui disparaît.
+   Elle se reporte sur la marge, sinon la navigation collerait au chevron. */
+.sidebar.replie .sidebar-brand {
+  padding-bottom: 18px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--sidebar-line);
+}
+
+/* Bouton de pli ----------------------------------------------------------- */
+
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid var(--sidebar-line);
+  color: var(--sidebar-ink);
+  flex-shrink: 0;
+  transition: background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1024px) {
+  /* Sous 1024 px la barre est déjà un tiroir : replier n'a plus de sens, et
+     le bouton céderait la place à la croix de fermeture. Le pli éventuellement
+     mémorisé est neutralisé pour que le tiroir s'ouvre toujours en entier. */
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .sidebar.replie {
+    flex-basis: auto;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .sidebar.replie .brand-logo,
+  .sidebar.replie .sidebar-tag,
+  .sidebar.replie .nav-item span,
+  .sidebar.replie .btn-logout span {
+    display: revert;
+  }
+
+  .sidebar.replie .sidebar-brand {
+    justify-content: space-between;
+    padding: 0 8px;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+
+  .sidebar.replie .nav-item,
+  .sidebar.replie .btn-logout {
+    justify-content: flex-start;
+    padding-left: 13px;
+    padding-right: 13px;
+    gap: 11px;
+  }
+
+  .sidebar.replie .btn-logout {
+    justify-content: center;
+  }
+}

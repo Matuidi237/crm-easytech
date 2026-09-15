@@ -5,6 +5,8 @@ import { useLangue, useLibelles } from "./i18n";
 import { navDe } from "./vues";
 import SelecteurLangue from "./components/SelecteurLangue";
 import {
+  IconChevronLeft,
+  IconChevronRight,
   IconClose,
   IconDashboard,
   IconHandshake,
@@ -48,6 +50,19 @@ function initiales(nom: string) {
  */
 const PAGES_AVEC_RECHERCHE = ["/", "/clients"];
 
+/* Le pli du menu est une préférence d'affichage : elle survit au rechargement,
+   sinon il faudrait la reprendre à chaque visite. Le localStorage peut être
+   refusé (navigation privée, réglage du navigateur), d'où le try. */
+const CLE_MENU_REPLIE = "crm.menuReplie";
+
+function menuReplieInitial() {
+  try {
+    return localStorage.getItem(CLE_MENU_REPLIE) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function Layout() {
   const { logout, utilisateur, peut } = useAuth();
   const { t } = useLangue();
@@ -57,6 +72,10 @@ export default function Layout() {
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  /* Repliée, la barre ne garde que ses icônes. Elle ne disparaît pas comme sur
+     mobile : sur un grand écran la place gagnée ne vaut pas de transformer
+     chaque navigation en deux clics. */
+  const [replie, setReplie] = useState(menuReplieInitial);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const nom = utilisateur?.nomComplet ?? "";
@@ -101,6 +120,17 @@ export default function Layout() {
     navigate("/login", { replace: true });
   }
 
+  function basculerRepli() {
+    setReplie((r) => {
+      try {
+        localStorage.setItem(CLE_MENU_REPLIE, r ? "0" : "1");
+      } catch {
+        // Préférence non mémorisable : le pli reste valable pour la session.
+      }
+      return !r;
+    });
+  }
+
   return (
     <div className="shell">
       <div
@@ -109,16 +139,28 @@ export default function Layout() {
         aria-hidden={!navOpen}
       />
 
-      <aside className={`sidebar${navOpen ? " open" : ""}`}>
+      <aside className={`sidebar${navOpen ? " open" : ""}${replie ? " replie" : ""}`}>
         <div className="sidebar-brand">
           <img src="/brand/easytech-logo-blanc.png" alt="EasyTech Group" className="brand-logo" />
           <button className="sidebar-close" onClick={() => setNavOpen(false)} aria-label={t("topbar.fermerMenu")}>
             <IconClose size={18} />
           </button>
+          {/* Le repli ne concerne que les grands écrans : sous 1024 px la barre
+              est déjà un tiroir, et ce bouton céderait la place à la croix. */}
+          <button
+            className="sidebar-toggle"
+            onClick={basculerRepli}
+            aria-expanded={!replie}
+            aria-controls="navigation-principale"
+            aria-label={replie ? t("nav.deployer") : t("nav.replier")}
+            title={replie ? t("nav.deployer") : t("nav.replier")}
+          >
+            {replie ? <IconChevronRight size={17} /> : <IconChevronLeft size={17} />}
+          </button>
         </div>
         <div className="sidebar-tag">{t("nav.marque")}</div>
 
-        <nav className="sidebar-nav" aria-label={t("nav.principale")}>
+        <nav className="sidebar-nav" id="navigation-principale" aria-label={t("nav.principale")}>
           {entrees
             .filter((n) => !n.requiert || peut(n.requiert))
             .map(({ to, cle, icone, end }) => {
@@ -128,6 +170,7 @@ export default function Layout() {
                   key={to}
                   to={to}
                   end={end}
+                  title={replie ? t(cle) : undefined}
                   className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
                 >
                   <Icone />
@@ -139,24 +182,40 @@ export default function Layout() {
 
         <div className="nav-section">
           <nav className="sidebar-nav" aria-label={t("nav.compte")}>
-            <NavLink to="/profil" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+            <NavLink
+              to="/profil"
+              title={replie ? t("nav.profil") : undefined}
+              className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+              >
               <IconUserCircle />
               <span>{t("nav.profil")}</span>
             </NavLink>
             {peut("permissions.gerer") && (
-              <NavLink to="/permissions" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+              <NavLink
+                to="/permissions"
+                title={replie ? t("nav.permissions") : undefined}
+                className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+              >
                 <IconKey />
                 <span>{t("nav.permissions")}</span>
               </NavLink>
             )}
             {peut("utilisateurs.gerer") && (
-              <NavLink to="/utilisateurs" className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}>
+              <NavLink
+                to="/utilisateurs"
+                title={replie ? t("nav.utilisateurs") : undefined}
+                className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
+              >
                 <IconShield />
                 <span>{t("nav.utilisateurs")}</span>
               </NavLink>
             )}
           </nav>
-          <button className="btn-logout" onClick={handleLogout}>
+          <button
+            className="btn-logout"
+            onClick={handleLogout}
+            title={replie ? t("nav.deconnexion") : undefined}
+          >
             <IconLogout />
             <span>{t("nav.deconnexion")}</span>
           </button>

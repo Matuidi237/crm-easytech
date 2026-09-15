@@ -27,6 +27,8 @@ export const fr = {
   "commun.actions": "Actions",
 
   /* ------------------------------------------------------- Barre du haut */
+  "nav.replier": "Réduire le menu",
+  "nav.deployer": "Déployer le menu",
   "topbar.ouvrirMenu": "Ouvrir le menu",
   "topbar.fermerMenu": "Fermer le menu",
   "topbar.rechercher": "Rechercher un client…",
