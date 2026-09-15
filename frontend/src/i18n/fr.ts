@@ -27,6 +27,7 @@ export const fr = {
   "commun.actions": "Actions",
 
   /* ------------------------------------------------------- Barre du haut */
+  "nav.filAriane": "Fil d'Ariane",
   "nav.replier": "Réduire le menu",
   "nav.deployer": "Déployer le menu",
   "topbar.ouvrirMenu": "Ouvrir le menu",

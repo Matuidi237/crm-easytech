@@ -1,10 +1,12 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLangue, useLibelles } from "./i18n";
 import { navDe } from "./vues";
+import { ContexteEntete, type FilAriane } from "./ContexteEntete";
 import SelecteurLangue from "./components/SelecteurLangue";
 import {
+  IconArrowLeft,
   IconChevronLeft,
   IconChevronRight,
   IconClose,
@@ -76,12 +78,20 @@ export default function Layout() {
      mobile : sur un grand écran la place gagnée ne vaut pas de transformer
      chaque navigation en deux clics. */
   const [replie, setReplie] = useState(menuReplieInitial);
+  /* Renseigné par la page affichée (voir ContexteEntete) : la barre du haut
+     n'a aucun moyen de connaître le nom d'un commercial par elle-même. */
+  const [fil, setFil] = useState<FilAriane | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const nom = utilisateur?.nomComplet ?? "";
   const roleLabel = utilisateur ? libelles.role(utilisateur.role) : "";
   const entrees = navDe(utilisateur?.role);
   const rechercheVisible = PAGES_AVEC_RECHERCHE.includes(location.pathname);
+
+  /* Référence stable : le hook des pages en dépend, une fonction recréée à
+     chaque rendu relancerait son effet en boucle. */
+  const definirFil = useCallback((f: FilAriane | null) => setFil(f), []);
+  const contexteEntete = useMemo(() => ({ fil, definirFil }), [fil, definirFil]);
 
   // Le tiroir de navigation se referme dès qu'on change de page (mobile).
   useEffect(() => {
@@ -132,6 +142,7 @@ export default function Layout() {
   }
 
   return (
+    <ContexteEntete.Provider value={contexteEntete}>
     <div className="shell">
       <div
         className={`sidebar-backdrop${navOpen ? " on" : ""}`}
@@ -228,6 +239,26 @@ export default function Layout() {
             <IconMenu />
           </button>
 
+          {/* Le fil d'Ariane occupe la place laissée libre par la recherche.
+              Les deux ne coexistent pas : les pages qui portent la recherche
+              sont des racines, elles n'ont pas de parent à afficher. */}
+          {!rechercheVisible && fil && (
+            <nav className="topbar-fil" aria-label={t("nav.filAriane")}>
+              <Link to={fil.vers} className="fil-retour">
+                <IconArrowLeft size={15} />
+                <span>{fil.versLibelle}</span>
+              </Link>
+              {fil.courant && (
+                <>
+                  <IconChevronRight size={14} className="fil-separateur" />
+                  <span className="fil-courant" title={fil.courant}>
+                    {fil.courant}
+                  </span>
+                </>
+              )}
+            </nav>
+          )}
+
           {rechercheVisible && (
             <form className="search" onSubmit={handleSearch} role="search">
               <IconSearch />
@@ -310,5 +341,6 @@ export default function Layout() {
         </div>
       </div>
     </div>
+    </ContexteEntete.Provider>
   );
 }

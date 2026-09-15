@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Newsletter, NewsletterEnvoi, deleteNewsletter, fetchNewsletter, sendNewsletter } from "../api";
 import { useLangue } from "../i18n";
-import { IconAlert, IconArrowLeft, IconCheck, IconInbox, IconSend, IconTrash } from "../components/Icons";
+import { useFilAriane } from "../ContexteEntete";
+import { IconAlert, IconCheck, IconInbox, IconSend, IconTrash } from "../components/Icons";
 import { STATUT_PILL } from "./NewslettersPage";
 
 export default function NewsletterDetailPage() {
@@ -21,6 +22,10 @@ export default function NewsletterDetailPage() {
   }
 
   useEffect(load, [id]);
+
+  // Même traitement que les autres pages de détail : le retour monte dans la
+  // barre du haut plutôt que de consommer une ligne au-dessus du titre.
+  useFilAriane("/newsletters", t("nld.retour"), newsletter?.titre);
 
   async function handleSend() {
     if (!id || !newsletter) return;
@@ -81,15 +86,6 @@ export default function NewsletterDetailPage() {
 
   return (
     <>
-      <Link
-        to="/newsletters"
-        className="link-action"
-        style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start" }}
-      >
-        <IconArrowLeft size={15} />
-        {t("nld.retour")}
-      </Link>
-
       <div className="page-head">
         <div>
           <h1>{newsletter.titre}</h1>

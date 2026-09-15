@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { EquipeCommerciale, fetchEquipeCommerciale } from "../api";
 import { useLangue } from "../i18n";
-import { IconAlert, IconArrowLeft, IconChevronDown, IconInbox, IconSearch } from "../components/Icons";
+import { useFilAriane } from "../ContexteEntete";
+import { IconAlert, IconChevronDown, IconInbox, IconSearch } from "../components/Icons";
 
 function initiales(nom: string) {
   const mots = nom.trim().split(/\s+/).filter(Boolean);
@@ -43,6 +44,8 @@ export default function EquipeCommercialePage() {
       .finally(() => setChargement(false));
   }, [recherche, pays]);
 
+  useFilAriane("/equipes", t("ec.retour"), t("ec.titre"));
+
   const filtreActif = recherche !== "" || pays !== "";
 
   function reinitialiser() {
@@ -55,11 +58,6 @@ export default function EquipeCommercialePage() {
 
   const entete = (
     <>
-      <Link to="/equipes" className="lien-retour">
-        <IconArrowLeft size={15} />
-        {t("ec.retour")}
-      </Link>
-
       <div className="page-head">
         <div>
           <h1>{t("ec.titre")}</h1>

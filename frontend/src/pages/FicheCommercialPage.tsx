@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { FicheCommercial, fetchFicheCommercial } from "../api";
 import { useLangue, useLibelles } from "../i18n";
+import { useFilAriane } from "../ContexteEntete";
 import { EvolutionMensuelle } from "../components/Charts";
-import { IconAlert, IconArrowLeft, IconCoins, IconInbox, IconTrend } from "../components/Icons";
+import { IconAlert, IconCoins, IconInbox, IconTrend } from "../components/Icons";
 
 function initiales(nom: string) {
   const mots = nom.trim().split(/\s+/).filter(Boolean);
@@ -35,17 +36,15 @@ export default function FicheCommercialPage() {
       .catch((e) => setErreur(e.message));
   }, [id]);
 
-  const retour = (
-    <Link to="/equipes/commerciale" className="lien-retour">
-      <IconArrowLeft size={15} />
-      {t("fc.retour")}
-    </Link>
-  );
+  /* Le retour et le nom remontent dans la barre du haut, dont la moitié gauche
+     est libre sur cette page. Appelé avant tout retour anticipé : c'est un
+     hook, et il doit s'exécuter même pendant le chargement pour que la sortie
+     reste disponible si la fiche échoue. */
+  useFilAriane("/equipes/commerciale", t("fc.retour"), fiche?.membre.nomComplet);
 
   if (erreur) {
     return (
       <>
-        {retour}
         <div className="card">
           <div className="empty">
             <div className="empty-icon">
@@ -63,14 +62,11 @@ export default function FicheCommercialPage() {
 
   if (!fiche) {
     return (
-      <>
-        {retour}
-        <div className="card">
-          <p className="muted-3" style={{ margin: 0 }}>
-            {t("commun.chargementDonnees")}
-          </p>
-        </div>
-      </>
+      <div className="card">
+        <p className="muted-3" style={{ margin: 0 }}>
+          {t("commun.chargementDonnees")}
+        </p>
+      </div>
     );
   }
 
@@ -79,8 +75,6 @@ export default function FicheCommercialPage() {
 
   return (
     <>
-      {retour}
-
       {/* Entête d'identité : qui est cette personne, avant ce qu'elle produit. */}
       <div className="fiche-tete">
         <span className="avatar avatar-xl">{initiales(m.nomComplet)}</span>

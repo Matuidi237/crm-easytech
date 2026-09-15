@@ -27,6 +27,7 @@ export const en: Record<keyof typeof fr, string> = {
   "commun.actions": "Actions",
 
   /* ------------------------------------------------------------- Top bar */
+  "nav.filAriane": "Breadcrumb",
   "nav.replier": "Collapse the menu",
   "nav.deployer": "Expand the menu",
   "topbar.ouvrirMenu": "Open menu",
