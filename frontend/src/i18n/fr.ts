@@ -597,11 +597,39 @@ export const fr = {
 
   "partenaires.titre": "Partenaires",
   "partenaires.sousTitre": "Les partenaires technologiques d'EasyTech Group",
-  "partenaires.aDefinirTitre": "Module à définir",
-  "partenaires.aDefinirTexte":
-    "Cette page attend son contenu. Les partenaires ne sont pas encore modélisés dans la base : ni fiche, ni contact, ni contrat.",
-  "partenaires.aDefinirAide":
-    "Dites-nous ce qu'un partenaire doit porter (contacts, accords commerciaux, catalogue de produits revendus, campagnes fournies) et la page se construit sur cette base.",
+
+  /* --------------------------------------------------------- Partenaires */
+  "pa.titre": "Partenaires",
+  "pa.sousTitre": "{n} partenariats technologiques, leur niveau et ce qui reste à faire",
+  "pa.sousTitreUn": "1 partenariat technologique",
+  "pa.niveauActuel": "Niveau actuel",
+  "pa.depuis": "depuis {date}",
+  "pa.palier": "Palier {n} sur {total}",
+  "pa.palierInconnu": "Niveau hors de l'échelle déclarée",
+  "pa.auSommet": "Niveau le plus élevé du programme",
+  "pa.versNiveau": "Pour passer {niveau}",
+  "pa.conditions": "{remplies} conditions sur {total} remplies",
+  "pa.conditionsUne": "1 condition sur {total} remplie",
+  "pa.conditionsAucune": "Aucune condition renseignée",
+  "pa.mesuree": "Mesuré sur les ventes",
+  "pa.realiseSurSeuil": "{realise} sur {seuil} requis",
+  "pa.caDouzeMois": "Chiffre d'affaires sur douze mois",
+  "pa.ventesDouzeMois": "{n} ventes",
+  "pa.ventesDouzeMoisUne": "1 vente",
+  "pa.aucuneVente": "Aucune vente rattachée",
+  "pa.produitsCouverts": "Produits couverts",
+  "pa.channelManager": "Channel manager",
+  "pa.sansChannelManager": "Aucun interlocuteur désigné",
+  "pa.sansChannelManagerAide": "Renseignez un contact pour savoir à qui s'adresser sur ce programme.",
+  "pa.siteProgramme": "Espace partenaire",
+  "pa.videTitre": "Aucun partenaire enregistré",
+  "pa.videTexte": "Les partenariats technologiques apparaîtront ici avec leur niveau, leurs conditions de montée et le contact du channel manager.",
+  "pa.notes": "À retenir",
+
+  "typePartenaire.EDITEUR": "Éditeur",
+  "typePartenaire.CONSTRUCTEUR": "Constructeur",
+  "typePartenaire.DISTRIBUTEUR": "Distributeur",
+  "typePartenaire.SERVICES": "Services",
 
   /* --------------------------------------------------------------- Rôles */
   "role.SUPER_ADMIN": "Super administrateur",

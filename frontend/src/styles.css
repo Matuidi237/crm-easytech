@@ -3502,3 +3502,373 @@ td.col-actions {
   background: #eeebfa;
   color: #5b4bc4;
 }
+
+/* ==========================================================================
+   Partenaires
+   ========================================================================== */
+
+.partenaires-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.partenaire {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.partenaire-tete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.partenaire-nom {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.partenaire-type {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.partenaire-etiquette {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.partenaire-niveau {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.partenaire-palier-nom {
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--brand-700);
+  margin-top: 3px;
+}
+
+.partenaire-depuis {
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--ink-3);
+  margin-left: 8px;
+}
+
+/* Échelle du programme ----------------------------------------------------- */
+
+/* Voir où l'on est suppose de voir d'où l'on vient et vers où l'on va : les
+   paliers sont donc tous montrés, pas seulement le niveau courant. */
+.echelle {
+  display: flex;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+
+.echelle-palier {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+  text-align: center;
+}
+
+/* Le trait de liaison passe derrière les points, sans dépasser aux extrémités. */
+.echelle-palier::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: -50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+}
+
+.echelle-palier:first-child::before {
+  display: none;
+}
+
+.echelle-palier.passe::before,
+.echelle-palier.actuel::before {
+  background: var(--brand);
+}
+
+.echelle-point {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-2);
+  position: relative;
+  z-index: 1;
+}
+
+.echelle-palier.passe .echelle-point {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+/* Le palier courant porte un anneau : plus gros que les autres, il se repère
+   sans avoir à lire les libellés. */
+.echelle-palier.actuel .echelle-point {
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+  box-shadow: 0 0 0 4px var(--brand-100);
+}
+
+.echelle-palier.vise .echelle-point {
+  border-color: var(--brand);
+  border-style: dashed;
+}
+
+.echelle-nom {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ink-3);
+  overflow-wrap: anywhere;
+}
+
+.echelle-palier.actuel .echelle-nom {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.echelle-palier.vise .echelle-nom {
+  color: var(--brand-700);
+  font-weight: 550;
+}
+
+/* Volume réalisé ----------------------------------------------------------- */
+
+.partenaire-volume {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.partenaire-ca {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+
+.partenaire-volume-note {
+  font-size: 12px;
+  color: var(--ink-3);
+  text-align: right;
+  min-width: 0;
+}
+
+.partenaire-produits {
+  display: block;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.partenaire-sous-titre {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+/* Conditions de montée ----------------------------------------------------- */
+
+.conditions {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.condition {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+/* Une pastille vide pour ce qui reste à faire, cochée pour ce qui est acquis :
+   la forme porte l'état, la couleur ne fait que la redoubler. */
+.condition-marque {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-2);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: transparent;
+}
+
+.condition.remplie .condition-marque {
+  background: var(--success-bg);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.condition-libelle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.condition.remplie .condition-libelle {
+  color: var(--ink-2);
+}
+
+.condition-exigence {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+
+.condition-situation {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+.condition-mesure {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.condition-chiffre {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Une condition de volume non atteinte n'est pas une alerte : elle est en
+   cours. Le bleu de marque, pas le rouge. */
+.avancement-jauge.en-attente {
+  background: var(--brand);
+}
+
+/* Contact ------------------------------------------------------------------ */
+
+.partenaire-contact {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.contact-bloc,
+.contact-absent {
+  margin-top: 6px;
+}
+
+.contact-nom {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.contact-absent .contact-nom {
+  color: var(--ink-3);
+  font-weight: 550;
+}
+
+.contact-liens {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.contact-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--brand-700);
+  overflow-wrap: anywhere;
+}
+
+.contact-lien:hover {
+  text-decoration: underline;
+}
+
+.partenaire-notes {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.partenaire-notes-texte {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+@media (max-width: 760px) {
+  .partenaires-grille {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  /* Sous 760 px, quatre paliers côte à côte réduisent chaque libellé à deux
+     caractères : l'échelle passe en colonne, où les noms tiennent. */
+  .echelle {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+  }
+
+  .echelle-palier {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .echelle-palier::before {
+    top: auto;
+    bottom: 50%;
+    left: 5px;
+    width: 2px;
+    height: 100%;
+  }
+
+  .echelle-nom {
+    font-size: 12.5px;
+  }
+
+  .partenaire-volume-note {
+    text-align: left;
+  }
+}

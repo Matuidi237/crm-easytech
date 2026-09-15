@@ -772,3 +772,50 @@ export async function fetchFicheChefProjet(id: string) {
   if (!res.ok) throw new Error("Erreur lors du chargement de la fiche.");
   return res.json() as Promise<FicheChefProjet>;
 }
+
+/* ------------------------------------------------------------ Partenaires */
+
+export type TypePartenaire = "EDITEUR" | "CONSTRUCTEUR" | "DISTRIBUTEUR" | "SERVICES";
+
+export type ConditionPartenariat = {
+  id: string;
+  libelle: string;
+  exigence: string;
+  situation: string | null;
+  satisfaite: boolean;
+  /** Vrai quand le verdict vient des ventes et non d'une case cochée. */
+  mesuree: boolean;
+  seuil: number | null;
+  realise: number | null;
+  progressionPct: number | null;
+};
+
+export type Partenaire = {
+  id: string;
+  nom: string;
+  type: TypePartenaire;
+  siteWeb: string | null;
+  paliers: string[];
+  niveauActuel: string;
+  /** -1 si le niveau courant ne figure pas dans l'échelle déclarée. */
+  rangActuel: number;
+  niveauSuivant: string | null;
+  auSommet: boolean;
+  depuis: string | null;
+  channelManager: { nom: string | null; email: string | null; telephone: string | null } | null;
+  notes: string | null;
+  conditions: ConditionPartenariat[];
+  conditionsRemplies: number;
+  conditionsTotal: number;
+  caDouzeMois: number;
+  caTotal: number;
+  beneficeDouzeMois: number;
+  nbVentesDouzeMois: number;
+  produits: string[];
+};
+
+export async function fetchPartenaires() {
+  const res = await authedFetch("/api/direction/partenaires");
+  if (!res.ok) throw new Error("Erreur lors du chargement des partenaires.");
+  return res.json() as Promise<{ partenaires: Partenaire[] }>;
+}

@@ -858,3 +858,118 @@ directionRouter.get("/chef-projet/:id", async (req, res) => {
     })),
   });
 });
+
+
+/* ==========================================================================
+   Partenaires
+   ========================================================================== */
+
+/**
+ * Partenaires technologiques, avec le volume réalisé sous chaque programme.
+ *
+ * Un palier se gagne au volume : rattacher chaque partenaire aux ventes de ses
+ * produits rend la condition de chiffre d'affaires mesurable au lieu de la
+ * laisser déclarative. Le rattachement passe par des mots-clés, faute de
+ * catalogue produit modélisé ; c'est approximatif et assumé, mais cela vaut
+ * mieux qu'un champ saisi à la main qui se périmerait en silence.
+ */
+directionRouter.get("/partenaires", async (_req, res) => {
+  const [partenaires, ventes] = await Promise.all([
+    prisma.partenaire.findMany({
+      orderBy: { nom: "asc" },
+      include: { conditions: { orderBy: { ordre: "asc" } } },
+    }),
+    prisma.vente.findMany({
+      select: { produit: true, prixVente: true, prixAchat: true, quantite: true, dateVente: true },
+    }),
+  ]);
+
+  // Douze mois glissants : les programmes partenaires raisonnent sur l'année
+  // écoulée, pas sur l'histoire complète.
+  const debutFenetre = new Date();
+  debutFenetre.setFullYear(debutFenetre.getFullYear() - 1);
+
+  const lignes = partenaires.map((p) => {
+    const cles = p.motsClesProduits.map((m) => m.toLowerCase());
+    const concerne = (produit: string) => {
+      const bas = produit.toLowerCase();
+      return cles.some((c) => bas.includes(c));
+    };
+
+    let caTotal = 0;
+    let caDouzeMois = 0;
+    let beneficeDouzeMois = 0;
+    let nbVentes = 0;
+    const produits = new Set<string>();
+
+    for (const v of ventes) {
+      if (!concerne(v.produit)) continue;
+      const montant = nb(v.prixVente) * v.quantite;
+      caTotal += montant;
+      produits.add(v.produit);
+      if (v.dateVente >= debutFenetre) {
+        caDouzeMois += montant;
+        beneficeDouzeMois += montant - nb(v.prixAchat) * v.quantite;
+        nbVentes += 1;
+      }
+    }
+
+    const rang = p.paliers.indexOf(p.niveauActuel);
+    const niveauSuivant = rang >= 0 && rang < p.paliers.length - 1 ? p.paliers[rang + 1] : null;
+
+    /* Une condition portant un seuil est tranchée par les ventes, pas par une
+       case cochée : c'est le seul moyen que son verdict ne contredise pas le
+       chiffre d'affaires affiché au-dessus. */
+    const conditions = p.conditions.map((c) => {
+      const seuil = c.seuilCaXAF === null ? null : nb(c.seuilCaXAF);
+      const mesuree = seuil !== null && seuil > 0;
+      return {
+        id: c.id,
+        libelle: c.libelle,
+        exigence: c.exigence,
+        situation: c.situation,
+        satisfaite: mesuree ? caDouzeMois >= seuil : c.satisfaite,
+        mesuree,
+        seuil,
+        realise: mesuree ? Math.round(caDouzeMois) : null,
+        progressionPct: mesuree ? Math.min(100, Math.round((caDouzeMois / seuil) * 100)) : null,
+      };
+    });
+    const remplies = conditions.filter((c) => c.satisfaite).length;
+
+    return {
+      id: p.id,
+      nom: p.nom,
+      type: p.type,
+      siteWeb: p.siteWeb,
+      paliers: p.paliers,
+      niveauActuel: p.niveauActuel,
+      /* -1 quand le niveau courant ne figure pas dans l'échelle : la donnée
+         est alors incohérente, et l'interface doit pouvoir le dire plutôt que
+         d'afficher une position inventée. */
+      rangActuel: rang,
+      niveauSuivant,
+      auSommet: niveauSuivant === null && rang >= 0,
+      depuis: p.depuis,
+      channelManager:
+        p.channelManagerNom || p.channelManagerEmail || p.channelManagerTelephone
+          ? {
+              nom: p.channelManagerNom,
+              email: p.channelManagerEmail,
+              telephone: p.channelManagerTelephone,
+            }
+          : null,
+      notes: p.notes,
+      conditions,
+      conditionsRemplies: remplies,
+      conditionsTotal: conditions.length,
+      caDouzeMois: Math.round(caDouzeMois),
+      caTotal: Math.round(caTotal),
+      beneficeDouzeMois: Math.round(beneficeDouzeMois),
+      nbVentesDouzeMois: nbVentes,
+      produits: [...produits].sort(),
+    };
+  });
+
+  res.json({ partenaires: lignes });
+});

@@ -318,3 +318,86 @@ model Projet {
   @@index([statut])
   @@index([dateFinPrevue])
 }
+
+/// Nature du partenariat, qui dit ce qu'on attend de l'autre.
+enum TypePartenaire {
+  EDITEUR
+  CONSTRUCTEUR
+  DISTRIBUTEUR
+  SERVICES
+}
+
+/// Partenaire technologique.
+///
+/// Le programme de chaque éditeur a sa propre échelle : Microsoft parle de
+/// Silver et Gold, Fortinet de Select, Advanced et Expert. « paliers » porte
+/// donc l'échelle complète du programme, dans l'ordre, plutôt qu'une énumération
+/// commune qui ne conviendrait à personne.
+model Partenaire {
+  id      String         @id @default(uuid())
+  nom     String         @unique
+  type    TypePartenaire
+  siteWeb String?
+
+  /// Échelle du programme, du palier le plus bas au plus haut.
+  paliers      String[]
+  niveauActuel String
+  /// Date d'obtention du palier courant, quand elle est connue.
+  depuis DateTime?
+
+  /// Mots-clés des produits vendus sous ce partenariat.
+  ///
+  /// C'est ce qui relie le partenaire aux ventes déjà en base : un palier se
+  /// gagne au volume, et sans ce lien les conditions de chiffre d'affaires
+  /// resteraient déclaratives au lieu d'être mesurées.
+  motsClesProduits String[]
+
+  /// Interlocuteur chez le partenaire. Le champ existe même vide : ne pas
+  /// savoir qui appeler est en soi une information.
+  channelManagerNom       String?
+  channelManagerEmail     String?
+  channelManagerTelephone String?
+
+  notes   String?
+  estDemo Boolean @default(false)
+
+  conditions ConditionPartenariat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estDemo])
+}
+
+/// Une exigence à remplir pour accéder au palier suivant.
+///
+/// L'exigence et la situation sont du texte : les unités n'ont rien de commun
+/// d'une ligne à l'autre (un montant, un nombre d'ingénieurs certifiés, des
+/// références clients). Imposer un nombre obligerait à choisir une unité, donc
+/// à fausser les autres. « satisfaite » porte le verdict, seul élément commun.
+model ConditionPartenariat {
+  id           String     @id @default(uuid())
+  partenaire   Partenaire @relation(fields: [partenaireId], references: [id], onDelete: Cascade)
+  partenaireId String
+
+  libelle   String
+  exigence  String
+  /// Où l'on en est. Null quand la mesure n'est pas connue, ce qui n'est pas
+  /// la même chose qu'une condition non remplie.
+  situation String?
+
+  /// Seuil de chiffre d'affaires, quand la condition en est un.
+  ///
+  /// Renseigné, il rend la condition MESURÉE : son verdict se calcule sur les
+  /// ventes réelles des produits du partenaire, et « satisfaite » n'est plus lu.
+  /// Sans cela, une condition de volume resterait cochée à la main et pourrait
+  /// contredire le chiffre affiché juste au-dessus.
+  seuilCaXAF Decimal? @db.Decimal(18, 2)
+
+  /// Verdict saisi, pour les conditions qu'aucun chiffre du CRM ne mesure
+  /// (certifications, audits, engagements contractuels).
+  satisfaite Boolean @default(false)
+  ordre      Int     @default(0)
+
+  @@index([partenaireId])
+}

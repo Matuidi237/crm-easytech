@@ -152,6 +152,109 @@ const PRESTATIONS = {
 const CHEFS = ["demo-chef1", "demo-chef2", "demo-chef3", "demo-chef4", "demo-chef5"];
 
 /**
+ * Partenaires technologiques.
+ *
+ * « motsClesProduits » relie chaque partenaire aux ventes déjà en base : c'est
+ * ce qui permet de mesurer le volume réalisé sous son programme au lieu de le
+ * déclarer. Les échelles diffèrent d'un programme à l'autre, chacun porte donc
+ * la sienne.
+ *
+ * Les situations sont écrites telles qu'un channel manager les formulerait :
+ * certaines sont chiffrées, d'autres non, et quelques-unes sont simplement
+ * inconnues. Un jeu où tout serait mesuré donnerait une fausse idée de ce que
+ * l'outil saura afficher en vrai.
+ */
+const PARTENAIRES = [
+  {
+    nom: "Microsoft",
+    type: "EDITEUR",
+    siteWeb: "https://partner.microsoft.com",
+    paliers: ["Member", "Action Pack", "Solutions Partner", "Solutions Partner Expert"],
+    niveauActuel: "Solutions Partner",
+    moisDepuis: 14,
+    motsClesProduits: ["Microsoft"],
+    channelManagerNom: "Sandra Eyenga",
+    channelManagerEmail: "sandra.eyenga@partner.microsoft.com",
+    channelManagerTelephone: "+237 6 98 45 12 30",
+    notes: "Revue de partenariat chaque trimestre. Les certifications se renouvellent tous les deux ans.",
+    conditions: [
+      { libelle: "Chiffre d'affaires annuel", exigence: "60 M XAF sur les licences", seuilCaXAF: 60000000 },
+      { libelle: "Ingénieurs certifiés", exigence: "4 certifications Azure actives", situation: "3 sur 4", satisfaite: false },
+      { libelle: "Références clients", exigence: "5 déploiements documentés", situation: "7 déploiements", satisfaite: true },
+      { libelle: "Score de satisfaction", exigence: "Au moins 4,5 sur 5", situation: "4,7 sur 5", satisfaite: true },
+    ],
+  },
+  {
+    nom: "Fortinet",
+    type: "CONSTRUCTEUR",
+    siteWeb: "https://partners.fortinet.com",
+    paliers: ["Select", "Advanced", "Expert"],
+    niveauActuel: "Advanced",
+    moisDepuis: 8,
+    motsClesProduits: ["Fortinet", "Pare-feu"],
+    channelManagerNom: "Olivier Manga",
+    channelManagerEmail: "omanga@fortinet.com",
+    channelManagerTelephone: "+237 6 77 21 08 44",
+    notes: "Le passage à Expert exige un audit du centre de support sur site.",
+    conditions: [
+      { libelle: "Chiffre d'affaires annuel", exigence: "25 M XAF sur les équipements", seuilCaXAF: 25000000 },
+      { libelle: "Ingénieurs certifiés NSE", exigence: "2 NSE 7 et 4 NSE 4", situation: "1 NSE 7 et 5 NSE 4", satisfaite: false },
+      { libelle: "Support de niveau 1", exigence: "Astreinte en propre", situation: "En place depuis mars", satisfaite: true },
+      { libelle: "Audit du centre de support", exigence: "Visite annuelle validée", satisfaite: false },
+    ],
+  },
+  {
+    nom: "Dell Technologies",
+    type: "CONSTRUCTEUR",
+    siteWeb: "https://www.delltechnologies.com/partner",
+    paliers: ["Authorized", "Gold", "Platinum", "Titanium"],
+    niveauActuel: "Gold",
+    moisDepuis: 22,
+    motsClesProduits: ["Dell", "Serveur"],
+    channelManagerNom: "Brigitte Nana",
+    channelManagerEmail: "brigitte.nana@dell.com",
+    channelManagerTelephone: "+237 6 55 90 17 62",
+    conditions: [
+      { libelle: "Chiffre d'affaires annuel", exigence: "40 M XAF sur l'infrastructure", seuilCaXAF: 40000000 },
+      { libelle: "Formations commerciales", exigence: "3 vendeurs accrédités", situation: "4 vendeurs", satisfaite: true },
+      { libelle: "Stock de démonstration", exigence: "Un serveur de démonstration en agence", satisfaite: false },
+    ],
+  },
+  {
+    nom: "HP",
+    type: "CONSTRUCTEUR",
+    siteWeb: "https://partner.hp.com",
+    paliers: ["Business", "Silver", "Gold", "Platinum"],
+    niveauActuel: "Silver",
+    moisDepuis: 5,
+    motsClesProduits: ["HP", "Postes de travail"],
+    // Aucun channel manager désigné : le cas doit être visible à l'écran.
+    conditions: [
+      { libelle: "Volume annuel", exigence: "150 postes livrés", situation: "62 postes", satisfaite: false },
+      { libelle: "Technicien agréé", exigence: "1 technicien certifié maintenance", satisfaite: true },
+    ],
+  },
+  {
+    nom: "Orange Business",
+    type: "SERVICES",
+    siteWeb: "https://www.orange-business.com",
+    paliers: ["Référencé", "Partenaire", "Partenaire Premium"],
+    niveauActuel: "Partenaire",
+    moisDepuis: 11,
+    motsClesProduits: ["Hébergement", "cloud"],
+    channelManagerNom: "Thierry Abega",
+    channelManagerEmail: "thierry.abega@orange-business.com",
+    channelManagerTelephone: "+237 6 94 33 71 05",
+    notes: "Interlocuteur unique pour l'hébergement régional et la connectivité.",
+    conditions: [
+      { libelle: "Volume d'hébergement", exigence: "20 M XAF facturés sur douze mois", seuilCaXAF: 20000000 },
+      { libelle: "Engagement de service", exigence: "Contrat de niveau de service signé", situation: "Signé en janvier", satisfaite: true },
+      { libelle: "Référent technique dédié", exigence: "1 architecte cloud identifié", situation: "À pourvoir", satisfaite: false },
+    ],
+  },
+];
+
+/**
  * Catalogue de démonstration.
  *
  * Les marges sont volontairement inégales : un tableau de bord où tout se vend
@@ -183,22 +286,23 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, comptes] = await Promise.all([
+  const [ventes, projets, partenaires, comptes] = await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
+    prisma.partenaire.count({ where: { estDemo: true } }),
     prisma.utilisateur.count({ where: { identifiant: { startsWith: PREFIXE } } }),
   ]);
-  return { ventes, projets, comptes };
+  return { ventes, projets, partenaires, comptes };
 }
 
 async function etat() {
-  const { ventes, projets, comptes } = await compter();
+  const { ventes, projets, partenaires, comptes } = await compter();
   const totalVentes = await prisma.vente.count();
-  if (ventes === 0 && projets === 0 && comptes === 0) {
+  if (ventes === 0 && projets === 0 && partenaires === 0 && comptes === 0) {
     console.log("Aucune donnée de démonstration en base.");
   } else {
     console.log(
-      `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s) et ${projets} projet(s) de démonstration.`
+      `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s), ${projets} projet(s) et ${partenaires} partenaire(s) de démonstration.`
     );
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
@@ -210,20 +314,23 @@ async function supprimer({ silencieux = false } = {}) {
      en dernier, puisque rien ne dépend plus d'eux. */
   const projets = await prisma.projet.deleteMany({ where: { estDemo: true } });
   const ventes = await prisma.vente.deleteMany({ where: { estDemo: true } });
+  // Les conditions partent avec leur partenaire, la relation étant en cascade.
+  const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   const users = await prisma.utilisateur.deleteMany({ where: { identifiant: { startsWith: PREFIXE } } });
 
   if (!silencieux) {
     console.log(
-      `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s) de démonstration.`
+      `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
-    const restant = (await compter()).ventes + (await compter()).projets;
+    const c = await compter();
+    const restant = c.ventes + c.projets + c.partenaires;
     console.log(
       restant === 0
         ? `Il ne reste aucune donnée de démonstration. Base : ${await prisma.client.count()} clients, ${await prisma.vente.count()} ventes réelles.`
         : `ATTENTION : ${restant} enregistrement(s) de démonstration subsistent.`
     );
   }
-  return { ventes: ventes.count, projets: projets.count, comptes: users.count };
+  return { ventes: ventes.count, projets: projets.count, partenaires: partenaires.count, comptes: users.count };
 }
 
 async function creer() {
@@ -371,11 +478,29 @@ async function creer() {
 
   await prisma.projet.createMany({ data: projets });
 
+  for (const p of PARTENAIRES) {
+    const { conditions, moisDepuis, ...champs } = p;
+    const depuis = new Date();
+    depuis.setMonth(depuis.getMonth() - moisDepuis);
+    await prisma.partenaire.create({
+      data: {
+        ...champs,
+        depuis,
+        estDemo: true,
+        conditions: {
+          create: conditions.map((c, ordre) => ({ ...c, ordre })),
+        },
+      },
+    });
+  }
+
   const ca = ventes.reduce((s, v) => s + v.prixVente * v.quantite, 0);
   const budget = projets.reduce((s, p) => s + p.budget, 0);
   console.log("Jeu de démonstration en place.");
   console.log(`  Connexion DG : demo-dg / ${MOT_DE_PASSE}`);
-  console.log(`  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets.`);
+  console.log(
+    `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`
+  );
   console.log(`  Chiffre d'affaires simulé : ${ca.toLocaleString("fr-FR")} XAF`);
   console.log(`  Budget projets piloté : ${budget.toLocaleString("fr-FR")} XAF`);
   console.log("  Retrait avant mise en production : node scripts/demo-direction.mjs --supprimer");

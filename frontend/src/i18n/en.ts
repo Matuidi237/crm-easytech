@@ -595,11 +595,39 @@ export const en: Record<keyof typeof fr, string> = {
 
   "partenaires.titre": "Partners",
   "partenaires.sousTitre": "EasyTech Group's technology partners",
-  "partenaires.aDefinirTitre": "Module to be defined",
-  "partenaires.aDefinirTexte":
-    "This page is waiting for its content. Partners are not modelled in the database yet: no record, no contact, no contract.",
-  "partenaires.aDefinirAide":
-    "Tell us what a partner should carry (contacts, commercial agreements, catalogue of resold products, supplied campaigns) and the page gets built on that.",
+
+  /* ------------------------------------------------------------ Partners */
+  "pa.titre": "Partners",
+  "pa.sousTitre": "{n} technology partnerships, their tier and what is left to do",
+  "pa.sousTitreUn": "1 technology partnership",
+  "pa.niveauActuel": "Current tier",
+  "pa.depuis": "since {date}",
+  "pa.palier": "Tier {n} of {total}",
+  "pa.palierInconnu": "Tier outside the declared ladder",
+  "pa.auSommet": "Highest tier of the programme",
+  "pa.versNiveau": "To reach {niveau}",
+  "pa.conditions": "{remplies} of {total} requirements met",
+  "pa.conditionsUne": "1 of {total} requirements met",
+  "pa.conditionsAucune": "No requirement recorded",
+  "pa.mesuree": "Measured from sales",
+  "pa.realiseSurSeuil": "{realise} of {seuil} required",
+  "pa.caDouzeMois": "Revenue over twelve months",
+  "pa.ventesDouzeMois": "{n} sales",
+  "pa.ventesDouzeMoisUne": "1 sale",
+  "pa.aucuneVente": "No sale linked",
+  "pa.produitsCouverts": "Products covered",
+  "pa.channelManager": "Channel manager",
+  "pa.sansChannelManager": "No contact assigned",
+  "pa.sansChannelManagerAide": "Record a contact so the team knows who to reach on this programme.",
+  "pa.siteProgramme": "Partner portal",
+  "pa.videTitre": "No partner recorded",
+  "pa.videTexte": "Technology partnerships will appear here with their tier, the requirements to move up and the channel manager's contact details.",
+  "pa.notes": "Worth knowing",
+
+  "typePartenaire.EDITEUR": "Software vendor",
+  "typePartenaire.CONSTRUCTEUR": "Hardware vendor",
+  "typePartenaire.DISTRIBUTEUR": "Distributor",
+  "typePartenaire.SERVICES": "Services",
 
   /* -------------------------------------------------------------- Roles */
   "role.SUPER_ADMIN": "Super administrator",
