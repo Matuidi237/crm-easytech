@@ -36,6 +36,7 @@ model Client {
   proprietaireId String?
   acces          AccesClient[]
   ventes         Vente[]
+  projets        Projet[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -112,6 +113,7 @@ model Utilisateur {
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
   ventes          Vente[]       @relation("Vendeur")
+  projets         Projet[]      @relation("ChefDeProjet")
 
   @@index([responsableId])
 }
@@ -162,6 +164,9 @@ model Vente {
   /// gonfler le chiffre d'affaires. Le drapeau rend la suppression sûre et
   /// vérifiable, indépendamment de ce qui est arrivé aux comptes.
   estDemo Boolean @default(false)
+
+  /// Projet de livraison né de cette vente, quand elle porte une prestation.
+  projets Projet[]
 
   @@index([estDemo])
   @@index([vendeurId])
@@ -246,4 +251,70 @@ model NewsletterEnvoi {
   createdAt     DateTime @default(now())
 
   @@index([newsletterId])
+}
+
+/// État d'avancement d'un projet, du plus amont au plus aval.
+enum StatutProjet {
+  EN_PREPARATION
+  EN_COURS
+  EN_PAUSE
+  LIVRE
+  ANNULE
+}
+
+/// Projet de livraison confié à l'équipe projet.
+///
+/// Un projet naît d'une vente : le commercial vend une prestation, l'équipe
+/// projet la livre. Le lien vers la vente est donc la règle, pas l'exception,
+/// et c'est lui qui rend comparables le chiffre d'affaires signé et ce qui est
+/// réellement livré.
+///
+/// Toutes les ventes n'engendrent pas de projet : des licences se livrent sans
+/// chantier. Seules les prestations en déclenchent un.
+model Projet {
+  id  String @id @default(uuid())
+  nom String
+
+  /// Comme pour les ventes, le nom double la relation : supprimer une fiche
+  /// client ne doit pas effacer la trace de ce qui lui a été livré.
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String
+
+  /// Vente d'origine. Absente pour un projet interne ou repris hors CRM.
+  vente   Vente?  @relation(fields: [venteId], references: [id], onDelete: SetNull)
+  venteId String?
+
+  chefDeProjet   Utilisateur? @relation("ChefDeProjet", fields: [chefDeProjetId], references: [id], onDelete: SetNull)
+  chefDeProjetId String?
+  chefDeProjetNom String
+
+  statut StatutProjet @default(EN_PREPARATION)
+
+  /// Montant confié à l'équipe projet, en XAF. Repris de la vente quand le
+  /// projet en découle.
+  budget Decimal @db.Decimal(18, 2)
+
+  /// Avancement déclaré, de 0 à 100. Un projet livré vaut 100 par
+  /// construction ; c'est vérifié à l'écriture, pas seulement à l'affichage.
+  avancementPct Int @default(0)
+
+  dateDebut     DateTime
+  dateFinPrevue DateTime
+  /// Renseignée à la livraison. Sa comparaison à « dateFinPrevue » donne le
+  /// respect des délais, seul indicateur de tenue d'engagement dont on dispose.
+  dateFinReelle DateTime?
+
+  /// Même rôle que sur Vente : rendre le nettoyage de production sûr et
+  /// vérifiable, indépendamment des comptes qui portent ces projets.
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estDemo])
+  @@index([chefDeProjetId])
+  @@index([clientId])
+  @@index([statut])
+  @@index([dateFinPrevue])
 }

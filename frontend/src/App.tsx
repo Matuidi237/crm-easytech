@@ -18,6 +18,8 @@ import DirectionPage from "./pages/DirectionPage";
 import EquipesPage from "./pages/EquipesPage";
 import EquipeCommercialePage from "./pages/EquipeCommercialePage";
 import FicheCommercialPage from "./pages/FicheCommercialPage";
+import EquipeProjetPage from "./pages/EquipeProjetPage";
+import FicheChefProjetPage from "./pages/FicheChefProjetPage";
 import PartenairesPage from "./pages/PartenairesPage";
 
 /**
@@ -79,6 +81,22 @@ export default function App() {
               element={
                 <RouteDirection>
                   <FicheCommercialPage />
+                </RouteDirection>
+              }
+            />
+            <Route
+              path="/equipes/projet"
+              element={
+                <RouteDirection>
+                  <EquipeProjetPage />
+                </RouteDirection>
+              }
+            />
+            <Route
+              path="/equipes/projet/:id"
+              element={
+                <RouteDirection>
+                  <FicheChefProjetPage />
                 </RouteDirection>
               }
             />

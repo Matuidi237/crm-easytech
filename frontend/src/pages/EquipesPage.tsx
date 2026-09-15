@@ -112,10 +112,12 @@ export default function EquipesPage() {
           </div>
         </button>
 
-        {/* Équipe projet : présente et dénombrée, mais sans détail à ouvrir.
-            Le suivi des projets n'existe pas encore en base ; une page vide
-            se ferait passer pour une fonctionnalité. */}
-        <div className="equipe-carte equipe-carte-inactive">
+        <button
+          type="button"
+          className="equipe-carte"
+          onClick={() => navigate("/equipes/projet")}
+          aria-label={t("equipes.voirEquipe")}
+        >
           <div className="equipe-haut">
             <div className="equipe-icone equipe-icone-projet">
               <IconHandshake size={22} />
@@ -128,11 +130,44 @@ export default function EquipesPage() {
             <p className="equipe-libelle">{t("equipes.projetLibelle")}</p>
           </div>
 
+          {apercu.projet.total > 0 && (
+            <div className="equipe-chiffres">
+              <div>
+                <div className="equipe-chiffre">{nombre(apercu.projet.ouverts)}</div>
+                <div className="equipe-chiffre-label">{t("ep.colEnCours")}</div>
+              </div>
+              <div>
+                <div className="equipe-chiffre">{montantCompact(apercu.projet.budgetPilote)}</div>
+                <div className="equipe-chiffre-label">{t("ep.colBudget")}</div>
+              </div>
+            </div>
+          )}
+
           <div className="equipe-pied">
-            <span className="equipe-portee equipe-portee-attente">{t("equipes.projetIndispo")}</span>
-            <span className="tag">{t("equipes.bientot")}</span>
+            {/* Les retards passent devant la portée géographique : c'est ce
+                qu'un directeur général doit voir sans ouvrir la page. */}
+            {apercu.projet.enRetard > 0 ? (
+              <span className="pill pill-danger">
+                {apercu.projet.enRetard === 1
+                  ? t("ep.retardUn")
+                  : t("ep.retardN", { n: nombre(apercu.projet.enRetard) })}
+              </span>
+            ) : (
+              <span className="equipe-portee">
+                <IconTrend size={14} />
+                {apercu.projet.ouverts === 0
+                  ? t("equipes.aucunProjet")
+                  : apercu.projet.ouverts === 1
+                    ? t("equipes.projetsEnCoursUn")
+                    : t("equipes.projetsEnCours", { n: nombre(apercu.projet.ouverts) })}
+              </span>
+            )}
+            <span className="equipe-lien">
+              {t("equipes.voirEquipe")}
+              <IconArrowRight size={15} />
+            </span>
           </div>
-        </div>
+        </button>
       </div>
     </>
   );

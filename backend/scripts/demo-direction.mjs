@@ -107,7 +107,49 @@ const COMPTES = [
     email: "idriss.fotso@easytechgroup.net",
     pays: "Cameroun",
   },
+  {
+    identifiant: "demo-chef3",
+    nomComplet: "Grace Nkeng",
+    role: "CHEF_DE_PROJET",
+    fonction: "Cheffe de projet cloud",
+    email: "grace.nkeng@easytechgroup.net",
+    pays: "Kenya",
+  },
+  {
+    identifiant: "demo-chef4",
+    nomComplet: "Serge Bilong",
+    role: "CHEF_DE_PROJET",
+    fonction: "Chef de projet formation",
+    email: "serge.bilong@easytechgroup.net",
+    pays: "Nigeria",
+  },
+  {
+    identifiant: "demo-chef5",
+    nomComplet: "Laure Tchoumi",
+    role: "CHEF_DE_PROJET",
+    fonction: "Cheffe de projet déploiement",
+    email: "laure.tchoumi@easytechgroup.net",
+    pays: "Côte d'Ivoire",
+  },
 ];
+
+/**
+ * Quelles ventes déclenchent un projet, et sous quel intitulé.
+ *
+ * Des licences ou des postes de travail se livrent sans chantier : y attacher
+ * un projet gonflerait artificiellement la charge de l'équipe. Seules les
+ * prestations en engendrent un, avec une durée propre à chacune.
+ */
+const PRESTATIONS = {
+  "Audit infrastructure": { libelle: "Audit d'infrastructure", semaines: 6 },
+  "Formation cybersécurité": { libelle: "Programme de formation cybersécurité", semaines: 4 },
+  "Maintenance annuelle": { libelle: "Contrat de maintenance", semaines: 52 },
+  "Hébergement cloud": { libelle: "Migration vers le cloud", semaines: 10 },
+  "Serveur Dell PowerEdge": { libelle: "Déploiement serveur", semaines: 5 },
+  "Pare-feu Fortinet": { libelle: "Mise en place du pare-feu", semaines: 3 },
+};
+
+const CHEFS = ["demo-chef1", "demo-chef2", "demo-chef3", "demo-chef4", "demo-chef5"];
 
 /**
  * Catalogue de démonstration.
@@ -141,39 +183,47 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, comptes] = await Promise.all([
+  const [ventes, projets, comptes] = await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
+    prisma.projet.count({ where: { estDemo: true } }),
     prisma.utilisateur.count({ where: { identifiant: { startsWith: PREFIXE } } }),
   ]);
-  return { ventes, comptes };
+  return { ventes, projets, comptes };
 }
 
 async function etat() {
-  const { ventes, comptes } = await compter();
+  const { ventes, projets, comptes } = await compter();
   const totalVentes = await prisma.vente.count();
-  if (ventes === 0 && comptes === 0) {
+  if (ventes === 0 && projets === 0 && comptes === 0) {
     console.log("Aucune donnée de démonstration en base.");
   } else {
-    console.log(`Présent : ${comptes} compte(s) « ${PREFIXE}… » et ${ventes} vente(s) de démonstration.`);
+    console.log(
+      `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s) et ${projets} projet(s) de démonstration.`
+    );
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
 }
 
 async function supprimer({ silencieux = false } = {}) {
-  // Les ventes d'abord, par leur drapeau : elles ne dépendent d'aucun compte.
+  /* Les projets avant les ventes : ils y pointent, et une vente supprimée
+     laisserait des projets orphelins mais toujours comptés. Puis les comptes,
+     en dernier, puisque rien ne dépend plus d'eux. */
+  const projets = await prisma.projet.deleteMany({ where: { estDemo: true } });
   const ventes = await prisma.vente.deleteMany({ where: { estDemo: true } });
   const users = await prisma.utilisateur.deleteMany({ where: { identifiant: { startsWith: PREFIXE } } });
 
   if (!silencieux) {
-    console.log(`Supprimé : ${users.count} compte(s), ${ventes.count} vente(s) de démonstration.`);
-    const restant = await prisma.vente.count({ where: { estDemo: true } });
+    console.log(
+      `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s) de démonstration.`
+    );
+    const restant = (await compter()).ventes + (await compter()).projets;
     console.log(
       restant === 0
         ? `Il ne reste aucune donnée de démonstration. Base : ${await prisma.client.count()} clients, ${await prisma.vente.count()} ventes réelles.`
-        : `ATTENTION : ${restant} vente(s) de démonstration subsistent.`
+        : `ATTENTION : ${restant} enregistrement(s) de démonstration subsistent.`
     );
   }
-  return { ventes: ventes.count, comptes: users.count };
+  return { ventes: ventes.count, projets: projets.count, comptes: users.count };
 }
 
 async function creer() {
@@ -247,11 +297,87 @@ async function creer() {
 
   await prisma.vente.createMany({ data: ventes });
 
+  /* Les projets se greffent sur les ventes déjà écrites : on les relit pour
+     disposer de leur identifiant, seul moyen de lier réellement ce qui a été
+     vendu à ce qui est livré. */
+  const ventesEcrites = await prisma.vente.findMany({
+    where: { estDemo: true },
+    select: { id: true, produit: true, clientId: true, clientNom: true, prixVente: true, quantite: true, dateVente: true },
+    orderBy: { dateVente: "asc" },
+  });
+
+  const projets = [];
+  let i = 0;
+  for (const v of ventesEcrites) {
+    const prestation = PRESTATIONS[v.produit];
+    if (!prestation) continue; // une licence se livre sans chantier
+
+    /* Le chantier démarre peu après la signature, jamais le jour même. */
+    const debut = new Date(v.dateVente);
+    debut.setDate(debut.getDate() + 3 + Math.floor(alea() * 12));
+    const finPrevue = new Date(debut);
+    finPrevue.setDate(finPrevue.getDate() + prestation.semaines * 7);
+
+    const chef = CHEFS[i % CHEFS.length];
+    i++;
+
+    /* L'état découle du calendrier, il n'est pas tiré au hasard : un projet
+       dont la fin prévue est passée est livré ou en retard, jamais « en
+       préparation ». Sans cette cohérence, le taux de respect des délais
+       n'aurait aucun sens. */
+    let statut;
+    let dateFinReelle = null;
+    let avancementPct;
+
+    if (finPrevue < maintenant) {
+      // Échéance passée : livré dans neuf cas sur dix, sinon en retard.
+      if (alea() < 0.88) {
+        statut = "LIVRE";
+        avancementPct = 100;
+        dateFinReelle = new Date(finPrevue);
+        // Deux tiers à l'heure ou en avance, un tiers livré en retard.
+        const derive = alea() < 0.66 ? -Math.floor(alea() * 9) : Math.floor(alea() * 21) + 1;
+        dateFinReelle.setDate(dateFinReelle.getDate() + derive);
+      } else {
+        statut = "EN_COURS";
+        avancementPct = 60 + Math.floor(alea() * 35);
+      }
+    } else if (debut > maintenant) {
+      statut = "EN_PREPARATION";
+      avancementPct = 0;
+    } else {
+      // En cours : l'avancement suit le temps écoulé, avec un peu de dérive.
+      const part = (maintenant - debut) / (finPrevue - debut);
+      statut = alea() < 0.12 ? "EN_PAUSE" : "EN_COURS";
+      avancementPct = Math.max(5, Math.min(95, Math.round(part * 100 + (alea() * 30 - 15))));
+    }
+
+    projets.push({
+      nom: `${prestation.libelle} · ${v.clientNom}`,
+      clientId: v.clientId,
+      clientNom: v.clientNom,
+      venteId: v.id,
+      chefDeProjetId: ids[chef],
+      chefDeProjetNom: COMPTES.find((c) => c.identifiant === chef).nomComplet,
+      statut,
+      budget: Number(v.prixVente) * v.quantite,
+      avancementPct,
+      dateDebut: debut,
+      dateFinPrevue: finPrevue,
+      dateFinReelle,
+      estDemo: true,
+    });
+  }
+
+  await prisma.projet.createMany({ data: projets });
+
   const ca = ventes.reduce((s, v) => s + v.prixVente * v.quantite, 0);
+  const budget = projets.reduce((s, p) => s + p.budget, 0);
   console.log("Jeu de démonstration en place.");
   console.log(`  Connexion DG : demo-dg / ${MOT_DE_PASSE}`);
-  console.log(`  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois.`);
+  console.log(`  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets.`);
   console.log(`  Chiffre d'affaires simulé : ${ca.toLocaleString("fr-FR")} XAF`);
+  console.log(`  Budget projets piloté : ${budget.toLocaleString("fr-FR")} XAF`);
   console.log("  Retrait avant mise en production : node scripts/demo-direction.mjs --supprimer");
 }
 

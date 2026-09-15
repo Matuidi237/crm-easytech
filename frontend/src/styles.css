@@ -3448,3 +3448,57 @@ td.col-actions {
     padding: 6px 9px;
   }
 }
+
+/* Avancement d'un projet --------------------------------------------------- */
+
+/* Jauge linéaire dans la ligne du tableau : le pourcentage est écrit à côté,
+   la barre ne fait que le rendre comparable d'une ligne à l'autre. */
+.avancement {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 120px;
+}
+
+.avancement-rail {
+  flex: 1;
+  height: 7px;
+  min-width: 56px;
+  background: var(--viz-track);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.avancement-jauge {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Un projet dont l'échéance est passée porte sa jauge en rouge : l'avancement
+   seul ne dit pas qu'on est hors délai. */
+.avancement-jauge.en-retard {
+  background: var(--danger);
+}
+
+.avancement-valeur {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Ligne dont l'échéance est dépassée : un filet rouge en bord de ligne, plutôt
+   qu'un fond teinté qui rendrait le texte moins lisible. */
+.ligne-alerte td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+/* Pastille de l'équipe projet, accordée à son icône sur la page Équipes. */
+.avatar-projet {
+  background: #eeebfa;
+  color: #5b4bc4;
+}

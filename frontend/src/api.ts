@@ -596,6 +596,21 @@ export async function fetchAnalysesDirection() {
 
 /* ---------------------------------------------------------------- Équipes */
 
+/** Chiffres communs à tout lot de projets, du plus global au plus fin. */
+export type BilanProjets = {
+  total: number;
+  ouverts: number;
+  livres: number;
+  enRetard: number;
+  annules: number;
+  budgetPilote: number;
+  budgetOuvert: number;
+  /** null tant que rien n'est livré : on ne juge pas un délai sans livraison. */
+  respectDelaisPct: number | null;
+  avancementMoyenPct: number | null;
+  derniereLivraison: string | null;
+};
+
 export type ApercuEquipes = {
   commerciale: {
     effectif: number;
@@ -605,7 +620,7 @@ export type ApercuEquipes = {
     benefice: number;
     nbVentes: number;
   };
-  projet: { effectif: number; effectifActif: number };
+  projet: { effectif: number; effectifActif: number; nbPays: number } & BilanProjets;
 };
 
 export async function fetchApercuEquipes() {
@@ -687,4 +702,73 @@ export async function fetchFicheCommercial(id: string) {
   if (res.status === 404) throw new Error("Commercial introuvable.");
   if (!res.ok) throw new Error("Erreur lors du chargement de la fiche.");
   return res.json() as Promise<FicheCommercial>;
+}
+
+/* ----------------------------------------------------------- Équipe projet */
+
+export type StatutProjet = "EN_PREPARATION" | "EN_COURS" | "EN_PAUSE" | "LIVRE" | "ANNULE";
+
+export type MembreProjet = {
+  id: string;
+  nomComplet: string;
+  identifiant: string;
+  email: string | null;
+  fonction: string | null;
+  role: Role;
+  actif: boolean;
+  pays: string | null;
+} & BilanProjets;
+
+export type EquipeProjet = { membres: MembreProjet[]; pays: string[] };
+
+export async function fetchEquipeProjet(filtres: { recherche?: string; pays?: string } = {}) {
+  const params = new URLSearchParams();
+  if (filtres.recherche) params.set("recherche", filtres.recherche);
+  if (filtres.pays) params.set("pays", filtres.pays);
+  const suffixe = params.toString() ? `?${params}` : "";
+  const res = await authedFetch(`/api/direction/equipe-projet${suffixe}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de l'équipe projet.");
+  return res.json() as Promise<EquipeProjet>;
+}
+
+export type Projet = {
+  id: string;
+  nom: string;
+  clientNom: string;
+  statut: StatutProjet;
+  budget: number;
+  avancementPct: number;
+  dateDebut: string;
+  dateFinPrevue: string;
+  dateFinReelle: string | null;
+  /** Vente d'origine : ce qui a été vendu, et par qui. */
+  produit: string | null;
+  vendeurNom: string | null;
+  enRetard: boolean;
+  /** Jours d'écart à l'échéance promise, négatif si livré en avance. */
+  joursDeDerive: number | null;
+};
+
+export type FicheChefProjet = {
+  membre: {
+    id: string;
+    nomComplet: string;
+    identifiant: string;
+    email: string | null;
+    fonction: string | null;
+    role: Role;
+    actif: boolean;
+    pays: string | null;
+    dernierAcces: string | null;
+  };
+  rang: number;
+  effectifEquipe: number;
+  projets: Projet[];
+} & BilanProjets;
+
+export async function fetchFicheChefProjet(id: string) {
+  const res = await authedFetch(`/api/direction/chef-projet/${id}`);
+  if (res.status === 404) throw new Error("Chef de projet introuvable.");
+  if (!res.ok) throw new Error("Erreur lors du chargement de la fiche.");
+  return res.json() as Promise<FicheChefProjet>;
 }

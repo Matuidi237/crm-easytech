@@ -379,16 +379,17 @@ const ROLES_PROJET = ["CHEF_DE_PROJET"] as const;
  * vignettes serait du gaspillage.
  */
 directionRouter.get("/equipes", async (_req, res) => {
-  const [commerciaux, chefsProjet, agregats] = await Promise.all([
+  const [commerciaux, chefsProjet, agregats, projetsTousChefs] = await Promise.all([
     prisma.utilisateur.findMany({
       where: { role: { in: [...ROLES_COMMERCIALE] } },
       select: { id: true, actif: true, pays: true },
     }),
     prisma.utilisateur.findMany({
       where: { role: { in: [...ROLES_PROJET] } },
-      select: { id: true, actif: true },
+      select: { id: true, actif: true, pays: true },
     }),
     agregatsParVendeur(),
+    prisma.projet.findMany({ select: SELECT_BILAN }),
   ]);
 
   const cumul = commerciaux.reduce(
@@ -417,6 +418,8 @@ directionRouter.get("/equipes", async (_req, res) => {
     projet: {
       effectif: chefsProjet.length,
       effectifActif: chefsProjet.filter((c) => c.actif).length,
+      nbPays: new Set(chefsProjet.map((c) => c.pays).filter(Boolean)).size,
+      ...bilanProjets(projetsTousChefs),
     },
   });
 });
@@ -616,5 +619,242 @@ directionRouter.get("/commercial/:id", async (req, res) => {
     derniereVente: ventes[0]?.dateVente ?? null,
     parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
     ventes: detail,
+  });
+});
+
+
+/* ==========================================================================
+   Équipe projet
+   ========================================================================== */
+
+/** Projets encore ouverts : ni livrés, ni annulés. */
+const STATUTS_OUVERTS = ["EN_PREPARATION", "EN_COURS", "EN_PAUSE"] as const;
+
+type BilanProjets = {
+  total: number;
+  ouverts: number;
+  livres: number;
+  enRetard: number;
+  annules: number;
+  budgetPilote: number;
+  budgetOuvert: number;
+  /** Livrés au plus tard à la date promise, sur l'ensemble des livrés. */
+  respectDelaisPct: number | null;
+  avancementMoyenPct: number | null;
+  derniereLivraison: Date | null;
+};
+
+type LigneProjet = {
+  statut: string;
+  budget: unknown;
+  avancementPct: number;
+  dateFinPrevue: Date;
+  dateFinReelle: Date | null;
+};
+
+/**
+ * Agrège un lot de projets.
+ *
+ * « En retard » se mesure sur la promesse tenue, pas sur un ressenti : un
+ * projet encore ouvert dont l'échéance est passée est en retard, et un projet
+ * livré après sa date promise compte comme un manquement au délai, même s'il
+ * est aujourd'hui clos.
+ */
+function bilanProjets(projets: LigneProjet[], maintenant = new Date()): BilanProjets {
+  let ouverts = 0;
+  let livres = 0;
+  let annules = 0;
+  let enRetard = 0;
+  let budgetPilote = 0;
+  let budgetOuvert = 0;
+  let livresDansLesDelais = 0;
+  let sommeAvancement = 0;
+  let derniereLivraison: Date | null = null;
+
+  for (const p of projets) {
+    const montant = nb(p.budget);
+    const estOuvert = (STATUTS_OUVERTS as readonly string[]).includes(p.statut);
+
+    // Un projet annulé n'a rien piloté : l'inclure gonflerait le budget.
+    if (p.statut !== "ANNULE") budgetPilote += montant;
+
+    if (estOuvert) {
+      ouverts += 1;
+      budgetOuvert += montant;
+      sommeAvancement += p.avancementPct;
+      if (p.dateFinPrevue < maintenant) enRetard += 1;
+    } else if (p.statut === "LIVRE") {
+      livres += 1;
+      if (p.dateFinReelle && p.dateFinReelle <= p.dateFinPrevue) livresDansLesDelais += 1;
+      if (p.dateFinReelle && (!derniereLivraison || p.dateFinReelle > derniereLivraison)) {
+        derniereLivraison = p.dateFinReelle;
+      }
+    } else {
+      annules += 1;
+    }
+  }
+
+  return {
+    total: projets.length,
+    ouverts,
+    livres,
+    enRetard,
+    annules,
+    budgetPilote: Math.round(budgetPilote),
+    budgetOuvert: Math.round(budgetOuvert),
+    // Null et non zéro tant que rien n'est livré : on ne peut pas juger d'un
+    // respect des délais sans livraison.
+    respectDelaisPct: livres > 0 ? Math.round((livresDansLesDelais / livres) * 100) : null,
+    avancementMoyenPct: ouverts > 0 ? Math.round(sommeAvancement / ouverts) : null,
+    derniereLivraison,
+  };
+}
+
+const SELECT_BILAN = {
+  statut: true,
+  budget: true,
+  avancementPct: true,
+  dateFinPrevue: true,
+  dateFinReelle: true,
+} as const;
+
+/**
+ * Liste de l'équipe projet, même contrat que l'équipe commerciale : recherche
+ * et filtre pays appliqués en base, facette calculée sur tout l'effectif.
+ */
+directionRouter.get("/equipe-projet", async (req, res) => {
+  const recherche = String(req.query.recherche ?? "").trim();
+  const pays = String(req.query.pays ?? "").trim();
+
+  const filtres: Record<string, unknown> = { role: { in: [...ROLES_PROJET] } };
+  if (pays) filtres.pays = pays;
+  if (recherche) {
+    filtres.OR = [
+      { nomComplet: { contains: recherche, mode: "insensitive" } },
+      { email: { contains: recherche, mode: "insensitive" } },
+      { identifiant: { contains: recherche, mode: "insensitive" } },
+    ];
+  }
+
+  const [membres, tousPays, projets] = await Promise.all([
+    prisma.utilisateur.findMany({
+      where: filtres,
+      select: {
+        id: true,
+        nomComplet: true,
+        identifiant: true,
+        email: true,
+        fonction: true,
+        role: true,
+        actif: true,
+        pays: true,
+      },
+    }),
+    prisma.utilisateur.findMany({
+      where: { role: { in: [...ROLES_PROJET] }, pays: { not: null } },
+      select: { pays: true },
+      distinct: ["pays"],
+      orderBy: { pays: "asc" },
+    }),
+    prisma.projet.findMany({ select: { ...SELECT_BILAN, chefDeProjetId: true } }),
+  ]);
+
+  const parChef = new Map<string, LigneProjet[]>();
+  for (const p of projets) {
+    if (!p.chefDeProjetId) continue;
+    const lot = parChef.get(p.chefDeProjetId) ?? [];
+    lot.push(p);
+    parChef.set(p.chefDeProjetId, lot);
+  }
+
+  const lignes = membres
+    .map((m) => ({ ...m, ...bilanProjets(parChef.get(m.id) ?? []) }))
+    /* Classés par charge en cours : c'est la question d'un directeur général,
+       qui porte quoi en ce moment, pas qui a le plus livré depuis toujours. */
+    .sort((a, b) => b.ouverts - a.ouverts || b.budgetOuvert - a.budgetOuvert || a.nomComplet.localeCompare(b.nomComplet));
+
+  res.json({ membres: lignes, pays: tousPays.map((p) => p.pays as string) });
+});
+
+/** Fiche d'un chef de projet : son bilan, puis chacun de ses projets. */
+directionRouter.get("/chef-projet/:id", async (req, res) => {
+  const membre = await prisma.utilisateur.findFirst({
+    where: { id: req.params.id, role: { in: [...ROLES_PROJET] } },
+    select: {
+      id: true,
+      nomComplet: true,
+      identifiant: true,
+      email: true,
+      fonction: true,
+      role: true,
+      actif: true,
+      pays: true,
+      dernierAcces: true,
+    },
+  });
+  if (!membre) return res.status(404).json({ error: "Chef de projet introuvable." });
+
+  const projets = await prisma.projet.findMany({
+    where: { chefDeProjetId: membre.id },
+    orderBy: [{ dateFinPrevue: "desc" }],
+    select: {
+      id: true,
+      nom: true,
+      clientNom: true,
+      statut: true,
+      budget: true,
+      avancementPct: true,
+      dateDebut: true,
+      dateFinPrevue: true,
+      dateFinReelle: true,
+      vente: { select: { produit: true, vendeurNom: true } },
+    },
+  });
+
+  const maintenant = new Date();
+  const bilan = bilanProjets(projets, maintenant);
+
+  // Position dans l'équipe, sur la charge en cours.
+  const equipe = await prisma.utilisateur.findMany({
+    where: { role: { in: [...ROLES_PROJET] } },
+    select: { id: true },
+  });
+  const tous = await prisma.projet.findMany({ select: { ...SELECT_BILAN, chefDeProjetId: true } });
+  const ouvertsPar = new Map<string, number>();
+  for (const p of tous) {
+    if (!p.chefDeProjetId) continue;
+    if (!(STATUTS_OUVERTS as readonly string[]).includes(p.statut)) continue;
+    ouvertsPar.set(p.chefDeProjetId, (ouvertsPar.get(p.chefDeProjetId) ?? 0) + 1);
+  }
+  const classement = equipe
+    .map((e) => ({ id: e.id, ouverts: ouvertsPar.get(e.id) ?? 0 }))
+    .sort((a, b) => b.ouverts - a.ouverts);
+
+  res.json({
+    membre,
+    ...bilan,
+    rang: classement.findIndex((c) => c.id === membre.id) + 1,
+    effectifEquipe: equipe.length,
+    projets: projets.map((p) => ({
+      id: p.id,
+      nom: p.nom,
+      clientNom: p.clientNom,
+      statut: p.statut,
+      budget: Math.round(nb(p.budget)),
+      avancementPct: p.avancementPct,
+      dateDebut: p.dateDebut,
+      dateFinPrevue: p.dateFinPrevue,
+      dateFinReelle: p.dateFinReelle,
+      produit: p.vente?.produit ?? null,
+      vendeurNom: p.vente?.vendeurNom ?? null,
+      /* Calculé ici et non à l'écran : le retard dépend de l'heure du serveur,
+         pas de celle du poste qui consulte. */
+      enRetard:
+        (STATUTS_OUVERTS as readonly string[]).includes(p.statut) && p.dateFinPrevue < maintenant,
+      joursDeDerive:
+        p.statut === "LIVRE" && p.dateFinReelle
+          ? Math.round((p.dateFinReelle.getTime() - p.dateFinPrevue.getTime()) / 86400000)
+          : null,
+    })),
   });
 });
