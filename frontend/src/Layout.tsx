@@ -38,6 +38,16 @@ function initiales(nom: string) {
   return (mots[0][0] + mots[mots.length - 1][0]).toUpperCase();
 }
 
+/**
+ * Pages où la recherche client a sa place dans la barre du haut.
+ *
+ * Elle cherche des CLIENTS et renvoie vers leur liste. Ailleurs, elle propose
+ * une action sans rapport avec la page ouverte, et sur Équipe commerciale elle
+ * cohabitait avec un second champ qui, lui, cherche des commerciaux : deux
+ * champs côte à côte dont on ne devine pas lequel fait quoi.
+ */
+const PAGES_AVEC_RECHERCHE = ["/", "/clients"];
+
 export default function Layout() {
   const { logout, utilisateur, peut } = useAuth();
   const { t } = useLangue();
@@ -52,6 +62,7 @@ export default function Layout() {
   const nom = utilisateur?.nomComplet ?? "";
   const roleLabel = utilisateur ? libelles.role(utilisateur.role) : "";
   const entrees = navDe(utilisateur?.role);
+  const rechercheVisible = PAGES_AVEC_RECHERCHE.includes(location.pathname);
 
   // Le tiroir de navigation se referme dès qu'on change de page (mobile).
   useEffect(() => {
@@ -158,16 +169,18 @@ export default function Layout() {
             <IconMenu />
           </button>
 
-          <form className="search" onSubmit={handleSearch} role="search">
-            <IconSearch />
-            <input
-              type="search"
-              placeholder={t("topbar.rechercher")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label={t("topbar.rechercherAria")}
-            />
-          </form>
+          {rechercheVisible && (
+            <form className="search" onSubmit={handleSearch} role="search">
+              <IconSearch />
+              <input
+                type="search"
+                placeholder={t("topbar.rechercher")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label={t("topbar.rechercherAria")}
+              />
+            </form>
+          )}
 
           <div className="topbar-right">
             <SelecteurLangue />

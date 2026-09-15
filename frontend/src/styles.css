@@ -441,6 +441,10 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+  /* Poussé à droite explicitement : la recherche n'est présente que sur deux
+     pages, et « space-between » seul ramènerait ce bloc à gauche partout
+     ailleurs, où il devient le seul enfant de la barre. */
+  margin-left: auto;
 }
 
 .icon-btn {
