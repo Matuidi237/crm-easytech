@@ -819,3 +819,73 @@ export async function fetchPartenaires() {
   if (!res.ok) throw new Error("Erreur lors du chargement des partenaires.");
   return res.json() as Promise<{ partenaires: Partenaire[] }>;
 }
+
+/* ------------------------------------------------------------- Campagnes */
+
+export type TypeCampagne = "MAILING" | "NEWSLETTER";
+export type StatutCampagne = "BROUILLON" | "PRETE" | "ENVOYEE" | "ECHEC";
+
+export type CampagneResume = {
+  id: string;
+  type: TypeCampagne;
+  titre: string;
+  objet: string;
+  statut: StatutCampagne;
+  fichierSource: string | null;
+  creeParNom: string;
+  envoyeeLe: string | null;
+  createdAt: string;
+  nbDestinataires: number;
+};
+
+export type DestinataireCampagne = { email: string; nom: string | null };
+
+export type AnalyseDestinataires = {
+  fichier: string;
+  lignesLues: number;
+  /** Colonne retenue, null si l'adresse a été trouvée en balayant les cellules. */
+  colonneEmail: string | null;
+  /** Vrai quand le fichier n'avait pas de ligne d'entête. */
+  sansEntete: boolean;
+  nbDestinataires: number;
+  /** Valeurs qui ressemblaient à une adresse sans en être une. */
+  rejetees: number;
+  apercu: DestinataireCampagne[];
+  destinataires: DestinataireCampagne[];
+};
+
+export async function fetchCampagnes(type: TypeCampagne) {
+  const res = await authedFetch(`/api/campagnes?type=${type}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement des campagnes.");
+  return res.json() as Promise<{ campagnes: CampagneResume[] }>;
+}
+
+export async function analyserDestinataires(fichier: File) {
+  const corps = new FormData();
+  corps.append("file", fichier);
+  const res = await authedFetch("/api/campagnes/destinataires/analyser", { method: "POST", body: corps });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Fichier illisible.");
+  return res.json() as Promise<AnalyseDestinataires>;
+}
+
+export async function creerCampagne(data: {
+  type: TypeCampagne;
+  titre: string;
+  objet: string;
+  contenuHtml: string;
+  fichierSource: string | null;
+  destinataires: DestinataireCampagne[];
+}) {
+  const res = await authedFetch("/api/campagnes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la création.");
+  return res.json() as Promise<{ id: string; titre: string; statut: StatutCampagne }>;
+}
+
+export async function supprimerCampagne(id: string) {
+  const res = await authedFetch(`/api/campagnes/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw new Error("Erreur lors de la suppression.");
+}

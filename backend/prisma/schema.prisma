@@ -401,3 +401,75 @@ model ConditionPartenariat {
 
   @@index([partenaireId])
 }
+
+/// Nature de la campagne.
+///
+/// Le mailing est ponctuel et vise une liste apportée ; la newsletter est
+/// périodique. La distinction reste éditoriale, la mécanique d'envoi étant la
+/// même : c'est ce qui permet de n'avoir qu'un modèle.
+enum TypeCampagne {
+  MAILING
+  NEWSLETTER
+}
+
+enum StatutCampagne {
+  BROUILLON
+  PRETE
+  ENVOYEE
+  ECHEC
+}
+
+/// Campagne d'emailing adressée à une liste importée.
+///
+/// À distinguer du modèle Newsletter, plus ancien, qui cible les clients du CRM
+/// par secteur. Ici les destinataires viennent d'un fichier fourni, ce qui
+/// couvre les envois vers des contacts qui ne sont pas encore clients.
+model Campagne {
+  id    String       @id @default(uuid())
+  type  TypeCampagne
+  titre String
+  objet String
+
+  /// Contenu au format HTML, images comprises. Voir la note sur le stockage
+  /// des images dans le composant d'édition côté interface.
+  contenuHtml String @default("")
+
+  statut StatutCampagne @default(BROUILLON)
+
+  /// Nom du fichier d'où vient la liste, pour retrouver l'origine d'un envoi.
+  fichierSource String?
+
+  /// Trace de l'auteur sans clé étrangère : un compte fermé ne doit pas
+  /// effacer l'historique des campagnes qu'il a écrites.
+  creeParId  String?
+  creeParNom String
+
+  envoyeeLe DateTime?
+  estDemo   Boolean   @default(false)
+
+  destinataires CampagneDestinataire[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([statut])
+  @@index([estDemo])
+}
+
+/// Un destinataire d'une campagne, issu de la liste importée.
+model CampagneDestinataire {
+  id         String   @id @default(uuid())
+  campagne   Campagne @relation(fields: [campagneId], references: [id], onDelete: Cascade)
+  campagneId String
+
+  email String
+  nom   String?
+
+  createdAt DateTime @default(now())
+
+  /// Une même adresse ne peut figurer deux fois dans la même campagne :
+  /// le dédoublonnage est garanti par la base, pas seulement par l'import.
+  @@unique([campagneId, email])
+  @@index([campagneId])
+}

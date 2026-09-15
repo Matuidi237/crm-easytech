@@ -9,6 +9,7 @@ import { utilisateursRouter } from "./routes/utilisateurs.js";
 import { accesRouter } from "./routes/acces.js";
 import { permissionsRouter, rechargerPermissions } from "./routes/permissions.js";
 import { directionRouter } from "./routes/direction.js";
+import { campagnesRouter } from "./routes/campagnes.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -40,6 +41,10 @@ app.use("/api/acces", requireAuth, accesRouter);
 app.use("/api/permissions", requireAuth, requirePermission("permissions.gerer"), permissionsRouter);
 // Indicateurs de direction : la même capacité que le reste du pilotage.
 app.use("/api/direction", requireAuth, requirePermission("stats.globales"), directionRouter);
+/* Les campagnes réutilisent les capacités de la messagerie : rédiger une
+   campagne, c'est rédiger une newsletter sous un autre nom. Créer une
+   capacité distincte obligerait à trancher deux fois la même question. */
+app.use("/api/campagnes", requireAuth, requirePermission("newsletters.voir"), campagnesRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

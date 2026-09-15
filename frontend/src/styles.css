@@ -3872,3 +3872,167 @@ td.col-actions {
     text-align: left;
   }
 }
+
+/* ==========================================================================
+   Éditeur de contenu
+   ========================================================================== */
+
+.editeur {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.editeur-barre {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 9px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.editeur-bouton {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 14px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.editeur-bouton:hover {
+  background: var(--surface);
+  color: var(--brand-700);
+  box-shadow: var(--shadow-card);
+}
+
+.editeur-separateur {
+  width: 1px;
+  height: 20px;
+  background: var(--border-2);
+  margin: 0 5px;
+}
+
+.editeur-zone {
+  min-height: 220px;
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.editeur-zone:focus {
+  box-shadow: inset 0 0 0 2px var(--brand-200);
+}
+
+/* Le texte indicatif vit dans un attribut : un nœud réel dans la zone
+   éditable serait modifiable, et finirait dans le message envoyé. */
+.editeur-zone.vide::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+.editeur-zone img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--r-sm);
+  margin: 8px 0;
+}
+
+.editeur-zone h2 {
+  font-size: 18px;
+  margin: 14px 0 6px;
+}
+
+.editeur-zone a {
+  color: var(--brand-700);
+  text-decoration: underline;
+}
+
+.editeur-erreur {
+  padding: 9px 18px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.editeur-aide {
+  margin: 0;
+  padding: 9px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* Analyse de la liste de destinataires ------------------------------------- */
+
+.analyse {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  background: var(--surface-2);
+}
+
+.analyse-tete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.analyse-chiffres {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.apercu-destinataires {
+  list-style: none;
+  margin: 8px 0 6px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 18px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.apercu-destinataires li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12.5px;
+  min-width: 0;
+}
+
+.destinataire-email {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.destinataire-nom {
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 760px) {
+  .apercu-destinataires {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

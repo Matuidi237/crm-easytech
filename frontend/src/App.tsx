@@ -20,6 +20,8 @@ import EquipeCommercialePage from "./pages/EquipeCommercialePage";
 import FicheCommercialPage from "./pages/FicheCommercialPage";
 import EquipeProjetPage from "./pages/EquipeProjetPage";
 import FicheChefProjetPage from "./pages/FicheChefProjetPage";
+import CampagnesPage from "./pages/CampagnesPage";
+import ComposerCampagnePage from "./pages/ComposerCampagnePage";
 import PartenairesPage from "./pages/PartenairesPage";
 
 /**
@@ -98,6 +100,22 @@ export default function App() {
                 <RouteDirection>
                   <FicheChefProjetPage />
                 </RouteDirection>
+              }
+            />
+            <Route
+              path="/campagnes"
+              element={
+                <RouteProtegee requiert="newsletters.voir">
+                  <CampagnesPage />
+                </RouteProtegee>
+              }
+            />
+            <Route
+              path="/campagnes/:type"
+              element={
+                <RouteProtegee requiert="newsletters.voir">
+                  <ComposerCampagnePage />
+                </RouteProtegee>
               }
             />
             <Route

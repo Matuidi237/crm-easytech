@@ -37,6 +37,7 @@ const NAV_DG: EntreeNav[] = [
   { to: "/", cle: "nav.dashboard", icone: "dashboard", end: true },
   { to: "/equipes", cle: "nav.equipes", icone: "team" },
   { to: "/clients", cle: "nav.clients", icone: "users" },
+  { to: "/campagnes", cle: "nav.campagnes", icone: "mail", requiert: "newsletters.voir" },
   { to: "/partenaires", cle: "nav.partenaires", icone: "handshake" },
 ];
 
