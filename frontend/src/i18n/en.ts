@@ -785,16 +785,6 @@ export const en: Record<keyof typeof fr, string> = {
   "co.tauxNonDefini": "Rate not set",
   "co.tauxNonDefiniNote": "No commission rate has been set for your account yet",
 
-  "co.detailTitre": "The detail behind these figures",
-  "co.detailSousTitre": "Enough to redo the maths, not just read the result",
-  "co.caMois": "Revenue for the current month",
-  "co.beneficeRealise": "Profit generated",
-  "co.margeDe": "i.e. a {pct}% margin",
-  "co.derniereVente": "Last sale",
-  "co.jamais": "Never",
-  "co.clientsSansVente": "Clients with no sale at all",
-  "co.commissionsRecues": "Commissions already paid",
-  "co.resteDu": "Still owed",
 
   "co.ventesSousTitre": "Your sales, most recent first",
   "co.commissionsSousTitre": "What you are owed and what has been paid",

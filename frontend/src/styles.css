@@ -4037,67 +4037,6 @@ td.col-actions {
   }
 }
 
-/* Détail chiffré d'un tableau de bord : une liste de définitions, pas un
-   tableau. Il n'y a qu'une valeur par libellé, et un tableau à deux colonnes
-   ferait attendre un tri ou une comparaison qui n'existent pas. */
-.detail-grille {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  margin: 14px 0 0;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.detail-ligne {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 13px 16px;
-  /* Les séparateurs sont tracés en « outline » et non par un fond qui
-     transparaît entre les cellules : la dernière rangée est rarement pleine,
-     et un fond laisserait un rectangle gris à la place des cases manquantes. */
-  outline: 1px solid var(--border);
-}
-
-.detail-ligne dt {
-  font-size: 12.5px;
-  color: var(--ink-2);
-  min-width: 0;
-}
-
-.detail-ligne dd {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ink);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.detail-appoint {
-  display: block;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--ink-3);
-}
-
-/* Sous 420 px la valeur passe sous son libellé : côte à côte, un montant en
-   XAF et un libellé long se partagent la ligne au point de la tronquer. */
-@media (max-width: 420px) {
-  .detail-ligne {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-  }
-
-  .detail-ligne dd {
-    text-align: left;
-  }
-}
-
 /* Règlement d'une commission, accolé à son montant. En bloc et non en ligne :
    collée au chiffre, la pastille se lisait comme une partie du montant. */
 .pill-reglement {

@@ -148,8 +148,6 @@ export default function CommercialPage() {
     },
   ];
 
-  const resteDu = commissions.attendu !== null ? commissions.attendu - (commissions.recu ?? 0) : null;
-
   return (
     <>
       {entete}
@@ -163,47 +161,6 @@ export default function CommercialPage() {
             libelleSansVariation={t("dg.pasDeComparaison")}
           />
         ))}
-      </div>
-
-      {/* Le détail derrière les quatre chiffres : un commercial doit pouvoir
-          refaire le calcul, pas seulement lire le résultat. */}
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("co.detailTitre")}</div>
-            <div className="card-sub">{t("co.detailSousTitre")}</div>
-          </div>
-        </div>
-
-        <dl className="detail-grille">
-          <div className="detail-ligne">
-            <dt>{t("co.caMois")}</dt>
-            <dd>{montant(ca.mois)}</dd>
-          </div>
-          <div className="detail-ligne">
-            <dt>{t("co.beneficeRealise")}</dt>
-            <dd>
-              {montant(ca.benefice)}
-              {ca.margePct !== null && <span className="detail-appoint">{t("co.margeDe", { pct: ca.margePct })}</span>}
-            </dd>
-          </div>
-          <div className="detail-ligne">
-            <dt>{t("co.derniereVente")}</dt>
-            <dd>{ca.derniereVente ? date(ca.derniereVente) : t("co.jamais")}</dd>
-          </div>
-          <div className="detail-ligne">
-            <dt>{t("co.clientsSansVente")}</dt>
-            <dd>{nombre(portefeuille.total - portefeuille.avecVente)}</dd>
-          </div>
-          <div className="detail-ligne">
-            <dt>{t("co.commissionsRecues")}</dt>
-            <dd>{commissions.recu === null ? t("co.tauxNonDefini") : montant(commissions.recu)}</dd>
-          </div>
-          <div className="detail-ligne">
-            <dt>{t("co.resteDu")}</dt>
-            <dd>{resteDu === null ? t("co.tauxNonDefini") : montant(resteDu)}</dd>
-          </div>
-        </dl>
       </div>
 
       {/* Même évolution que celle du DG sur une fiche : il n'y a aucune raison

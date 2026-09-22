@@ -787,16 +787,6 @@ export const fr = {
   "co.tauxNonDefini": "Taux non défini",
   "co.tauxNonDefiniNote": "Aucun taux de commission n'a encore été fixé pour votre compte",
 
-  "co.detailTitre": "Le détail derrière ces chiffres",
-  "co.detailSousTitre": "De quoi refaire le calcul, et pas seulement lire le résultat",
-  "co.caMois": "Chiffre d'affaires du mois en cours",
-  "co.beneficeRealise": "Bénéfice réalisé",
-  "co.margeDe": "soit {pct}% de marge",
-  "co.derniereVente": "Dernière vente",
-  "co.jamais": "Jamais",
-  "co.clientsSansVente": "Clients sans aucune vente",
-  "co.commissionsRecues": "Commissions déjà versées",
-  "co.resteDu": "Reste dû",
 
   "co.ventesSousTitre": "Vos ventes, du plus récent au plus ancien",
   "co.commissionsSousTitre": "Le détail de ce qui vous est dû et de ce qui a été versé",
