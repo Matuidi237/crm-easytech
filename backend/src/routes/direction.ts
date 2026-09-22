@@ -534,6 +534,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       quantite: true,
       prixAchat: true,
       prixVente: true,
+      commissionVerseeLe: true,
     },
   });
 
@@ -579,6 +580,10 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       /* Commission ligne à ligne : c'est ainsi qu'elle se vérifie. Un total
          seul ne se conteste pas, et une commission se conteste. */
       commission: commissionDe(marge, membre.tauxCommissionPct),
+      /* Le versement voyage avec le montant : les deux écrans lisent le même
+         type, et une fiche qui annoncerait une commission sans dire si elle a
+         été réglée poserait au directeur la question qu'il vient résoudre. */
+      commissionVerseeLe: v.commissionVerseeLe,
     };
   });
 

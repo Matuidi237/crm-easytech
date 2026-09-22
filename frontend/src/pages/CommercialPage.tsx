@@ -3,7 +3,8 @@ import { TableauCommercial, fetchTableauCommercial } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue } from "../i18n";
 import CarteIndicateur, { type Carte } from "../components/CarteIndicateur";
-import { IconAlert, IconAward, IconCoins, IconTrend, IconUsers } from "../components/Icons";
+import { EvolutionMensuelle } from "../components/Charts";
+import { IconAlert, IconAward, IconCoins, IconInbox, IconTrend, IconUsers } from "../components/Icons";
 
 /**
  * Tableau de bord d'un commercial.
@@ -15,7 +16,7 @@ import { IconAlert, IconAward, IconCoins, IconTrend, IconUsers } from "../compon
  * chiffre.
  */
 export default function CommercialPage() {
-  const { t, nombre, montant, montantCompact, rang, date } = useLangue();
+  const { t, nombre, montant, montantCompact, rang, date, dateHeure, locale } = useLangue();
   const { utilisateur } = useAuth();
   const [donnees, setDonnees] = useState<TableauCommercial | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -203,6 +204,103 @@ export default function CommercialPage() {
             <dd>{resteDu === null ? t("co.tauxNonDefini") : montant(resteDu)}</dd>
           </div>
         </dl>
+      </div>
+
+      {/* Même évolution que celle du DG sur une fiche : il n'y a aucune raison
+          qu'un commercial découvre sa saisonnalité autrement que son directeur. */}
+      {aVendu && (
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">{t("co.evolutionTitre")}</div>
+              <div className="card-sub">{t("co.evolutionSousTitre")}</div>
+            </div>
+          </div>
+          <EvolutionMensuelle
+            points={donnees.parMois.map((p) => ({
+              ...p,
+              libelle: new Date(`${p.mois}-01T00:00:00`).toLocaleDateString(locale, { month: "short" }),
+            }))}
+          />
+        </div>
+      )}
+
+      <div className="table-card">
+        <div className="card-head">
+          <div>
+            <div className="card-title">{t("co.historiqueTitre")}</div>
+            <div className="card-sub">{t("co.historiqueSousTitre", { n: nombre(ca.nbVentes) })}</div>
+          </div>
+          {ca.derniereVente && <span className="tag">{date(ca.derniereVente)}</span>}
+        </div>
+
+        {donnees.ventes.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">
+              <IconInbox />
+            </div>
+            <div className="empty-title">{t("co.historiqueVideTitre")}</div>
+            <p className="empty-text" style={{ margin: 0 }}>
+              {t("co.historiqueVideTexte")}
+            </p>
+          </div>
+        ) : (
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t("fc.colDate")}</th>
+                  <th>{t("fc.colClient")}</th>
+                  <th>{t("fc.colProduit")}</th>
+                  <th>{t("fc.colQuantite")}</th>
+                  <th>{t("fc.colMontant")}</th>
+                  <th>{t("fc.colBenefice")}</th>
+                  <th>{t("fc.colCommission")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {donnees.ventes.map((v) => (
+                  <tr key={v.id}>
+                    <td data-label={t("fc.colDate")}>{dateHeure(v.dateVente)}</td>
+                    <td className="td-strong td-main" data-label={t("fc.colClient")}>
+                      {v.clientNom}
+                    </td>
+                    <td data-label={t("fc.colProduit")}>{v.produit}</td>
+                    <td className="num" data-label={t("fc.colQuantite")}>
+                      {nombre(v.quantite)}
+                    </td>
+                    <td className="num" data-label={t("fc.colMontant")} title={montant(v.montant)}>
+                      {montantCompact(v.montant)}
+                    </td>
+                    <td
+                      className={`num ${v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
+                      data-label={t("fc.colBenefice")}
+                      title={montant(v.benefice)}
+                    >
+                      {v.benefice >= 0 ? "+" : ""}
+                      {montantCompact(v.benefice)}
+                    </td>
+                    {/* La colonne du DG porte le montant ; celle-ci y ajoute le
+                        règlement. C'est la question que se pose l'intéressé, et
+                        elle décompose l'écart affiché en haut de page. */}
+                    <td className="num" data-label={t("fc.colCommission")}>
+                      {v.commission === null ? (
+                        <span className="muted-3">-</span>
+                      ) : (
+                        <>
+                          <span title={montant(v.commission)}>{montantCompact(v.commission)}</span>
+                          <span className={`pill ${v.commissionVerseeLe ? "pill-success" : "pill-warn"} pill-reglement`}>
+                            {v.commissionVerseeLe ? t("co.versee", { date: date(v.commissionVerseeLe) }) : t("co.due")}
+                          </span>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );

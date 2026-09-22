@@ -70,7 +70,10 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       where: { vendeurId: moi.id },
       orderBy: { dateVente: "desc" },
       select: {
+        id: true,
         clientId: true,
+        clientNom: true,
+        produit: true,
         dateVente: true,
         prixAchat: true,
         prixVente: true,
@@ -99,6 +102,24 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   let commissionsMesurables = true;
   const mesClients = new Set<string>();
 
+  /* Douze mois glissants, créés vides puis remplis. Partir des ventes
+     laisserait les mois sans activité hors du graphique, et une courbe qui
+     saute les creux raconte une progression qui n'a pas eu lieu. */
+  const maintenant = new Date();
+  const parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+    parMois.push({
+      mois: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      ca: 0,
+      benefice: 0,
+      nbVentes: 0,
+    });
+  }
+  const indexMois = new Map(parMois.map((m, i) => [m.mois, i]));
+
+  const detail = [];
+
   for (const v of mesVentes) {
     const montant = nb(v.prixVente) * v.quantite;
     const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
@@ -118,6 +139,30 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       commissionsAttendues += part;
       if (v.commissionVerseeLe) commissionsRecues += part;
     }
+
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const i = indexMois.get(cle);
+    if (i !== undefined) {
+      parMois[i].ca += montant;
+      parMois[i].benefice += marge;
+      parMois[i].nbVentes += 1;
+    }
+
+    detail.push({
+      id: v.id,
+      dateVente: v.dateVente,
+      clientNom: v.clientNom,
+      produit: v.produit,
+      quantite: v.quantite,
+      montant: Math.round(montant),
+      benefice: Math.round(marge),
+      commission: part,
+      /* Réglée ou non, ligne à ligne : c'est ce qui rend vérifiable l'écart
+         entre « reçu » et « attendu » affiché en haut de page. Un total qu'on
+         ne peut pas décomposer ne se conteste pas, et une commission se
+         conteste. */
+      commissionVerseeLe: v.commissionVerseeLe,
+    });
   }
 
   /* --- Classement --------------------------------------------------------- */
@@ -209,5 +254,7 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       recu: commissionsMesurables ? Math.round(commissionsRecues) : null,
       nbVentesReglees: mesVentes.filter((v) => v.commissionVerseeLe !== null).length,
     },
+    parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
+    ventes: detail,
   });
 });

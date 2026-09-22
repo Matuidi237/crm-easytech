@@ -630,6 +630,9 @@ export type TableauCommercial = {
     recu: number | null;
     nbVentesReglees: number;
   };
+  /** Douze mois glissants, les mois sans vente compris. */
+  parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[];
+  ventes: VenteCommercial[];
 };
 
 export async function fetchTableauCommercial() {
@@ -702,6 +705,7 @@ export async function fetchEquipeCommerciale(filtres: { recherche?: string; pays
   return res.json() as Promise<EquipeCommerciale>;
 }
 
+/** Une vente vue du côté de celui qui l'a faite, règlement compris. */
 export type VenteCommercial = {
   id: string;
   dateVente: string;
@@ -711,6 +715,8 @@ export type VenteCommercial = {
   montant: number;
   benefice: number;
   commission: number | null;
+  /** Null tant que la commission n'a pas été versée. */
+  commissionVerseeLe: string | null;
 };
 
 export type FicheCommercial = {

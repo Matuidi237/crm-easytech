@@ -801,4 +801,12 @@ export const fr = {
   "co.ventesSousTitre": "Vos ventes, du plus récent au plus ancien",
   "co.commissionsSousTitre": "Le détail de ce qui vous est dû et de ce qui a été versé",
   "co.agendaSousTitre": "Vos rendez-vous et vos relances à venir",
+  "co.versee": "versée le {date}",
+  "co.due": "due",
+  "co.historiqueVideTitre": "Aucune vente à votre nom",
+  "co.historiqueVideTexte": "Vos ventes apparaîtront ici dès qu'elles seront enregistrées, avec le bénéfice et la commission de chacune.",
+  "co.evolutionTitre": "Votre évolution",
+  "co.evolutionSousTitre": "Chiffre d'affaires et bénéfice sur douze mois",
+  "co.historiqueTitre": "Historique de vos ventes",
+  "co.historiqueSousTitre": "{n} ventes, de la plus récente à la plus ancienne",
 };

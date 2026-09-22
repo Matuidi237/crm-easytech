@@ -4097,3 +4097,13 @@ td.col-actions {
     text-align: left;
   }
 }
+
+/* Règlement d'une commission, accolé à son montant. En bloc et non en ligne :
+   collée au chiffre, la pastille se lisait comme une partie du montant. */
+.pill-reglement {
+  display: block;
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}

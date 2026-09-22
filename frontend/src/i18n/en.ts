@@ -799,4 +799,12 @@ export const en: Record<keyof typeof fr, string> = {
   "co.ventesSousTitre": "Your sales, most recent first",
   "co.commissionsSousTitre": "What you are owed and what has been paid",
   "co.agendaSousTitre": "Your upcoming meetings and follow-ups",
+  "co.versee": "paid on {date}",
+  "co.due": "due",
+  "co.historiqueVideTitre": "No sale under your name",
+  "co.historiqueVideTexte": "Your sales will show here as soon as they are recorded, each with its profit and commission.",
+  "co.evolutionTitre": "Your trend",
+  "co.evolutionSousTitre": "Revenue and profit over twelve months",
+  "co.historiqueTitre": "Your sales history",
+  "co.historiqueSousTitre": "{n} sales, most recent first",
 };
