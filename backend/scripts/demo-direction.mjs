@@ -274,6 +274,16 @@ const CATALOGUE = [
 
 const VENDEURS = ["demo-nerea", "demo-victor", "demo-joseph", "demo-vanessa", "demo-resp", "demo-samuel"];
 
+/* Clients confiés à chaque commercial. Assez large pour qu'il en reste sans
+   vente : un portefeuille entièrement servi donnerait 100 % de couverture à
+   tout le monde, et le tableau de bord n'apprendrait plus rien. */
+const TAILLE_PORTEFEUILLE = 26;
+
+/* Délai de règlement des commissions : elles se versent le mois suivant.
+   Les ventes plus récentes restent donc dues, ce qui rend l'écart entre
+   « reçu » et « attendu » visible au lieu d'être toujours nul. */
+const MOIS_AVANT_VERSEMENT = 1;
+
 /* Générateur déterministe : deux exécutions donnent le même jeu, donc les
    captures d'écran et les vérifications restent comparables d'une fois sur
    l'autre. Math.random rendrait tout irreproductible. */
@@ -286,17 +296,21 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes] = await Promise.all([
+  const [ventes, projets, partenaires, comptes, clientsRattaches] = await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
     prisma.partenaire.count({ where: { estDemo: true } }),
     prisma.utilisateur.count({ where: { identifiant: { startsWith: PREFIXE } } }),
+    /* Fiches confiées à un compte de démonstration. Elles ne sont pas
+       supprimées au nettoyage, seulement libérées : ce sont de vrais clients,
+       seul leur rattachement était simulé. */
+    prisma.client.count({ where: { proprietaire: { identifiant: { startsWith: PREFIXE } } } }),
   ]);
-  return { ventes, projets, partenaires, comptes };
+  return { ventes, projets, partenaires, comptes, clientsRattaches };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes } = await compter();
+  const { ventes, projets, partenaires, comptes, clientsRattaches } = await compter();
   const totalVentes = await prisma.vente.count();
   if (ventes === 0 && projets === 0 && partenaires === 0 && comptes === 0) {
     console.log("Aucune donnée de démonstration en base.");
@@ -304,6 +318,7 @@ async function etat() {
     console.log(
       `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s), ${projets} projet(s) et ${partenaires} partenaire(s) de démonstration.`
     );
+    console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
 }
@@ -316,14 +331,21 @@ async function supprimer({ silencieux = false } = {}) {
   const ventes = await prisma.vente.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
+  /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
+     est en SetNull. On les compte avant, pour pouvoir le dire et le vérifier
+     plutôt que de l'affirmer. */
+  const rattaches = await prisma.client.count({
+    where: { proprietaire: { identifiant: { startsWith: PREFIXE } } },
+  });
   const users = await prisma.utilisateur.deleteMany({ where: { identifiant: { startsWith: PREFIXE } } });
 
   if (!silencieux) {
     console.log(
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
+    console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
-    const restant = c.ventes + c.projets + c.partenaires;
+    const restant = c.ventes + c.projets + c.partenaires + c.clientsRattaches;
     console.log(
       restant === 0
         ? `Il ne reste aucune donnée de démonstration. Base : ${await prisma.client.count()} clients, ${await prisma.vente.count()} ventes réelles.`
@@ -351,13 +373,32 @@ async function creer() {
      pays et par secteur aient de la matière : avec quatre clients seulement,
      le donut n'aurait jamais plus de quatre parts. */
   const clients = await prisma.client.findMany({
-    where: { pays: { not: null } },
-    take: 60,
+    where: { pays: { not: null }, proprietaireId: null },
+    take: TAILLE_PORTEFEUILLE * VENDEURS.length,
     select: { id: true, nom: true },
     orderBy: { nom: "asc" },
   });
   if (clients.length === 0) {
     console.warn("Aucun client localisé en base : les ventes seront rattachées à un client fictif.");
+  }
+
+  /* Portefeuilles : chaque commercial se voit confier une tranche de clients.
+     Sans eux, le taux de couverture de son tableau de bord vaudrait toujours
+     100 % puisque son portefeuille se réduirait à ceux à qui il a vendu, et
+     l'indicateur ne dirait plus rien.
+     Seules des fiches sans propriétaire sont prises, et la suppression du jeu
+     de démonstration les libère d'elle-même : « proprietaire » passe à null
+     quand le compte disparaît (onDelete: SetNull). */
+  const portefeuilles = new Map();
+  for (const [rang, vendeur] of VENDEURS.entries()) {
+    const part = clients.slice(rang * TAILLE_PORTEFEUILLE, (rang + 1) * TAILLE_PORTEFEUILLE);
+    portefeuilles.set(vendeur, part);
+    if (part.length > 0) {
+      await prisma.client.updateMany({
+        where: { id: { in: part.map((c) => c.id) } },
+        data: { proprietaireId: ids[vendeur] },
+      });
+    }
   }
 
   const alea = suiteAleatoire(20260908);
@@ -376,8 +417,14 @@ async function creer() {
     const nbVentes = VOLUME_PAR_MOIS[11 - recul];
     for (let i = 0; i < nbVentes; i++) {
       const article = piocher(CATALOGUE);
-      const client = clients.length > 0 ? piocher(clients) : null;
       const vendeur = piocher(VENDEURS);
+      /* On vend d'abord chez soi : une vente tirée au hasard dans toute la
+         base ferait apparaître des clients hors portefeuille partout, et le
+         taux de couverture mesurerait un rattachement qui n'existe pas. Une
+         vente sur six échappe au portefeuille, comme dans la réalité. */
+      const vivier = portefeuilles.get(vendeur) ?? [];
+      const source = alea() < 0.84 && vivier.length > 0 ? vivier : clients;
+      const client = source.length > 0 ? piocher(source) : null;
       const jour = 1 + Math.floor(alea() * 27);
 
       // Quantité corrélée au prix : on ne vend pas douze serveurs d'un coup.
@@ -386,6 +433,7 @@ async function creer() {
       // Remise ponctuelle jusqu'à 12 % : la marge varie d'une vente à l'autre,
       // sinon le bénéfice moyen serait une constante déguisée.
       const remise = alea() < 0.3 ? 1 - alea() * 0.12 : 1;
+      const dateVente = new Date(maintenant.getFullYear(), maintenant.getMonth() - recul, jour, 10, 0, 0);
 
       ventes.push({
         clientId: client?.id ?? null,
@@ -396,7 +444,14 @@ async function creer() {
         quantite,
         prixAchat: article.achat,
         prixVente: Math.round((article.vente * remise) / 1000) * 1000,
-        dateVente: new Date(maintenant.getFullYear(), maintenant.getMonth() - recul, jour, 10, 0, 0),
+        dateVente: dateVente,
+        /* Réglée si le mois de la vente est clos depuis assez longtemps ;
+           versée le 5 du mois suivant, comme une paie. Laisser toutes les
+           commissions impayées afficherait « 0 / 4,2 M » sur chaque fiche, et
+           toutes les payer ferait disparaître le reste dû. */
+        commissionVerseeLe: recul > MOIS_AVANT_VERSEMENT
+          ? new Date(dateVente.getFullYear(), dateVente.getMonth() + 1, 5, 9, 0, 0)
+          : null,
         estDemo: true,
       });
     }
@@ -496,8 +551,13 @@ async function creer() {
 
   const ca = ventes.reduce((s, v) => s + v.prixVente * v.quantite, 0);
   const budget = projets.reduce((s, p) => s + p.budget, 0);
+  const regees = ventes.filter((v) => v.commissionVerseeLe !== null).length;
   console.log("Jeu de démonstration en place.");
-  console.log(`  Connexion DG : demo-dg / ${MOT_DE_PASSE}`);
+  console.log(`  Connexion DG         : demo-dg / ${MOT_DE_PASSE}`);
+  console.log(`  Connexion commercial : demo-nerea / ${MOT_DE_PASSE}`);
+  console.log(
+    `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
+  );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`
   );

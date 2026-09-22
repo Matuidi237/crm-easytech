@@ -594,6 +594,50 @@ export async function fetchAnalysesDirection() {
   return res.json() as Promise<AnalysesDirection>;
 }
 
+/* ------------------------------------------------------------- Commercial */
+
+/**
+ * Tableau de bord d'un commercial.
+ *
+ * Aucun identifiant n'est transmis : la route travaille sur le compte
+ * connecté. Un commercial ne peut donc pas lire les chiffres d'un collègue en
+ * modifiant un paramètre, et l'interface n'a pas à s'en préoccuper.
+ */
+export type TableauCommercial = {
+  identite: { nomComplet: string; pays: string | null };
+  chiffreAffaires: {
+    total: number;
+    benefice: number;
+    margePct: number | null;
+    nbVentes: number;
+    mois: number;
+    variationMois: number | null;
+    partEquipePct: number | null;
+    derniereVente: string | null;
+  };
+  classement: {
+    rang: number | null;
+    effectif: number;
+    rangChiffreAffaires: number | null;
+    rangRentabilite: number | null;
+    caPremier: number;
+  };
+  portefeuille: { total: number; avecVente: number; couverturePct: number | null };
+  commissions: {
+    /** Null quand aucun taux n'est fixé : à distinguer d'un taux à zéro. */
+    tauxPct: number | null;
+    attendu: number | null;
+    recu: number | null;
+    nbVentesReglees: number;
+  };
+};
+
+export async function fetchTableauCommercial() {
+  const res = await authedFetch("/api/commercial/tableau-de-bord");
+  if (!res.ok) throw new Error("Erreur lors du chargement de votre tableau de bord.");
+  return res.json() as Promise<TableauCommercial>;
+}
+
 /* ---------------------------------------------------------------- Équipes */
 
 /** Chiffres communs à tout lot de projets, du plus global au plus fin. */

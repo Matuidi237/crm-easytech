@@ -10,6 +10,7 @@ import { accesRouter } from "./routes/acces.js";
 import { permissionsRouter, rechargerPermissions } from "./routes/permissions.js";
 import { directionRouter } from "./routes/direction.js";
 import { campagnesRouter } from "./routes/campagnes.js";
+import { commercialRouter } from "./routes/commercial.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -45,6 +46,10 @@ app.use("/api/direction", requireAuth, requirePermission("stats.globales"), dire
    campagne, c'est rédiger une newsletter sous un autre nom. Créer une
    capacité distincte obligerait à trancher deux fois la même question. */
 app.use("/api/campagnes", requireAuth, requirePermission("newsletters.voir"), campagnesRouter);
+/* Aucune capacité exigée : ces routes ne parlent que du compte connecté, dont
+   l'identité vient du jeton. Exiger « stats.globales » reviendrait à demander
+   le droit de voir les chiffres de TOUS pour consulter les siens. */
+app.use("/api/commercial", requireAuth, commercialRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

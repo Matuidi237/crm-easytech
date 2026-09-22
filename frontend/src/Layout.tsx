@@ -2,12 +2,15 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useLangue, useLibelles } from "./i18n";
-import { navDe } from "./vues";
+import { navDe, piedDeMenuMinimal } from "./vues";
 import { ContexteEntete, type FilAriane } from "./ContexteEntete";
 import SelecteurLangue from "./components/SelecteurLangue";
 import {
   IconArrowLeft,
+  IconCalendar,
   IconChevronLeft,
+  IconCoins,
+  IconTag,
   IconChevronRight,
   IconClose,
   IconDashboard,
@@ -33,6 +36,9 @@ const ICONES: Record<string, typeof IconDashboard> = {
   mail: IconMail,
   team: IconTeam,
   handshake: IconHandshake,
+  tag: IconTag,
+  coins: IconCoins,
+  calendar: IconCalendar,
 };
 
 function initiales(nom: string) {
@@ -86,6 +92,11 @@ export default function Layout() {
   const nom = utilisateur?.nomComplet ?? "";
   const roleLabel = utilisateur ? libelles.role(utilisateur.role) : "";
   const entrees = navDe(utilisateur?.role);
+  /* Le bas du menu se réduit au profil et à la déconnexion pour les rôles qui
+     n'administrent rien. Les permissions suffiraient à masquer ces entrées ;
+     ce garde-fou dit l'intention, et tient si l'une d'elles est accordée un
+     jour à titre exceptionnel. */
+  const piedMinimal = piedDeMenuMinimal(utilisateur?.role);
   const rechercheVisible = PAGES_AVEC_RECHERCHE.includes(location.pathname);
 
   /* Référence stable : le hook des pages en dépend, une fonction recréée à
@@ -201,7 +212,7 @@ export default function Layout() {
               <IconUserCircle />
               <span>{t("nav.profil")}</span>
             </NavLink>
-            {peut("permissions.gerer") && (
+            {!piedMinimal && peut("permissions.gerer") && (
               <NavLink
                 to="/permissions"
                 title={replie ? t("nav.permissions") : undefined}
@@ -211,7 +222,7 @@ export default function Layout() {
                 <span>{t("nav.permissions")}</span>
               </NavLink>
             )}
-            {peut("utilisateurs.gerer") && (
+            {!piedMinimal && peut("utilisateurs.gerer") && (
               <NavLink
                 to="/utilisateurs"
                 title={replie ? t("nav.utilisateurs") : undefined}

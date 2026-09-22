@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
-import { estVueDirection } from "./vues";
+import { estVueCommerciale, estVueDirection } from "./vues";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -23,14 +23,29 @@ import FicheChefProjetPage from "./pages/FicheChefProjetPage";
 import CampagnesPage from "./pages/CampagnesPage";
 import ComposerCampagnePage from "./pages/ComposerCampagnePage";
 import PartenairesPage from "./pages/PartenairesPage";
+import CommercialPage from "./pages/CommercialPage";
+import EnConstruction from "./pages/EnConstruction";
 
 /**
  * L'accueil dépend de la vue du rôle : le directeur général ouvre sur ses
- * indicateurs, tout le monde sur l'état de la base clients.
+ * indicateurs, le commercial sur les siens, tout le monde sur l'état de la
+ * base clients.
  */
 function Accueil() {
   const { utilisateur } = useAuth();
-  return estVueDirection(utilisateur?.role) ? <DirectionPage /> : <DashboardPage />;
+  if (estVueDirection(utilisateur?.role)) return <DirectionPage />;
+  if (estVueCommerciale(utilisateur?.role)) return <CommercialPage />;
+  return <DashboardPage />;
+}
+
+/**
+ * Réservée à la vue commerciale. Comme pour la direction, ce n'est pas une
+ * protection : les routes serveur ne renvoient de toute façon que les chiffres
+ * du compte connecté.
+ */
+function RouteCommerciale({ children }: { children: JSX.Element }) {
+  const { utilisateur } = useAuth();
+  return estVueCommerciale(utilisateur?.role) ? children : <Navigate to="/" replace />;
 }
 
 /**
@@ -124,6 +139,30 @@ export default function App() {
                 <RouteDirection>
                   <PartenairesPage />
                 </RouteDirection>
+              }
+            />
+            <Route
+              path="/ventes"
+              element={
+                <RouteCommerciale>
+                  <EnConstruction titre="nav.ventes" sousTitre="co.ventesSousTitre" />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/commissions"
+              element={
+                <RouteCommerciale>
+                  <EnConstruction titre="nav.commissions" sousTitre="co.commissionsSousTitre" />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/agenda"
+              element={
+                <RouteCommerciale>
+                  <EnConstruction titre="nav.agenda" sousTitre="co.agendaSousTitre" />
+                </RouteCommerciale>
               }
             />
             <Route path="/profil" element={<ProfilPage />} />

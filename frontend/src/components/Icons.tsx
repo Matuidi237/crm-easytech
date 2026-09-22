@@ -381,6 +381,28 @@ export function IconCoins({ size = 19, strokeWidth = 1.7, className }: IconProps
 
 
 
+/** Ventes : l'étiquette de prix. */
+export function IconTag({ size = 19, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0l-7.2-7.2A2 2 0 0 1 2.8 12V4.8A2 2 0 0 1 4.8 2.8H12a2 2 0 0 1 1.4.6l7.2 7.2a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.8" cy="7.8" r="1.4" />
+    </svg>
+  );
+}
+
+/** Agenda : la page de calendrier. */
+export function IconCalendar({ size = 19, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <rect x="3" y="5" width="18" height="16" rx="2.5" />
+      <path d="M3 10h18" />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+    </svg>
+  );
+}
+
 /** Flèche de hausse, doublant la couleur de la puce de variation. */
 export function IconArrowUp({ size = 19, strokeWidth = 2.2, className }: IconProps) {
   return (

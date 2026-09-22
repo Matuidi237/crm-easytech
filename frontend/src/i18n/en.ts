@@ -10,6 +10,8 @@ export const en: Record<keyof typeof fr, string> = {
   /* ------------------------------------------------------------- Common */
   "commun.chargement": "Loading…",
   "commun.chargementDonnees": "Loading data…",
+  "commun.aVenirTitre": "This page is on its way",
+  "commun.aVenirTexte": "The tab is in place, its content is being built. It shows in the menu already so the navigation stays stable from one delivery to the next.",
   "commun.annuler": "Cancel",
   "commun.enregistrer": "Save",
   "commun.enregistrement": "Saving…",
@@ -756,4 +758,45 @@ export const en: Record<keyof typeof fr, string> = {
   "perm.utilisateurs.gererAdmins.detail": "Act on administration accounts.",
   "perm.permissions.gerer.libelle": "Change the permissions",
   "perm.permissions.gerer.detail": "Access to this screen. Grant it advisedly.",
+
+  /* ---------------------------------------------------- Sales rep view */
+  "nav.ventes": "Sales",
+  "nav.commissions": "Commissions",
+  "nav.agenda": "Calendar",
+
+  "co.bienvenue": "Welcome {nom}",
+  "co.sousTitre": "Here is where you stand today.",
+  "co.aucuneVente": "No sale recorded under your name",
+
+  "co.ca": "Revenue booked",
+  "co.caNote": "{n} sales, i.e. {part}% of the team's revenue",
+  "co.caNoteSansPart": "{n} sales recorded",
+
+  "co.classement": "Ranking",
+  "co.rangSur": "{rang} of {n}",
+  "co.classementNote": "{ca} on revenue, {marge} on profitability",
+
+  "co.portefeuille": "Client portfolio",
+  "co.portefeuilleNote": "{n} clients served, i.e. {pct}% coverage",
+  "co.portefeuilleVide": "No client attached to your account",
+
+  "co.commissions": "Commissions",
+  "co.commissionsNote": "{n} sales settled out of {total}, at a {taux}% rate",
+  "co.tauxNonDefini": "Rate not set",
+  "co.tauxNonDefiniNote": "No commission rate has been set for your account yet",
+
+  "co.detailTitre": "The detail behind these figures",
+  "co.detailSousTitre": "Enough to redo the maths, not just read the result",
+  "co.caMois": "Revenue for the current month",
+  "co.beneficeRealise": "Profit generated",
+  "co.margeDe": "i.e. a {pct}% margin",
+  "co.derniereVente": "Last sale",
+  "co.jamais": "Never",
+  "co.clientsSansVente": "Clients with no sale at all",
+  "co.commissionsRecues": "Commissions already paid",
+  "co.resteDu": "Still owed",
+
+  "co.ventesSousTitre": "Your sales, most recent first",
+  "co.commissionsSousTitre": "What you are owed and what has been paid",
+  "co.agendaSousTitre": "Your upcoming meetings and follow-ups",
 };

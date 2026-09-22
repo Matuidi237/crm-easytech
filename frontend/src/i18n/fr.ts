@@ -10,6 +10,8 @@ export const fr = {
   /* ------------------------------------------------------------- Commun */
   "commun.chargement": "Chargement…",
   "commun.chargementDonnees": "Chargement des données…",
+  "commun.aVenirTitre": "Cette page arrive",
+  "commun.aVenirTexte": "L'onglet est en place, son contenu se construit. Il apparaît dès maintenant dans le menu pour que le parcours reste stable d'une livraison à l'autre.",
   "commun.annuler": "Annuler",
   "commun.enregistrer": "Enregistrer",
   "commun.enregistrement": "Enregistrement…",
@@ -758,4 +760,45 @@ export const fr = {
   "perm.utilisateurs.gererAdmins.detail": "Toucher aux comptes d'administration.",
   "perm.permissions.gerer.libelle": "Modifier les permissions",
   "perm.permissions.gerer.detail": "Accès à cet écran. À n'accorder qu'en connaissance de cause.",
+
+  /* --------------------------------------------------- Vue commerciale */
+  "nav.ventes": "Ventes",
+  "nav.commissions": "Commissions",
+  "nav.agenda": "Agenda",
+
+  "co.bienvenue": "Bienvenue {nom}",
+  "co.sousTitre": "Voici où vous en êtes aujourd'hui.",
+  "co.aucuneVente": "Aucune vente enregistrée à votre nom",
+
+  "co.ca": "CA réalisé",
+  "co.caNote": "{n} ventes, soit {part}% du chiffre de l'équipe",
+  "co.caNoteSansPart": "{n} ventes enregistrées",
+
+  "co.classement": "Classement",
+  "co.rangSur": "{rang} sur {n}",
+  "co.classementNote": "{ca} au chiffre, {marge} à la rentabilité",
+
+  "co.portefeuille": "Portefeuille clients",
+  "co.portefeuilleNote": "{n} clients servis, soit {pct}% de couverture",
+  "co.portefeuilleVide": "Aucun client rattaché à votre compte",
+
+  "co.commissions": "Commissions",
+  "co.commissionsNote": "{n} ventes réglées sur {total}, au taux de {taux}%",
+  "co.tauxNonDefini": "Taux non défini",
+  "co.tauxNonDefiniNote": "Aucun taux de commission n'a encore été fixé pour votre compte",
+
+  "co.detailTitre": "Le détail derrière ces chiffres",
+  "co.detailSousTitre": "De quoi refaire le calcul, et pas seulement lire le résultat",
+  "co.caMois": "Chiffre d'affaires du mois en cours",
+  "co.beneficeRealise": "Bénéfice réalisé",
+  "co.margeDe": "soit {pct}% de marge",
+  "co.derniereVente": "Dernière vente",
+  "co.jamais": "Jamais",
+  "co.clientsSansVente": "Clients sans aucune vente",
+  "co.commissionsRecues": "Commissions déjà versées",
+  "co.resteDu": "Reste dû",
+
+  "co.ventesSousTitre": "Vos ventes, du plus récent au plus ancien",
+  "co.commissionsSousTitre": "Le détail de ce qui vous est dû et de ce qui a été versé",
+  "co.agendaSousTitre": "Vos rendez-vous et vos relances à venir",
 };

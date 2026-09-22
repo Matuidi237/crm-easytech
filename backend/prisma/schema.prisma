@@ -153,6 +153,16 @@ model Vente {
   prixVente Decimal @db.Decimal(18, 2)
 
   dateVente DateTime @default(now())
+
+  /// Date de versement de la commission due sur cette vente.
+  ///
+  /// Null tant que rien n'a été versé. La commission se calcule toujours à la
+  /// volée depuis le bénéfice et le taux (voir src/lib/commissions.ts) : ne
+  /// stocker que la DATE évite qu'un montant figé contredise un taux corrigé
+  /// plus tard. C'est ce champ, et lui seul, qui sépare le « reçu » de
+  /// l'« attendu » sur le tableau de bord du commercial.
+  commissionVerseeLe DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

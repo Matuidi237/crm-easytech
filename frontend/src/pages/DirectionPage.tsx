@@ -1,4 +1,4 @@
-import { ComponentType, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AnalysesDirection,
   DimensionCa,
@@ -9,11 +9,10 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue, type CleTraduction } from "../i18n";
-import { DonutInteractif, EvolutionMensuelle, Jauge, TopProduits } from "../components/Charts";
+import { DonutInteractif, EvolutionMensuelle, TopProduits } from "../components/Charts";
+import CarteIndicateur, { type Carte } from "../components/CarteIndicateur";
 import {
   IconAlert,
-  IconArrowDown,
-  IconArrowUp,
   IconAward,
   IconBox,
   IconCoins,
@@ -76,74 +75,6 @@ function SelecteurDimension<T extends string>({
           {libelle(d)}
         </button>
       ))}
-    </div>
-  );
-}
-
-type Carte = {
-  label: string;
-  valeur: string;
-  /** Vrai pour un nom : le corps prévu pour des chiffres serait trop grand. */
-  valeurTexte?: boolean;
-  note: string;
-  icone: ComponentType<{ size?: number }>;
-  fg: string;
-  bg: string;
-  /** Variation mois à mois. null = aucune base de comparaison. */
-  variationPct?: number | null;
-  /** Jauge circulaire, quand un pourcentage double utilement le chiffre. */
-  jauge?: { valeurPct: number; couleur: string };
-};
-
-/** Puce de variation. La flèche double la couleur, elle ne la remplace pas. */
-function Delta({ pct, libelle, libelleAbsent }: { pct: number | null | undefined; libelle: string; libelleAbsent: string }) {
-  if (pct === null || pct === undefined) {
-    return <span className="delta delta-neutre">{libelleAbsent}</span>;
-  }
-  const hausse = pct >= 0;
-  return (
-    <span className={`delta ${hausse ? "delta-hausse" : "delta-baisse"}`}>
-      {hausse ? <IconArrowUp size={12} /> : <IconArrowDown size={12} />}
-      {hausse ? "+" : ""}
-      {pct}% <span className="delta-libelle">{libelle}</span>
-    </span>
-  );
-}
-
-function CarteIndicateur({
-  label,
-  valeur,
-  valeurTexte,
-  note,
-  icone: Icone,
-  fg,
-  bg,
-  variationPct,
-  jauge,
-  libelleVariation,
-  libelleSansVariation,
-}: Carte & { libelleVariation: string; libelleSansVariation: string }) {
-  return (
-    <div className="stat stat-riche">
-      <div className="stat-riche-haut">
-        <div style={{ minWidth: 0 }}>
-          <div className="stat-label">{label}</div>
-          <div className={`stat-riche-valeur${valeurTexte ? " texte" : ""}`}>{valeur}</div>
-        </div>
-        {jauge ? (
-          <Jauge valeurPct={jauge.valeurPct} couleur={jauge.couleur} />
-        ) : (
-          <div className="stat-icone" style={{ background: bg, color: fg }}>
-            <Icone size={21} />
-          </div>
-        )}
-      </div>
-      <div className="stat-riche-bas">
-        {variationPct !== undefined && (
-          <Delta pct={variationPct} libelle={libelleVariation} libelleAbsent={libelleSansVariation} />
-        )}
-        <span className="stat-note">{note}</span>
-      </div>
     </div>
   );
 }
