@@ -22,6 +22,11 @@ const prisma = new PrismaClient();
 const MOT_DE_PASSE = "DemoDG2026!";
 const PREFIXE = "demo-";
 
+/* Les colonnes « jour » et « debut » sont de type DATE : PostgreSQL y tronque
+   l'horodatage sur UTC. Y écrire un minuit local décalerait la date d'un jour
+   à Douala, et les créneaux du lundi se rangeraient au dimanche. */
+const jourCalendaire = (d) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+
 /* Le taux de commission porte sur le bénéfice, pas sur le chiffre d'affaires
    (voir src/lib/commissions.ts). Les taux varient d'une personne à l'autre,
    comme dans la réalité : un taux unique rendrait la colonne inutile. */
@@ -297,7 +302,7 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes, clientsRattaches] = await Promise.all([
+  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs] = await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
     prisma.partenaire.count({ where: { estDemo: true } }),
@@ -306,20 +311,23 @@ async function compter() {
        supprimées au nettoyage, seulement libérées : ce sont de vrais clients,
        seul leur rattachement était simulé. */
     prisma.client.count({ where: { proprietaire: { identifiant: { startsWith: PREFIXE } } } }),
+    prisma.saisieTemps.count({ where: { estDemo: true } }),
+    prisma.objectifCommercial.count({ where: { estDemo: true } }),
   ]);
-  return { ventes, projets, partenaires, comptes, clientsRattaches };
+  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes, clientsRattaches } = await compter();
+  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs } = await compter();
   const totalVentes = await prisma.vente.count();
-  if (ventes === 0 && projets === 0 && partenaires === 0 && comptes === 0) {
+  if (ventes === 0 && projets === 0 && partenaires === 0 && comptes === 0 && temps === 0 && objectifs === 0) {
     console.log("Aucune donnée de démonstration en base.");
   } else {
     console.log(
       `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s), ${projets} projet(s) et ${partenaires} partenaire(s) de démonstration.`
     );
     console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
+    console.log(`  ${temps} créneau(x) de feuille de temps et ${objectifs} objectif(s).`);
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
 }
@@ -330,6 +338,11 @@ async function supprimer({ silencieux = false } = {}) {
      en dernier, puisque rien ne dépend plus d'eux. */
   const projets = await prisma.projet.deleteMany({ where: { estDemo: true } });
   const ventes = await prisma.vente.deleteMany({ where: { estDemo: true } });
+  /* Temps et objectifs partiraient en cascade avec leur compte, mais on les
+     retire explicitement : le drapeau reste exact même si quelqu'un a gardé
+     un compte à la main, et le décompte affiché le prouve. */
+  const temps = await prisma.saisieTemps.deleteMany({ where: { estDemo: true } });
+  const objectifs = await prisma.objectifCommercial.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
@@ -344,9 +357,10 @@ async function supprimer({ silencieux = false } = {}) {
     console.log(
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
+    console.log(`  Plus ${temps.count} créneau(x) de feuille de temps et ${objectifs.count} objectif(s).`);
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
-    const restant = c.ventes + c.projets + c.partenaires + c.clientsRattaches;
+    const restant = c.ventes + c.projets + c.partenaires + c.clientsRattaches + c.temps + c.objectifs;
     console.log(
       restant === 0
         ? `Il ne reste aucune donnée de démonstration. Base : ${await prisma.client.count()} clients, ${await prisma.vente.count()} ventes réelles.`
@@ -534,6 +548,135 @@ async function creer() {
 
   await prisma.projet.createMany({ data: projets });
 
+  /* --- Feuilles de temps -------------------------------------------------
+     Trois semaines pour chaque commercial, journées de huit créneaux au plus.
+     Les activités ne sont pas tirées uniformément : une semaine de commercial
+     est faite de prospection et de relances, pas d'un tiers de formation. */
+  const JOURNEE_TYPE = [
+    { activite: "PROSPECTION", debut: 480, fin: 600 },
+    { activite: "RELANCE", debut: 600, fin: 690 },
+    { activite: "RENDEZ_VOUS", debut: 690, fin: 780 },
+    { activite: "DEVIS", debut: 840, fin: 930 },
+    { activite: "SUIVI_CLIENT", debut: 930, fin: 1020 },
+    { activite: "ADMINISTRATIF", debut: 1020, fin: 1080 },
+  ];
+  const VARIANTES = ["DEMONSTRATION", "NEGOCIATION", "REUNION_INTERNE", "DEPLACEMENT", "FORMATION"];
+
+  const lundiCourant = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
+  lundiCourant.setDate(lundiCourant.getDate() - ((lundiCourant.getDay() + 6) % 7));
+
+  const saisies = [];
+  for (const vendeur of VENDEURS) {
+    const vivier = portefeuilles.get(vendeur) ?? [];
+    for (let semaine = 2; semaine >= 0; semaine--) {
+      for (let jour = 0; jour < 5; jour++) {
+        const d = new Date(lundiCourant);
+        d.setDate(d.getDate() - semaine * 7 + jour);
+        // Une feuille de temps constate : on ne pointe pas un jour à venir.
+        if (d > maintenant) continue;
+
+        for (const creneau of JOURNEE_TYPE) {
+          // Une journée sur cinq n'est pas complète, comme dans la vraie vie.
+          if (alea() < 0.18) continue;
+          const activite = alea() < 0.22 ? piocher(VARIANTES) : creneau.activite;
+          const viseUnClient = !["REUNION_INTERNE", "FORMATION", "ADMINISTRATIF"].includes(activite);
+          const client = viseUnClient && vivier.length > 0 ? piocher(vivier) : null;
+          saisies.push({
+            utilisateurId: ids[vendeur],
+            jour: jourCalendaire(d),
+            debutMinutes: creneau.debut,
+            finMinutes: creneau.fin,
+            activite,
+            clientId: client?.id ?? null,
+            clientNom: client?.nom ?? null,
+            estDemo: true,
+          });
+        }
+      }
+    }
+  }
+  await prisma.saisieTemps.createMany({ data: saisies });
+
+  /* --- Objectifs ---------------------------------------------------------
+     Le responsable fixe le mois, le trimestre et l'année de chacun. Les
+     cibles sont calées sur ce que la personne réalise déjà, majoré de 15 % :
+     un objectif sans rapport avec l'historique ne se discute pas, il
+     s'ignore. */
+  const caParVendeur = new Map();
+  for (const v of ventes) {
+    const cle = v.vendeurId;
+    caParVendeur.set(cle, (caParVendeur.get(cle) ?? 0) + v.prixVente * v.quantite);
+  }
+
+  const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
+  const debutTrimestre = new Date(maintenant.getFullYear(), Math.floor(maintenant.getMonth() / 3) * 3, 1);
+  const debutAnnee = new Date(maintenant.getFullYear(), 0, 1);
+
+  const objectifs = [];
+  for (const vendeur of VENDEURS) {
+    if (vendeur === "demo-resp") continue; // le responsable ne se fixe pas d'objectif à lui-même
+    const caAnnuel = caParVendeur.get(ids[vendeur]) ?? 0;
+    const mensuel = Math.round((caAnnuel / 12) * 1.15);
+    const arrondi = (n) => Math.max(500000, Math.round(n / 100000) * 100000);
+
+    objectifs.push(
+      {
+        utilisateurId: ids[vendeur],
+        periode: "MOIS",
+        debut: jourCalendaire(debutMois),
+        cibleCaXAF: arrondi(mensuel),
+        cibleVentes: 2,
+        cibleRendezVous: 8,
+        fixeParEncadrement: true,
+        definiParNom: "Paul Responsable",
+        note: "Objectif mensuel fixé en revue d'équipe.",
+        estDemo: true,
+      },
+      {
+        utilisateurId: ids[vendeur],
+        periode: "TRIMESTRE",
+        debut: jourCalendaire(debutTrimestre),
+        cibleCaXAF: arrondi(mensuel * 3),
+        cibleVentes: 6,
+        cibleRendezVous: 24,
+        fixeParEncadrement: true,
+        definiParNom: "Paul Responsable",
+        estDemo: true,
+      },
+      {
+        utilisateurId: ids[vendeur],
+        periode: "ANNEE",
+        debut: jourCalendaire(debutAnnee),
+        cibleCaXAF: arrondi(mensuel * 12),
+        cibleVentes: 24,
+        fixeParEncadrement: true,
+        definiParNom: "Paul Responsable",
+        estDemo: true,
+      }
+    );
+  }
+
+  /* Une commerciale a pris la main sur son calendrier : la bascule entre les
+     deux plannings doit être visible dans la démonstration, pas seulement
+     possible. */
+  objectifs.push({
+    utilisateurId: ids["demo-nerea"],
+    periode: "MOIS",
+    debut: jourCalendaire(debutMois),
+    cibleCaXAF: 4000000,
+    cibleVentes: 3,
+    cibleRendezVous: 12,
+    fixeParEncadrement: false,
+    definiParNom: "Nerea Vendeuse",
+    note: "Je vise plus haut que l'objectif d'équipe ce mois-ci.",
+    estDemo: true,
+  });
+  await prisma.objectifCommercial.createMany({ data: objectifs });
+  await prisma.utilisateur.update({
+    where: { id: ids["demo-nerea"] },
+    data: { objectifsPersonnels: true },
+  });
+
   for (const p of PARTENAIRES) {
     const { conditions, moisDepuis, ...champs } = p;
     const depuis = new Date();
@@ -562,6 +705,7 @@ async function creer() {
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`
   );
+  console.log(`  ${saisies.length} créneaux de feuille de temps sur 3 semaines, ${objectifs.length} objectifs.`);
   console.log(`  Chiffre d'affaires simulé : ${ca.toLocaleString("fr-FR")} XAF`);
   console.log(`  Budget projets piloté : ${budget.toLocaleString("fr-FR")} XAF`);
   console.log("  Retrait avant mise en production : node scripts/demo-direction.mjs --supprimer");

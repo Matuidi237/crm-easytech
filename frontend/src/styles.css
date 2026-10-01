@@ -4280,3 +4280,447 @@ td.col-actions {
   line-height: 1.55;
   color: var(--ink-2);
 }
+
+/* Feuille de temps ------------------------------------------------------ */
+
+.semaine-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.semaine-titre {
+  flex: 1;
+  min-width: 0;
+}
+
+.semaine-libelle {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.semaine-total {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.semaine-part {
+  color: var(--ink-3);
+}
+
+/* Les sept jours en bande : la charge de chacun se compare d'un regard, ce
+   qu'une liste verticale ne permet pas. */
+.bande-jours {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.jour-case {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  font-family: var(--font);
+  min-width: 0;
+}
+
+.jour-case.on {
+  border-color: var(--brand);
+  background: var(--brand-100);
+}
+
+/* Aujourd hui garde un repere meme quand un autre jour est selectionne :
+   sans lui, on saisit sur le mauvais jour sans s en apercevoir. */
+.jour-case.aujourdhui .jour-num {
+  color: var(--brand-700);
+  font-weight: 700;
+}
+
+.jour-nom {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.jour-num {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.jour-charge {
+  font-size: 11px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.jour-charge.vide {
+  color: var(--ink-3);
+}
+
+.form-grid-creneau {
+  grid-template-columns: 2fr 1fr 1fr;
+}
+
+/* Creneaux declares du jour. */
+.creneaux {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.creneau {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+/* Filet de couleur par activite : il suit l activite, jamais sa position
+   dans la liste. */
+.creneau-barre {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.creneau-heures {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.creneau-corps {
+  flex: 1;
+  min-width: 0;
+}
+
+.creneau-activite {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.creneau-detail {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.creneau-duree {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.icon-btn.danger:hover {
+  background: #fae9ee;
+  color: #a33d5b;
+}
+
+/* Repartition du temps par activite. */
+.repartition {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.repartition-ligne {
+  display: grid;
+  grid-template-columns: 170px 1fr 130px;
+  align-items: center;
+  gap: 12px;
+}
+
+.repartition-nom {
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repartition-rail {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.repartition-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.repartition-valeur {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.repartition-part {
+  margin-left: 8px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+/* Objectifs ------------------------------------------------------------- */
+
+.dim-switch-large {
+  flex-wrap: wrap;
+}
+
+/* Choix du planning : deux options exclusives, assez larges pour porter leur
+   explication. Une case a cocher ne dirait pas ce qu on abandonne. */
+.choix-planning {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.planning-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font);
+  color: var(--ink-2);
+}
+
+.planning-option.on {
+  border-color: var(--brand);
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.planning-titre {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.planning-texte {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.avancements {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px 24px;
+  margin-top: 16px;
+}
+
+.avancement-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.avancement-libelle {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.avancement-chiffres {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.avancement-chiffres strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.avancement-cible {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.avancement-rail {
+  position: relative;
+  height: 9px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.avancement-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+/* Repere du temps ecoule : c est lui qui transforme une barre en jugement.
+   Sans lui, 40 % ne dit ni bien ni mal. */
+.avancement-repere {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.avancement-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.objectif-note {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.rappel-cibles {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+}
+
+.rappel-cibles dt {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rappel-cibles dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+@media (max-width: 760px) {
+  .form-grid-creneau {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* L activite reprend toute la largeur, les horaires se partagent la ligne
+     suivante : un selecteur d activite tronque ne se lit pas. */
+  .form-grid-creneau .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Le libelle passe au-dessus des fleches : coince entre elles sur 375 px,
+     il se brise en trois lignes et pousse les boutons hors d alignement. */
+  .semaine-titre {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .bande-jours {
+    gap: 4px;
+  }
+
+  .jour-case {
+    padding: 8px 2px;
+  }
+
+  .jour-charge {
+    font-size: 10px;
+  }
+
+  .repartition-ligne {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .repartition-valeur {
+    text-align: left;
+  }
+
+  .choix-planning {
+    grid-template-columns: 1fr;
+  }
+
+  .creneau {
+    flex-wrap: wrap;
+  }
+
+  .creneau-corps {
+    flex-basis: 100%;
+    order: 3;
+  }
+}

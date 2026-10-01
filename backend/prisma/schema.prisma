@@ -37,6 +37,7 @@ model Client {
   acces          AccesClient[]
   ventes         Vente[]
   projets        Projet[]
+  saisiesTemps   SaisieTemps[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -112,6 +113,14 @@ model Utilisateur {
   responsable   Utilisateur?  @relation("Equipe", fields: [responsableId], references: [id], onDelete: SetNull)
   responsableId String?
   equipe        Utilisateur[] @relation("Equipe")
+
+  /// Vrai quand le compte pilote son suivi sur ses propres objectifs plutôt
+  /// que sur ceux fixés par son responsable. Les deux jeux restent en base :
+  /// basculer ne détruit rien, et on peut revenir.
+  objectifsPersonnels Boolean @default(false)
+
+  saisiesTemps    SaisieTemps[]        @relation("Temps")
+  objectifs       ObjectifCommercial[] @relation("Objectifs")
 
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
@@ -330,6 +339,119 @@ model Projet {
   @@index([clientId])
   @@index([statut])
   @@index([dateFinPrevue])
+}
+
+/// Activités récurrentes d'un commercial, telles qu'elles se pointent.
+///
+/// Liste fermée et volontairement courte : une feuille de temps à vingt
+/// catégories n'est pas remplie, et une feuille de temps non remplie ne sert
+/// à personne. « AUTRE » recueille le reste, avec sa description libre.
+enum TypeActivite {
+  PROSPECTION
+  RELANCE
+  RENDEZ_VOUS
+  DEMONSTRATION
+  DEVIS
+  NEGOCIATION
+  SUIVI_CLIENT
+  REUNION_INTERNE
+  FORMATION
+  DEPLACEMENT
+  ADMINISTRATIF
+  AUTRE
+}
+
+/// Un créneau de travail déclaré par un commercial.
+///
+/// Les heures sont stockées en minutes depuis minuit plutôt qu'en DateTime :
+/// un créneau est une position dans la journée, pas un instant universel, et
+/// un fuseau horaire appliqué à « 09:00 » le déplacerait d'une heure selon le
+/// serveur qui le relit.
+model SaisieTemps {
+  id String @id @default(uuid())
+
+  utilisateur   Utilisateur @relation("Temps", fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+
+  /// Jour concerné, à minuit heure locale.
+  jour DateTime @db.Date
+
+  /// Minutes depuis minuit. 540 = 09:00, 1020 = 17:00.
+  debutMinutes Int
+  finMinutes   Int
+
+  activite    TypeActivite
+  description String?
+
+  /// Client concerné, quand l'activité en vise un. Le nom double la relation
+  /// pour que la feuille reste lisible après suppression d'une fiche.
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([utilisateurId, jour])
+  @@index([estDemo])
+}
+
+/// Granularité d'un objectif commercial.
+enum PeriodeObjectif {
+  JOUR
+  SEMAINE
+  MOIS
+  TRIMESTRE
+  SEMESTRE
+  ANNEE
+}
+
+/// Objectif chiffré assigné à un commercial sur une période.
+///
+/// Deux origines possibles : fixé par le responsable commercial, ou défini par
+/// l'intéressé. Les deux coexistent en base, et c'est une préférence du compte
+/// (« objectifsPersonnels ») qui décide lesquels pilotent son suivi. Effacer
+/// les objectifs du responsable quand quelqu'un passe en libre lui ferait
+/// perdre sa feuille de route s'il revient dessus.
+model ObjectifCommercial {
+  id String @id @default(uuid())
+
+  utilisateur   Utilisateur @relation("Objectifs", fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+
+  periode   PeriodeObjectif
+  /// Début de la fenêtre, à minuit heure locale. La fin se déduit de la
+  /// période : la stocker ouvrirait la porte à une incohérence entre les deux.
+  debut DateTime @db.Date
+
+  /// Chiffre d'affaires visé, en XAF. Null quand l'objectif ne porte que sur
+  /// l'activité (nombre de rendez-vous, par exemple).
+  cibleCaXAF Decimal? @db.Decimal(18, 2)
+  cibleVentes Int?
+  cibleRendezVous Int?
+
+  /// Vrai quand l'objectif vient de l'encadrement. L'intéressé ne peut alors
+  /// ni le modifier ni le supprimer : un objectif qu'on peut réécrire soi-même
+  /// n'engage personne.
+  fixeParEncadrement Boolean @default(false)
+  /// Trace de l'auteur, sans clé étrangère : un compte fermé ne doit pas
+  /// effacer l'origine d'un engagement.
+  definiParNom String
+
+  note String?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Un seul objectif par personne, période et fenêtre, quelle que soit son
+  /// origine : deux chiffres pour le même mois ne se départagent pas.
+  @@unique([utilisateurId, periode, debut, fixeParEncadrement])
+  @@index([utilisateurId, periode])
+  @@index([estDemo])
 }
 
 /// Nature du partenariat, qui dit ce qu'on attend de l'autre.

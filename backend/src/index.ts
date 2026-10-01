@@ -11,6 +11,7 @@ import { permissionsRouter, rechargerPermissions } from "./routes/permissions.js
 import { directionRouter } from "./routes/direction.js";
 import { campagnesRouter } from "./routes/campagnes.js";
 import { commercialRouter } from "./routes/commercial.js";
+import { agendaRouter } from "./routes/agenda.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -50,6 +51,9 @@ app.use("/api/campagnes", requireAuth, requirePermission("newsletters.voir"), ca
    l'identité vient du jeton. Exiger « stats.globales » reviendrait à demander
    le droit de voir les chiffres de TOUS pour consulter les siens. */
 app.use("/api/commercial", requireAuth, commercialRouter);
+// Même raison : feuille de temps et objectifs ne concernent que le compte
+// connecté, dont l'identité vient du jeton.
+app.use("/api/agenda", requireAuth, agendaRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

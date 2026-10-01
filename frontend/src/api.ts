@@ -645,6 +645,142 @@ export async function fetchTableauCommercial() {
   return res.json() as Promise<TableauCommercial>;
 }
 
+/* ------------------------------------------------------------- Agenda */
+
+export const ACTIVITES = [
+  "PROSPECTION",
+  "RELANCE",
+  "RENDEZ_VOUS",
+  "DEMONSTRATION",
+  "DEVIS",
+  "NEGOCIATION",
+  "SUIVI_CLIENT",
+  "REUNION_INTERNE",
+  "FORMATION",
+  "DEPLACEMENT",
+  "ADMINISTRATIF",
+  "AUTRE",
+] as const;
+export type TypeActivite = (typeof ACTIVITES)[number];
+
+export const PERIODES = ["JOUR", "SEMAINE", "MOIS", "TRIMESTRE", "SEMESTRE", "ANNEE"] as const;
+export type PeriodeObjectif = (typeof PERIODES)[number];
+
+export type SaisieTemps = {
+  id: string;
+  jour: string;
+  /** Minutes depuis minuit : 540 = 09:00. */
+  debutMinutes: number;
+  finMinutes: number;
+  activite: TypeActivite;
+  description: string | null;
+  clientId: string | null;
+  clientNom: string | null;
+};
+
+export type SemaineTemps = {
+  debut: string;
+  fin: string;
+  saisies: SaisieTemps[];
+  totalMinutes: number;
+  /** Minutes par jour, indexées sur la date ISO. */
+  parJour: Record<string, number>;
+  parActivite: { activite: TypeActivite; minutes: number }[];
+};
+
+export async function fetchSemaineTemps(semaine: string) {
+  const res = await authedFetch(`/api/agenda/temps?semaine=${encodeURIComponent(semaine)}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
+  return res.json() as Promise<SemaineTemps>;
+}
+
+export async function creerSaisieTemps(saisie: {
+  jour: string;
+  debutMinutes: number;
+  finMinutes: number;
+  activite: TypeActivite;
+  description: string;
+  clientId: string | null;
+}) {
+  const res = await authedFetch("/api/agenda/temps", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(saisie),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement du créneau.");
+  return res.json() as Promise<SaisieTemps>;
+}
+
+export async function supprimerSaisieTemps(id: string) {
+  const res = await authedFetch(`/api/agenda/temps/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
+  return res.json();
+}
+
+export type Objectif = {
+  id: string;
+  periode: PeriodeObjectif;
+  debut: string;
+  cibleCaXAF: number | null;
+  cibleVentes: number | null;
+  cibleRendezVous: number | null;
+  fixeParEncadrement: boolean;
+  definiParNom: string;
+  note: string | null;
+};
+
+export type SuiviObjectifs = {
+  periode: PeriodeObjectif;
+  debut: string;
+  fin: string;
+  /** Part de la période déjà écoulée, en pourcentage. */
+  partEcoulee: number;
+  source: "PERSONNEL" | "ENCADREMENT";
+  responsableNom: string | null;
+  objectifEncadrement: Objectif | null;
+  objectifPersonnel: Objectif | null;
+  realise: { chiffreAffaires: number; benefice: number; nbVentes: number; nbRendezVous: number };
+};
+
+export async function fetchObjectifs(periode: PeriodeObjectif, date: string) {
+  const res = await authedFetch(`/api/agenda/objectifs?periode=${periode}&date=${encodeURIComponent(date)}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de vos objectifs.");
+  return res.json() as Promise<SuiviObjectifs>;
+}
+
+export async function definirSourceObjectifs(personnel: boolean) {
+  const res = await authedFetch("/api/agenda/objectifs/source", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ personnel }),
+  });
+  if (!res.ok) throw new Error("Erreur lors du changement de planning.");
+  return res.json();
+}
+
+export async function enregistrerObjectif(objectif: {
+  periode: PeriodeObjectif;
+  date: string;
+  cibleCaXAF: number | null;
+  cibleVentes: number | null;
+  cibleRendezVous: number | null;
+  note: string;
+}) {
+  const res = await authedFetch("/api/agenda/objectifs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(objectif),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de l'objectif.");
+  return res.json() as Promise<Objectif>;
+}
+
+export async function supprimerObjectif(id: string) {
+  const res = await authedFetch(`/api/agenda/objectifs/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
+  return res.json();
+}
+
 /** Relevé de commissions du compte connecté. */
 export type ReleveCommissions = {
   regle: {
