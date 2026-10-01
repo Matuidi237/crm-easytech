@@ -399,7 +399,9 @@ export async function createClient(data: Partial<Client>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Erreur lors de la création du client.");
+  /* Le message du serveur est repris tel quel : il distingue le nom manquant
+     du doublon, et « Erreur lors de la création » ne dirait pas quoi faire. */
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la création du client.");
   return res.json() as Promise<Client>;
 }
 

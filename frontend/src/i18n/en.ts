@@ -847,4 +847,20 @@ export const en: Record<keyof typeof fr, string> = {
   "ve.etapePrix": "At what price, and when?",
   "ve.dateAide": "Today by default, never a future date",
   "co.commissionsNoteDefaut": "{n} sales settled out of {total}, at the standard {taux}% rate",
+
+  /* ------------------------------------------------ Creating a client record */
+  "clients.nouveau": "Add a client",
+  "clients.nouveauTitre": "New client",
+  "clients.nouveauSousTitre": "Only the name is required, the rest fills in as you go",
+  "clients.nouveauNomPlaceholder": "Registered company name",
+  "clients.nouveauContact": "Person to contact",
+  "clients.nouveauEmail": "Email address",
+  "clients.nouveauTelephone": "Phone",
+  "clients.nouveauSite": "Website",
+  "clients.nouveauAdresse": "Address",
+  "clients.nouveauNotes": "Notes",
+  "clients.nouveauNotesPlaceholder": "How you met, the need expressed, what comes next…",
+  "clients.nouveauValider": "Create the record",
+  "clients.nouveauEnCours": "Creating…",
+  "clients.nouveauCree": "The record for {nom} was created and you are responsible for it.",
 };

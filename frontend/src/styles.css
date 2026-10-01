@@ -4236,3 +4236,12 @@ td.col-actions {
     justify-content: center;
   }
 }
+
+/* Fiche client a la saisie : trois colonnes de champs ne tiennent pas dans la
+   largeur d'une boite de confirmation. Plafonnee a la hauteur de l'ecran, elle
+   defile plutot que de deborder sur un petit portable. */
+.modal-large {
+  max-width: 720px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}

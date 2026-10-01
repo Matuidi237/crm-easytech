@@ -13,6 +13,7 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue, useLibelles } from "../i18n";
+import DialogueClient from "../components/DialogueClient";
 import {
   IconAlert,
   IconChevronDown,
@@ -92,6 +93,11 @@ export default function ClientsPage() {
   const [beneficiaire, setBeneficiaire] = useState("");
   const [octroiEnCours, setOctroiEnCours] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
+  const [nouveauOuvert, setNouveauOuvert] = useState(false);
+  /* Incrémenté après une création : il force le rechargement de la liste sans
+     dupliquer la requête, et sans deviner où la nouvelle fiche se range dans
+     le tri et la pagination en cours. */
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     fetchFacets().then(setFacets).catch(() => {});
@@ -113,7 +119,7 @@ export default function ClientsPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [filters, page, tri]);
+  }, [filters, page, tri, version]);
 
   useEffect(() => {
     if (!menu) return;
@@ -303,10 +309,21 @@ export default function ClientsPage() {
             <IconDownload />
             {t("clients.exporter")}
           </button>
-          <Link to="/import" className="btn btn-primary">
-            <IconPlus />
-            {t("clients.importerClients")}
-          </Link>
+          {/* Importer reste disponible pour un lot ; ajouter couvre le cas le
+              plus fréquent, le prospect rencontré hier, qui ne justifie pas de
+              fabriquer un fichier. */}
+          {peut("clients.importer") && (
+            <Link to="/import" className="btn btn-ghost">
+              <IconDownload />
+              {t("clients.importerClients")}
+            </Link>
+          )}
+          {peut("clients.creer") && (
+            <button className="btn btn-primary" onClick={() => setNouveauOuvert(true)}>
+              <IconPlus />
+              {t("clients.nouveau")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -607,6 +624,20 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+
+      {nouveauOuvert && (
+        <DialogueClient
+          facets={facets}
+          onFermer={() => setNouveauOuvert(false)}
+          onCree={(client) => {
+            setNouveauOuvert(false);
+            setSucces(t("clients.nouveauCree", { nom: client.nom }));
+            setVersion((v) => v + 1);
+            // Les listes de pays, villes et secteurs viennent de s'enrichir.
+            fetchFacets().then(setFacets).catch(() => {});
+          }}
+        />
+      )}
 
       {octroiOuvert && (
         <div className="modal-backdrop" onClick={() => setOctroiOuvert(false)}>

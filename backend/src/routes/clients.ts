@@ -160,12 +160,58 @@ clientsRouter.get("/:id", async (req, res) => {
   res.json(masquerCoordonnees([client], req.utilisateur!.role)[0]);
 });
 
+/**
+ * Champs qu'une fiche saisie à la main peut porter.
+ *
+ * Liste explicite plutôt que recopie du corps de la requête : celui-ci
+ * laisserait écrire « importJobId » ou « proprietaireId », donc rattacher une
+ * fiche à un lot d'import qui n'existe pas, ou l'attribuer à un collègue.
+ */
+const CHAMPS_SAISIS = [
+  "nom",
+  "adressePhysique",
+  "ville",
+  "pays",
+  "siteWeb",
+  "emailContact",
+  "nomContactInterne",
+  "commercialEnCharge",
+  "secteurActivite",
+  "telephone",
+  "notes",
+] as const;
+
 clientsRouter.post("/", requirePermission("clients.creer"), async (req, res) => {
+  const corps = (req.body ?? {}) as Record<string, unknown>;
+
+  const nom = typeof corps.nom === "string" ? corps.nom.trim() : "";
+  if (!nom) return res.status(400).json({ error: "Le nom du client est obligatoire." });
+
+  const donnees: Record<string, string | null> = { nom };
+  for (const champ of CHAMPS_SAISIS) {
+    if (champ === "nom") continue;
+    const valeur = corps[champ];
+    // Vide vaut absent : une chaîne blanche dans « pays » créerait une
+    // catégorie fantôme dans les ventilations du directeur.
+    donnees[champ] = typeof valeur === "string" && valeur.trim() ? valeur.trim() : null;
+  }
+
+  /* Un même nom deux fois dans le périmètre est presque toujours une double
+     saisie. On refuse plutôt que de laisser deux fiches se partager un
+     historique de ventes que personne ne saura ensuite réunir. */
+  const doublon = await prisma.client.findFirst({
+    where: avecPerimetre({ nom: { equals: nom, mode: "insensitive" } }, req.utilisateur!),
+    select: { id: true },
+  });
+  if (doublon) {
+    return res.status(409).json({ error: "Une fiche porte déjà ce nom dans votre périmètre.", id: doublon.id });
+  }
+
   try {
     const client = await prisma.client.create({
       // Le créateur devient propriétaire : un commercial garde toujours accès
       // aux prospects qu'il a lui-même saisis.
-      data: { ...req.body, proprietaireId: req.utilisateur!.id },
+      data: { ...donnees, nom, proprietaireId: req.utilisateur!.id },
     });
     res.status(201).json(client);
   } catch (err) {

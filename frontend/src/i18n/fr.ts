@@ -849,4 +849,20 @@ export const fr = {
   "ve.etapePrix": "À quel prix, et quand ?",
   "ve.dateAide": "Par défaut aujourd'hui, jamais une date à venir",
   "co.commissionsNoteDefaut": "{n} ventes réglées sur {total}, au taux maison de {taux}%",
+
+  /* ------------------------------------------- Creation d'une fiche client */
+  "clients.nouveau": "Ajouter un client",
+  "clients.nouveauTitre": "Nouveau client",
+  "clients.nouveauSousTitre": "Seul le nom est obligatoire, le reste se complète au fil des échanges",
+  "clients.nouveauNomPlaceholder": "Raison sociale de l'entreprise",
+  "clients.nouveauContact": "Personne à contacter",
+  "clients.nouveauEmail": "Adresse e-mail",
+  "clients.nouveauTelephone": "Téléphone",
+  "clients.nouveauSite": "Site web",
+  "clients.nouveauAdresse": "Adresse",
+  "clients.nouveauNotes": "Notes",
+  "clients.nouveauNotesPlaceholder": "Contexte de la rencontre, besoin exprimé, suite à donner…",
+  "clients.nouveauValider": "Créer la fiche",
+  "clients.nouveauEnCours": "Création…",
+  "clients.nouveauCree": "La fiche de {nom} a été créée et vous en êtes responsable.",
 };
