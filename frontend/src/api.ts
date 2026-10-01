@@ -641,6 +641,65 @@ export async function fetchTableauCommercial() {
   return res.json() as Promise<TableauCommercial>;
 }
 
+/** Client proposé pendant la frappe, limité au périmètre du compte. */
+export type SuggestionClient = {
+  id: string;
+  nom: string;
+  pays: string | null;
+  secteurActivite: string | null;
+};
+
+export async function chercherClients(q: string) {
+  const res = await authedFetch(`/api/commercial/clients?q=${encodeURIComponent(q)}`);
+  if (!res.ok) throw new Error("Erreur lors de la recherche de clients.");
+  return (await res.json()).clients as SuggestionClient[];
+}
+
+/** Produit déjà vendu, avec ses derniers prix connus. */
+export type SuggestionProduit = { produit: string; prixAchat: number; prixVente: number };
+
+export async function fetchProduitsConnus() {
+  const res = await authedFetch("/api/commercial/produits");
+  if (!res.ok) throw new Error("Erreur lors du chargement des produits.");
+  return (await res.json()).produits as SuggestionProduit[];
+}
+
+export type NouvelleVente = {
+  /** Renseigné quand une suggestion a été retenue ; sinon la fiche est créée. */
+  clientId: string | null;
+  clientNom: string;
+  nouveauClient: { pays: string; secteurActivite: string } | null;
+  produit: string;
+  quantite: number;
+  prixAchat: number;
+  prixVente: number;
+  dateVente: string;
+};
+
+export type VenteEnregistree = {
+  id: string;
+  montant: number;
+  benefice: number;
+  commission: number | null;
+  clientCree: boolean;
+};
+
+export async function creerVente(vente: NouvelleVente) {
+  const res = await authedFetch("/api/commercial/ventes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(vente),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de la vente.");
+  return res.json() as Promise<VenteEnregistree>;
+}
+
+export async function supprimerVente(id: string) {
+  const res = await authedFetch(`/api/commercial/ventes/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
+  return res.json();
+}
+
 /* ---------------------------------------------------------------- Équipes */
 
 /** Chiffres communs à tout lot de projets, du plus global au plus fin. */

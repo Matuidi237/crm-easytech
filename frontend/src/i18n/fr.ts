@@ -799,4 +799,57 @@ export const fr = {
   "co.evolutionSousTitre": "Chiffre d'affaires et bénéfice sur douze mois",
   "co.historiqueTitre": "Historique de vos ventes",
   "co.historiqueSousTitre": "{n} ventes, de la plus récente à la plus ancienne",
+
+  /* ------------------------------------------------- Saisie d'une vente */
+  "ve.sousTitre": "Enregistrer une vente et retrouver celles que vous avez saisies",
+  "ve.formulaireTitre": "Nouvelle vente",
+  "ve.formulaireSousTitre": "Ces informations alimentent l'ensemble des statistiques de l'entreprise",
+
+  "ve.client": "Client",
+  "ve.clientPlaceholder": "Commencez à taper le nom du client",
+  "ve.clientAide": "Les clients de votre portefeuille sont proposés dès deux caractères",
+  "ve.clientRattache": "Rattachée à une fiche existante",
+  "ve.clientCree": "Aucune fiche de ce nom : elle sera créée et rejoindra votre portefeuille",
+  "ve.recherche": "Recherche…",
+  "ve.sansDetail": "Pays et secteur non renseignés",
+
+  "ve.produit": "Produit ou service",
+  "ve.produitPlaceholder": "Par exemple : Pare-feu Fortinet",
+  "ve.produitAide": "Reprenez un intitulé proposé quand il existe, sinon le produit comptera deux fois",
+
+  "ve.pays": "Pays du client",
+  "ve.paysPlaceholder": "Cameroun",
+  "ve.paysAide": "Sert à la répartition du chiffre d'affaires par pays",
+  "ve.secteur": "Secteur d'activité",
+  "ve.secteurPlaceholder": "Banque, télécoms, administration…",
+  "ve.secteurAide": "Sert à la répartition du chiffre d'affaires par secteur",
+
+  "ve.quantite": "Quantité",
+  "ve.prixAchat": "Prix d'achat unitaire",
+  "ve.prixAchatAide": "Ce qu'il vous a coûté, hors taxes",
+  "ve.prixVente": "Prix de vente unitaire",
+  "ve.prixVenteAide": "Ce que le client paie, hors taxes",
+  "ve.dateVente": "Date de la vente",
+
+  "ve.apercuMontant": "Montant total",
+  "ve.apercuBenefice": "Bénéfice",
+  "ve.apercuMarge": "Marge",
+  "ve.apercuCommission": "Votre commission",
+  "ve.alertePerte": "Le prix de vente est inférieur au prix d'achat : cette vente sera enregistrée à perte et ne produira aucune commission.",
+
+  "ve.enregistrer": "Enregistrer la vente",
+  "ve.enregistrement": "Enregistrement…",
+  "ve.enregistree": "Vente de {montant} enregistrée.",
+  "ve.enregistreeAvecClient": "Vente de {montant} enregistrée. La fiche de {client} a été créée et rejoint votre portefeuille.",
+
+  "ve.listeTitre": "Vos ventes enregistrées",
+  "ve.listeVideTexte": "Votre première vente apparaîtra ici dès que vous l'aurez enregistrée avec le formulaire ci-dessus.",
+  "ve.annuler": "Annuler",
+  "ve.confirmerSuppression": "Annuler la vente enregistrée pour {client} ?",
+  "ve.verrouillee": "Réglée",
+  "ve.verrouilleeAide": "La commission a été versée : cette vente ne peut plus être annulée, voyez avec votre responsable.",
+  "ve.etapeClient": "À qui avez-vous vendu ?",
+  "ve.etapeProduit": "Qu'avez-vous vendu ?",
+  "ve.etapePrix": "À quel prix, et quand ?",
+  "ve.dateAide": "Par défaut aujourd'hui, jamais une date à venir",
 };

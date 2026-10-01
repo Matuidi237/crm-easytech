@@ -1,6 +1,8 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { commissionDe, tauxEnNombre } from "../lib/commissions.js";
+import { peut, perimetreClients } from "../lib/permissions.js";
 
 export const commercialRouter = Router();
 
@@ -257,4 +259,205 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
     ventes: detail,
   });
+});
+
+/* ==========================================================================
+   Saisie d'une vente
+   ========================================================================== */
+
+/**
+ * Clients proposés pendant la frappe.
+ *
+ * Le périmètre du compte s'applique : un commercial ne doit pas découvrir le
+ * portefeuille d'un collègue en tapant trois lettres dans un champ de saisie.
+ * La suggestion est un confort, jamais une fuite.
+ */
+commercialRouter.get("/clients", async (req, res) => {
+  const q = String(req.query.q ?? "").trim();
+  if (q.length < 2) return res.json({ clients: [] });
+
+  const perimetre = perimetreClients(req.utilisateur!);
+  const recherche: Prisma.ClientWhereInput = { nom: { contains: q, mode: "insensitive" } };
+
+  const clients = await prisma.client.findMany({
+    where: perimetre ? { AND: [recherche, perimetre] } : recherche,
+    /* Court volontairement : une liste qu'il faut parcourir des yeux coûte
+       plus de temps qu'elle n'en fait gagner. */
+    take: 8,
+    orderBy: { nom: "asc" },
+    select: { id: true, nom: true, pays: true, secteurActivite: true },
+  });
+
+  res.json({ clients });
+});
+
+/**
+ * Produits déjà vendus, avec leurs derniers prix connus.
+ *
+ * Le catalogue n'est pas modélisé et le champ reste du texte libre. Proposer
+ * ce qui existe déjà évite que « Pare-feu Fortinet » et « Parefeu Fortinet »
+ * deviennent deux produits dans les statistiques du directeur. Les prix
+ * suivent pour épargner une recherche dans un ancien devis ; ils restent
+ * modifiables, un tarif change.
+ */
+commercialRouter.get("/produits", async (_req, res) => {
+  const ventes = await prisma.vente.findMany({
+    orderBy: { dateVente: "desc" },
+    select: { produit: true, prixAchat: true, prixVente: true },
+  });
+
+  const derniers = new Map<string, { produit: string; prixAchat: number; prixVente: number }>();
+  for (const v of ventes) {
+    if (derniers.has(v.produit)) continue; // la liste est déjà triée : la première vue est la plus récente
+    derniers.set(v.produit, { produit: v.produit, prixAchat: nb(v.prixAchat), prixVente: nb(v.prixVente) });
+  }
+
+  res.json({ produits: [...derniers.values()].sort((a, b) => a.produit.localeCompare(b.produit)) });
+});
+
+/** Montant positif, arrondi au franc : le XAF n'a pas de sous-unité en usage. */
+function montantValide(valeur: unknown): number | null {
+  const n = Number(valeur);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
+/**
+ * Enregistre une vente au nom du compte connecté.
+ *
+ * Le vendeur n'est jamais lu dans la requête : il vient du jeton. Accepter un
+ * identifiant de vendeur permettrait d'inscrire une vente au nom d'un
+ * collègue, donc de déplacer son chiffre d'affaires et sa commission.
+ */
+commercialRouter.post("/ventes", async (req, res) => {
+  const moi = req.utilisateur!;
+  const corps = req.body as {
+    clientId?: string | null;
+    clientNom?: string;
+    nouveauClient?: { pays?: string; secteurActivite?: string } | null;
+    produit?: string;
+    quantite?: number;
+    prixAchat?: number;
+    prixVente?: number;
+    dateVente?: string;
+  };
+
+  const produit = (corps.produit ?? "").trim();
+  const clientNom = (corps.clientNom ?? "").trim();
+  if (!clientNom) return res.status(400).json({ error: "Le client est obligatoire." });
+  if (!produit) return res.status(400).json({ error: "Le produit ou service est obligatoire." });
+
+  const quantite = Number(corps.quantite);
+  if (!Number.isInteger(quantite) || quantite < 1) {
+    return res.status(400).json({ error: "La quantité doit être un entier d'au moins 1." });
+  }
+
+  const prixAchat = montantValide(corps.prixAchat);
+  const prixVente = montantValide(corps.prixVente);
+  if (prixAchat === null) return res.status(400).json({ error: "Le prix d'achat est invalide." });
+  if (prixVente === null) return res.status(400).json({ error: "Le prix de vente est invalide." });
+
+  const dateVente = corps.dateVente ? new Date(corps.dateVente) : new Date();
+  if (Number.isNaN(dateVente.getTime())) {
+    return res.status(400).json({ error: "La date de vente est invalide." });
+  }
+  /* Une vente datée dans l'avenir gonflerait le mois en cours et fausserait la
+     comparaison mois à mois affichée partout. On refuse plutôt que de corriger
+     en silence une date que l'utilisateur croit avoir saisie. */
+  const finDuJour = new Date();
+  finDuJour.setHours(23, 59, 59, 999);
+  if (dateVente > finDuJour) {
+    return res.status(400).json({ error: "Une vente ne peut pas être datée dans le futur." });
+  }
+
+  /* Rattachement du client. Sans identifiant, la vente garde un nom lisible
+     mais sort du portefeuille et des ventilations par pays et par secteur :
+     on crée donc la fiche quand le compte en a le droit, plutôt que de
+     laisser une vente orpheline dégrader les statistiques. */
+  let clientId: string | null = null;
+  let clientCree = false;
+
+  if (corps.clientId) {
+    const perimetre = perimetreClients(moi);
+    const existant = await prisma.client.findFirst({
+      where: perimetre ? { AND: [{ id: corps.clientId }, perimetre] } : { id: corps.clientId },
+      select: { id: true, nom: true },
+    });
+    if (!existant) return res.status(404).json({ error: "Client introuvable dans votre périmètre." });
+    clientId = existant.id;
+  } else if (corps.nouveauClient) {
+    if (!peut(moi.role, "clients.creer")) {
+      return res.status(403).json({ error: "Votre rôle ne permet pas de créer une fiche client." });
+    }
+    const cree = await prisma.client.create({
+      data: {
+        nom: clientNom,
+        pays: corps.nouveauClient.pays?.trim() || null,
+        secteurActivite: corps.nouveauClient.secteurActivite?.trim() || null,
+        // Celui qui l'apporte en devient responsable : sans cela la fiche
+        // n'entrerait dans le portefeuille de personne.
+        proprietaireId: moi.id,
+      },
+      select: { id: true },
+    });
+    clientId = cree.id;
+    clientCree = true;
+  }
+
+  const vente = await prisma.vente.create({
+    data: {
+      clientId,
+      clientNom,
+      vendeurId: moi.id,
+      vendeurNom: moi.nomComplet,
+      produit,
+      quantite,
+      prixAchat,
+      prixVente,
+      dateVente,
+      // Jamais « estDemo » : une vente saisie à la main est une vraie vente,
+      // et le nettoyage du jeu de démonstration ne doit pas l'emporter.
+    },
+    select: { id: true, produit: true, quantite: true, prixAchat: true, prixVente: true },
+  });
+
+  const montant = nb(vente.prixVente) * vente.quantite;
+  const benefice = (nb(vente.prixVente) - nb(vente.prixAchat)) * vente.quantite;
+  const compte = await prisma.utilisateur.findUnique({
+    where: { id: moi.id },
+    select: { tauxCommissionPct: true },
+  });
+
+  res.status(201).json({
+    id: vente.id,
+    montant: Math.round(montant),
+    benefice: Math.round(benefice),
+    commission: commissionDe(benefice, compte?.tauxCommissionPct),
+    clientCree,
+  });
+});
+
+/** Annule une vente saisie par erreur, à condition qu'elle soit la sienne. */
+commercialRouter.delete("/ventes/:id", async (req, res) => {
+  const moi = req.utilisateur!;
+  const vente = await prisma.vente.findFirst({
+    where: { id: req.params.id, vendeurId: moi.id },
+    select: { id: true, commissionVerseeLe: true },
+  });
+
+  /* 404 et non 403 : on ne confirme pas l'existence d'une vente qui
+     appartient à quelqu'un d'autre. */
+  if (!vente) return res.status(404).json({ error: "Vente introuvable." });
+
+  /* Une commission déjà versée a quitté le CRM : effacer la vente ferait
+     disparaître la justification d'un paiement réel. La correction passe alors
+     par un responsable. */
+  if (vente.commissionVerseeLe) {
+    return res.status(409).json({
+      error: "Cette vente a déjà donné lieu au versement d'une commission, elle ne peut plus être supprimée.",
+    });
+  }
+
+  await prisma.vente.delete({ where: { id: vente.id } });
+  res.json({ ok: true });
 });

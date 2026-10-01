@@ -797,4 +797,57 @@ export const en: Record<keyof typeof fr, string> = {
   "co.evolutionSousTitre": "Revenue and profit over twelve months",
   "co.historiqueTitre": "Your sales history",
   "co.historiqueSousTitre": "{n} sales, most recent first",
+
+  /* ----------------------------------------------------- Recording a sale */
+  "ve.sousTitre": "Record a sale and find the ones you have entered",
+  "ve.formulaireTitre": "New sale",
+  "ve.formulaireSousTitre": "This information feeds every statistic in the company",
+
+  "ve.client": "Client",
+  "ve.clientPlaceholder": "Start typing the client's name",
+  "ve.clientAide": "Clients in your portfolio are suggested from two characters on",
+  "ve.clientRattache": "Linked to an existing record",
+  "ve.clientCree": "No record under that name: one will be created and join your portfolio",
+  "ve.recherche": "Searching…",
+  "ve.sansDetail": "Country and sector not filled in",
+
+  "ve.produit": "Product or service",
+  "ve.produitPlaceholder": "For example: Fortinet firewall",
+  "ve.produitAide": "Reuse a suggested wording when one exists, or the product will be counted twice",
+
+  "ve.pays": "Client's country",
+  "ve.paysPlaceholder": "Cameroon",
+  "ve.paysAide": "Used for the revenue breakdown by country",
+  "ve.secteur": "Sector",
+  "ve.secteurPlaceholder": "Banking, telecoms, government…",
+  "ve.secteurAide": "Used for the revenue breakdown by sector",
+
+  "ve.quantite": "Quantity",
+  "ve.prixAchat": "Unit cost price",
+  "ve.prixAchatAide": "What it cost you, excluding tax",
+  "ve.prixVente": "Unit selling price",
+  "ve.prixVenteAide": "What the client pays, excluding tax",
+  "ve.dateVente": "Date of sale",
+
+  "ve.apercuMontant": "Total amount",
+  "ve.apercuBenefice": "Profit",
+  "ve.apercuMarge": "Margin",
+  "ve.apercuCommission": "Your commission",
+  "ve.alertePerte": "The selling price is below the cost price: this sale will be recorded at a loss and will earn no commission.",
+
+  "ve.enregistrer": "Record the sale",
+  "ve.enregistrement": "Saving…",
+  "ve.enregistree": "Sale of {montant} recorded.",
+  "ve.enregistreeAvecClient": "Sale of {montant} recorded. The record for {client} was created and joins your portfolio.",
+
+  "ve.listeTitre": "Your recorded sales",
+  "ve.listeVideTexte": "Your first sale will appear here as soon as you record it with the form above.",
+  "ve.annuler": "Cancel",
+  "ve.confirmerSuppression": "Cancel the sale recorded for {client}?",
+  "ve.verrouillee": "Settled",
+  "ve.verrouilleeAide": "The commission has been paid: this sale can no longer be cancelled, speak to your manager.",
+  "ve.etapeClient": "Who did you sell to?",
+  "ve.etapeProduit": "What did you sell?",
+  "ve.etapePrix": "At what price, and when?",
+  "ve.dateAide": "Today by default, never a future date",
 };

@@ -4046,3 +4046,193 @@ td.col-actions {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* Saisie d'une vente ---------------------------------------------------- */
+
+/* Le formulaire se lit en trois temps separes par un filet. Un bloc unique de
+   huit champs se parcourt mal : on ne sait plus ce qui a deja ete rempli. */
+.bloc-saisie {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.bloc-saisie:first-of-type {
+  padding-top: 4px;
+  margin-top: 4px;
+  border-top: 0;
+}
+
+.bloc-titre {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bloc-saisie .steps {
+  margin-bottom: 14px;
+}
+
+/* Le produit tient la place, la quantite n'a besoin que de trois chiffres. */
+.form-grid-produit {
+  grid-template-columns: 3fr 1fr;
+}
+
+.form-grid-trois {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* La devise reste visible pendant la frappe : dans le libelle seulement, elle
+   sort du champ de vision des que le curseur entre dans l'input. */
+.champ-montant {
+  position: relative;
+}
+
+.champ-montant input {
+  padding-right: 48px;
+}
+
+.champ-suffixe {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+/* Fiche a creer : l'indication change de statut, elle n'est plus une aide
+   mais une consequence, et doit se distinguer des autres lignes grises. */
+.hint-nouveau {
+  color: var(--brand-700);
+  font-weight: 550;
+}
+
+/* Barre de validation : ce que la vente va produire, puis le bouton. Les deux
+   cote a cote, pour n'enregistrer qu'apres avoir vu le resultat. */
+.barre-vente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.barre-chiffres {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.barre-case {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.barre-label {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.barre-valeur {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Suggestions de clients ------------------------------------------------ */
+
+.auto {
+  position: relative;
+}
+
+.auto-etat {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.auto-liste {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(32, 28, 27, 0.14);
+  max-height: 272px;
+  overflow-y: auto;
+}
+
+.auto-opt {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+.auto-opt.on {
+  background: var(--brand-100);
+}
+
+.auto-nom {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+}
+
+.auto-meta {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+
+@media (max-width: 760px) {
+  /* Une colonne : cote a cote sous 760 px, un champ de montant n'affiche plus
+     assez de chiffres pour qu'on relise ce qu'on a tape. */
+  .form-grid-produit,
+  .form-grid-trois {
+    grid-template-columns: 1fr;
+  }
+
+  .barre-vente {
+    align-items: stretch;
+  }
+
+  .barre-chiffres {
+    gap: 14px 22px;
+  }
+
+  .barre-vente .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
