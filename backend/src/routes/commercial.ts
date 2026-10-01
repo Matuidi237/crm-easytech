@@ -262,6 +262,148 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
 });
 
 /* ==========================================================================
+   Commissions
+   ========================================================================== */
+
+/**
+ * Relevé de commissions du compte connecté.
+ *
+ * Une commission se conteste : la page doit donc permettre de refaire le
+ * calcul, pas seulement d'en lire le total. On renvoie la règle appliquée, le
+ * relevé mois par mois, et chaque vente avec sa part. Un montant global sans
+ * justificatif n'est pas vérifiable, et ce qui n'est pas vérifiable finit par
+ * être contesté de travers.
+ *
+ * Le regroupement se fait sur le mois de la VENTE, pas du versement : c'est
+ * le travail du mois qui se discute, et une commission réglée en retard
+ * appartient quand même au mois où elle a été gagnée.
+ */
+commercialRouter.get("/commissions", async (req, res) => {
+  const moi = req.utilisateur!;
+
+  const compte = await prisma.utilisateur.findUnique({
+    where: { id: moi.id },
+    select: { tauxCommissionPct: true },
+  });
+  if (!compte) return res.status(404).json({ error: "Compte introuvable." });
+
+  const taux = compte.tauxCommissionPct;
+
+  const ventes = await prisma.vente.findMany({
+    where: { vendeurId: moi.id },
+    orderBy: { dateVente: "desc" },
+    select: {
+      id: true,
+      dateVente: true,
+      clientNom: true,
+      produit: true,
+      quantite: true,
+      prixAchat: true,
+      prixVente: true,
+      commissionVerseeLe: true,
+    },
+  });
+
+  type Releve = {
+    mois: string;
+    nbVentes: number;
+    chiffreAffaires: number;
+    benefice: number;
+    commission: number;
+    verse: number;
+    du: number;
+    /** Date du dernier versement du mois, pour retrouver le paiement reçu. */
+    dernierVersement: Date | null;
+  };
+
+  const parMois = new Map<string, Releve>();
+  let benefice = 0;
+  let attendu = 0;
+  let recu = 0;
+
+  const lignes = ventes.map((v) => {
+    const montant = nb(v.prixVente) * v.quantite;
+    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const part = commissionDe(marge, taux);
+
+    benefice += marge;
+    attendu += part;
+    if (v.commissionVerseeLe) recu += part;
+
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const releve =
+      parMois.get(cle) ??
+      ({
+        mois: cle,
+        nbVentes: 0,
+        chiffreAffaires: 0,
+        benefice: 0,
+        commission: 0,
+        verse: 0,
+        du: 0,
+        dernierVersement: null,
+      } satisfies Releve);
+    releve.nbVentes += 1;
+    releve.chiffreAffaires += montant;
+    releve.benefice += marge;
+    releve.commission += part;
+    if (v.commissionVerseeLe) {
+      releve.verse += part;
+      if (!releve.dernierVersement || v.commissionVerseeLe > releve.dernierVersement) {
+        releve.dernierVersement = v.commissionVerseeLe;
+      }
+    } else {
+      releve.du += part;
+    }
+    parMois.set(cle, releve);
+
+    return {
+      id: v.id,
+      dateVente: v.dateVente,
+      clientNom: v.clientNom,
+      produit: v.produit,
+      quantite: v.quantite,
+      montant: Math.round(montant),
+      benefice: Math.round(marge),
+      commission: part,
+      commissionVerseeLe: v.commissionVerseeLe,
+    };
+  });
+
+  res.json({
+    regle: {
+      tauxPct: tauxEffectif(taux),
+      tauxNegocie: taux !== null && taux !== undefined,
+      /* L'assiette est rappelée explicitement : beaucoup de commerciaux
+         attendent un pourcentage du chiffre d'affaires, et découvrir la base
+         de calcul au moment de contester est le pire moment. */
+      assiette: "BENEFICE" as const,
+    },
+    totaux: {
+      chiffreAffaires: Math.round(lignes.reduce((s, l) => s + l.montant, 0)),
+      benefice: Math.round(benefice),
+      attendu: Math.round(attendu),
+      recu: Math.round(recu),
+      reste: Math.round(attendu - recu),
+      nbVentes: lignes.length,
+      nbVentesReglees: lignes.filter((l) => l.commissionVerseeLe !== null).length,
+    },
+    // Du mois le plus récent au plus ancien, comme la liste des ventes.
+    parMois: [...parMois.values()]
+      .sort((a, b) => b.mois.localeCompare(a.mois))
+      .map((m) => ({
+        ...m,
+        chiffreAffaires: Math.round(m.chiffreAffaires),
+        benefice: Math.round(m.benefice),
+        commission: Math.round(m.commission),
+        verse: Math.round(m.verse),
+        du: Math.round(m.du),
+      })),
+    ventes: lignes,
+  });
+});
+
+/* ==========================================================================
    Saisie d'une vente
    ========================================================================== */
 

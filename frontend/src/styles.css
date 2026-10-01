@@ -4245,3 +4245,38 @@ td.col-actions {
   max-height: calc(100vh - 48px);
   overflow-y: auto;
 }
+
+/* Regle de commissionnement, en tete du releve. Elle est enoncee avant les
+   montants : decouvrir que l assiette est le benefice au moment de contester
+   son releve est le pire moment pour l apprendre. */
+.regle-commission {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  background: var(--brand-100);
+  border: 1px solid var(--brand-200);
+  border-radius: 12px;
+}
+
+.regle-taux {
+  flex-shrink: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--brand-700);
+  line-height: 1;
+}
+
+.regle-titre {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+
+.regle-texte {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}

@@ -645,6 +645,44 @@ export async function fetchTableauCommercial() {
   return res.json() as Promise<TableauCommercial>;
 }
 
+/** Relevé de commissions du compte connecté. */
+export type ReleveCommissions = {
+  regle: {
+    tauxPct: number;
+    /** Faux quand c'est le taux maison qui s'applique, faute d'accord. */
+    tauxNegocie: boolean;
+    /** Base de calcul. Le bénéfice, jamais le chiffre d'affaires. */
+    assiette: "BENEFICE";
+  };
+  totaux: {
+    chiffreAffaires: number;
+    benefice: number;
+    attendu: number;
+    recu: number;
+    reste: number;
+    nbVentes: number;
+    nbVentesReglees: number;
+  };
+  /** Un relevé par mois de vente, du plus récent au plus ancien. */
+  parMois: {
+    mois: string;
+    nbVentes: number;
+    chiffreAffaires: number;
+    benefice: number;
+    commission: number;
+    verse: number;
+    du: number;
+    dernierVersement: string | null;
+  }[];
+  ventes: VenteCommercial[];
+};
+
+export async function fetchReleveCommissions() {
+  const res = await authedFetch("/api/commercial/commissions");
+  if (!res.ok) throw new Error("Erreur lors du chargement de vos commissions.");
+  return res.json() as Promise<ReleveCommissions>;
+}
+
 /** Client proposé pendant la frappe, limité au périmètre du compte. */
 export type SuggestionClient = {
   id: string;

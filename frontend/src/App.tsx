@@ -25,6 +25,7 @@ import ComposerCampagnePage from "./pages/ComposerCampagnePage";
 import PartenairesPage from "./pages/PartenairesPage";
 import CommercialPage from "./pages/CommercialPage";
 import VentesPage from "./pages/VentesPage";
+import CommissionsPage from "./pages/CommissionsPage";
 import EnConstruction from "./pages/EnConstruction";
 
 /**
@@ -154,7 +155,7 @@ export default function App() {
               path="/commissions"
               element={
                 <RouteCommerciale>
-                  <EnConstruction titre="nav.commissions" sousTitre="co.commissionsSousTitre" />
+                  <CommissionsPage />
                 </RouteCommerciale>
               }
             />

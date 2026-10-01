@@ -865,4 +865,42 @@ export const fr = {
   "clients.nouveauValider": "Créer la fiche",
   "clients.nouveauEnCours": "Création…",
   "clients.nouveauCree": "La fiche de {nom} a été créée et vous en êtes responsable.",
+
+  /* ---------------------------------------------------------- Commissions */
+  "cm.sousTitre": "Ce qui vous est dû, ce qui a été versé, et le calcul derrière",
+
+  "cm.regleTitre": "Comment votre commission est calculée",
+  "cm.regleNegociee": "Vous touchez {taux}% du bénéfice de chaque vente, selon le taux négocié pour votre compte. La base est le bénéfice, pas le chiffre d'affaires : une vente à perte ne produit aucune commission.",
+  "cm.regleMaison": "Vous touchez {taux}% du bénéfice de chaque vente, au taux maison appliqué à défaut d'accord particulier. La base est le bénéfice, pas le chiffre d'affaires : une vente à perte ne produit aucune commission.",
+
+  "cm.attendu": "Total gagné",
+  "cm.attenduNote": "Sur {n} ventes, pour {benefice} de bénéfice",
+  "cm.recu": "Déjà versé",
+  "cm.recuNote": "{n} ventes réglées sur {total}",
+  "cm.reste": "Reste dû",
+  "cm.resteNote": "Sur {n} ventes pas encore réglées",
+  "cm.resteSolde": "Tout a été versé",
+
+  "cm.releveTitre": "Relevé mensuel",
+  "cm.releveSousTitre": "Regroupé sur le mois de la vente : c'est le travail du mois qui se discute",
+  "cm.colMois": "Mois",
+  "cm.colVentes": "Ventes",
+  "cm.colBenefice": "Bénéfice",
+  "cm.colCommission": "Commission",
+  "cm.colVerse": "Versé",
+  "cm.colDu": "Dû",
+  "cm.colDernierVersement": "Dernier versement",
+  "cm.videTexte": "Vos commissions apparaîtront ici dès votre première vente enregistrée.",
+
+  "cm.detailTitre": "Le détail, vente par vente",
+  "cm.detailSousTitre": "Chaque ligne porte son calcul, pour que le total se vérifie",
+  "cm.colPart": "Votre part",
+  "cm.colStatut": "Règlement",
+  "cm.calculDetail": "{benefice} de bénéfice × {taux}% = {commission}",
+  "cm.filtreEtiquette": "Filtrer les ventes",
+  "cm.filtre.toutes": "Toutes",
+  "cm.filtre.dues": "À percevoir",
+  "cm.filtre.versees": "Versées",
+  "cm.filtreVideTitre": "Aucune vente dans ce filtre",
+  "cm.filtreVideTexte": "Changez de filtre pour revoir l'ensemble de vos ventes.",
 };

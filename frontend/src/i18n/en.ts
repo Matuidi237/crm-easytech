@@ -863,4 +863,42 @@ export const en: Record<keyof typeof fr, string> = {
   "clients.nouveauValider": "Create the record",
   "clients.nouveauEnCours": "Creating…",
   "clients.nouveauCree": "The record for {nom} was created and you are responsible for it.",
+
+  /* ---------------------------------------------------------- Commissions */
+  "cm.sousTitre": "What you are owed, what has been paid, and the maths behind it",
+
+  "cm.regleTitre": "How your commission is worked out",
+  "cm.regleNegociee": "You earn {taux}% of the profit on every sale, at the rate negotiated for your account. The base is profit, not revenue: a sale at a loss earns no commission.",
+  "cm.regleMaison": "You earn {taux}% of the profit on every sale, at the standard rate applied when nothing else has been agreed. The base is profit, not revenue: a sale at a loss earns no commission.",
+
+  "cm.attendu": "Total earned",
+  "cm.attenduNote": "Across {n} sales, on {benefice} of profit",
+  "cm.recu": "Already paid",
+  "cm.recuNote": "{n} sales settled out of {total}",
+  "cm.reste": "Still owed",
+  "cm.resteNote": "Across {n} sales not yet settled",
+  "cm.resteSolde": "Everything has been paid",
+
+  "cm.releveTitre": "Monthly statement",
+  "cm.releveSousTitre": "Grouped by the month of the sale: it is the month's work that gets discussed",
+  "cm.colMois": "Month",
+  "cm.colVentes": "Sales",
+  "cm.colBenefice": "Profit",
+  "cm.colCommission": "Commission",
+  "cm.colVerse": "Paid",
+  "cm.colDu": "Owed",
+  "cm.colDernierVersement": "Last payment",
+  "cm.videTexte": "Your commissions will appear here as soon as your first sale is recorded.",
+
+  "cm.detailTitre": "The detail, sale by sale",
+  "cm.detailSousTitre": "Every line carries its own maths, so the total can be checked",
+  "cm.colPart": "Your share",
+  "cm.colStatut": "Settlement",
+  "cm.calculDetail": "{benefice} of profit × {taux}% = {commission}",
+  "cm.filtreEtiquette": "Filter the sales",
+  "cm.filtre.toutes": "All",
+  "cm.filtre.dues": "Outstanding",
+  "cm.filtre.versees": "Paid",
+  "cm.filtreVideTitre": "No sale in this filter",
+  "cm.filtreVideTexte": "Switch the filter to see all your sales again.",
 };
