@@ -95,8 +95,11 @@ model Utilisateur {
   /// rémunère l'entreprise, et commissionner sur le chiffre d'affaires
   /// récompenserait une vente à perte. Voir « commissionDe » dans
   /// src/lib/commissions.ts, seul endroit où cette règle est écrite.
-  /// Null tant qu'aucun taux n'a été fixé : l'interface affiche alors
-  /// « taux non défini » plutôt qu'un montant inventé.
+  /// Null quand aucun taux particulier n'a été négocié : le taux maison
+  /// s'applique alors (TAUX_PAR_DEFAUT_PCT dans src/lib/commissions.ts).
+  /// La colonne reste nullable à dessein : « rien de négocié » et « 3 %
+  /// explicitement accordés » ne se confondent pas, et une valeur copiée dans
+  /// chaque ligne figerait le taux maison au jour de la création du compte.
   tauxCommissionPct Decimal? @db.Decimal(5, 2)
   role           RoleUtilisateur @default(COMMERCIAL)
   actif          Boolean         @default(true)

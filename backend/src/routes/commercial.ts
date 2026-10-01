@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { commissionDe, tauxEnNombre } from "../lib/commissions.js";
+import { commissionDe, tauxEffectif } from "../lib/commissions.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 
 export const commercialRouter = Router();
@@ -101,7 +101,6 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   let caMoisPrecedent = 0;
   let commissionsAttendues = 0;
   let commissionsRecues = 0;
-  let commissionsMesurables = true;
   const mesClients = new Set<string>();
 
   /* Douze mois glissants, créés vides puis remplis. Partir des ventes
@@ -135,12 +134,8 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
        directeur : un total obtenu autrement ne coïnciderait pas avec le détail,
        et c'est le commercial qui aurait à s'expliquer sur l'écart. */
     const part = commissionDe(marge, taux);
-    if (part === null) {
-      commissionsMesurables = false;
-    } else {
-      commissionsAttendues += part;
-      if (v.commissionVerseeLe) commissionsRecues += part;
-    }
+    commissionsAttendues += part;
+    if (v.commissionVerseeLe) commissionsRecues += part;
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const i = indexMois.get(cle);
@@ -249,11 +244,16 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       couverturePct: portefeuille.size > 0 ? Math.round((actifs / portefeuille.size) * 100) : null,
     },
     commissions: {
-      /* Null et non zéro quand aucun taux n'est fixé : « rien touché » et
-         « règle pas encore arbitrée » appellent deux réactions différentes. */
-      tauxPct: tauxEnNombre(taux),
-      attendu: commissionsMesurables ? Math.round(commissionsAttendues) : null,
-      recu: commissionsMesurables ? Math.round(commissionsRecues) : null,
+      /* Le taux renvoyé est celui qui s'applique vraiment, taux maison
+         compris : afficher « non défini » à côté d'un montant calculé
+         laisserait croire à une erreur. */
+      tauxPct: tauxEffectif(taux),
+      /* Vrai quand le taux a été négocié pour ce compte. L'interface le dit,
+         parce que « 3 % parce que c'est la règle » et « 3 % parce qu'on me
+         l'a accordé » ne se renégocient pas de la même façon. */
+      tauxNegocie: taux !== null && taux !== undefined,
+      attendu: Math.round(commissionsAttendues),
+      recu: Math.round(commissionsRecues),
       nbVentesReglees: mesVentes.filter((v) => v.commissionVerseeLe !== null).length,
     },
     parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),

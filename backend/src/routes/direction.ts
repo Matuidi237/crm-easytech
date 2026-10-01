@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { commissionDe, tauxEnNombre } from "../lib/commissions.js";
+import { commissionDe, tauxEffectif } from "../lib/commissions.js";
 
 export const directionRouter = Router();
 
@@ -610,7 +610,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       pays: membre.pays,
       dernierAcces: membre.dernierAcces,
       responsable: membre.responsable,
-      tauxCommissionPct: tauxEnNombre(membre.tauxCommissionPct),
+      tauxCommissionPct: tauxEffectif(membre.tauxCommissionPct),
     },
     chiffreAffaires: Math.round(ca),
     benefice: Math.round(benefice),

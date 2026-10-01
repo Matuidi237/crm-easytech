@@ -71,7 +71,6 @@ export default function FicheCommercialPage() {
   }
 
   const m = fiche.membre;
-  const aUnTaux = fiche.commissions !== null && m.tauxCommissionPct !== null;
 
   return (
     <>
@@ -144,18 +143,12 @@ export default function FicheCommercialPage() {
           </div>
         </div>
 
-        {/* Sans taux fixé, on affiche « taux non défini » et non zéro : les deux
-            ne veulent pas dire la même chose, et un zéro se lirait comme un
-            commercial qui n'aurait rien touché. */}
         <div className="stat stat-riche">
           <div className="stat-riche-haut">
             <div style={{ minWidth: 0 }}>
               <div className="stat-label">{t("fc.commissions")}</div>
-              <div
-                className={`stat-riche-valeur${aUnTaux ? "" : " texte muted-3"}`}
-                title={aUnTaux ? montant(fiche.commissions as number) : undefined}
-              >
-                {aUnTaux ? montantCompact(fiche.commissions as number) : t("fc.commissionsAbsentes")}
+              <div className="stat-riche-valeur" title={montant(fiche.commissions)}>
+                {montantCompact(fiche.commissions)}
               </div>
             </div>
             <div className="stat-icone" style={{ background: "#fcf2e0", color: "#9e6b06" }}>
@@ -163,9 +156,7 @@ export default function FicheCommercialPage() {
             </div>
           </div>
           <div className="stat-riche-bas">
-            <span className="stat-note">
-              {aUnTaux ? t("fc.commissionsNote", { taux: m.tauxCommissionPct as number }) : t("fc.commissionsAbsentesNote")}
-            </span>
+            <span className="stat-note">{t("fc.commissionsNote", { taux: nombre(m.tauxCommissionPct) })}</span>
           </div>
         </div>
       </div>

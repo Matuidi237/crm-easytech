@@ -514,8 +514,6 @@ export const fr = {
   "fc.beneficeNote": "Soit {marge}% de marge",
   "fc.commissions": "Commissions engrangées",
   "fc.commissionsNote": "{taux}% du bénéfice réalisé",
-  "fc.commissionsAbsentes": "Taux non défini",
-  "fc.commissionsAbsentesNote": "Aucun taux de commission n'a été fixé pour ce compte.",
   "fc.rang": "{rang} sur {total}",
   "fc.partEquipe": "{part}% du chiffre d'affaires de l'équipe",
   "fc.evolutionTitre": "Son évolution",
@@ -784,8 +782,6 @@ export const fr = {
 
   "co.commissions": "Commissions",
   "co.commissionsNote": "{n} ventes réglées sur {total}, au taux de {taux}%",
-  "co.tauxNonDefini": "Taux non défini",
-  "co.tauxNonDefiniNote": "Aucun taux de commission n'a encore été fixé pour votre compte",
 
 
   "co.ventesSousTitre": "Vos ventes, du plus récent au plus ancien",
@@ -852,4 +848,5 @@ export const fr = {
   "ve.etapeProduit": "Qu'avez-vous vendu ?",
   "ve.etapePrix": "À quel prix, et quand ?",
   "ve.dateAide": "Par défaut aujourd'hui, jamais une date à venir",
+  "co.commissionsNoteDefaut": "{n} ventes réglées sur {total}, au taux maison de {taux}%",
 };

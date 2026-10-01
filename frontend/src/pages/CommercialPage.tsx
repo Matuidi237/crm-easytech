@@ -125,23 +125,20 @@ export default function CommercialPage() {
       label: t("co.commissions"),
       /* Reçu / attendu sur une seule ligne : c'est la comparaison qui
          intéresse, et deux cartes séparées obligeraient à la faire de tête. */
-      valeur:
-        commissions.attendu === null
-          ? t("co.tauxNonDefini")
-          : `${montantCompact(commissions.recu ?? 0).replace(" XAF", "")} / ${montantCompact(commissions.attendu)}`,
+      valeur: `${montantCompact(commissions.recu).replace(" XAF", "")} / ${montantCompact(commissions.attendu)}`,
       /* Corps réduit : « 600 k / 782 k XAF » est une comparaison, pas un
          nombre unique, et au corps des montants elle passait à la ligne. */
       valeurTexte: true,
-      note:
-        commissions.attendu === null
-          ? t("co.tauxNonDefiniNote")
-          : t("co.commissionsNote", {
-              n: nombre(commissions.nbVentesReglees),
-              total: nombre(ca.nbVentes),
-              /* Formaté et non interpolé brut : un taux de 6,5 s'écrivait
-                 « 6.5% » en français, avec le point décimal anglais. */
-              taux: nombre(commissions.tauxPct ?? 0),
-            }),
+      /* Le taux maison est signalé comme tel : sans cette mention, un
+         commercial croirait son taux négocié et ne penserait pas à le
+         discuter. */
+      note: t(commissions.tauxNegocie ? "co.commissionsNote" : "co.commissionsNoteDefaut", {
+        n: nombre(commissions.nbVentesReglees),
+        total: nombre(ca.nbVentes),
+        /* Formaté et non interpolé brut : un taux de 6,5 s'écrivait
+           « 6.5% » en français, avec le point décimal anglais. */
+        taux: nombre(commissions.tauxPct),
+      }),
       icone: IconCoins,
       fg: "#2a79ae",
       bg: "#e8f3fb",

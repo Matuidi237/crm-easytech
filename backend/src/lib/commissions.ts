@@ -11,28 +11,42 @@
  * qu'il faut modifier, et elle seule.
  *
  * Le taux vit sur le compte (« tauxCommissionPct »), parce qu'il se négocie
- * personne par personne. Tant qu'il n'est pas fixé, la commission vaut null :
- * l'interface affiche « taux non défini » au lieu d'un zéro qui se lirait
- * comme une absence de résultat.
+ * personne par personne. À défaut d'accord particulier, c'est le taux maison
+ * qui s'applique : tout commercial est commissionné, personne ne travaille
+ * sans règle le temps qu'on lui en fixe une.
  */
+
+/**
+ * Taux maison, en pourcentage du bénéfice.
+ *
+ * S'applique à tout compte dont le taux n'a pas été négocié. Le changer ici
+ * le change partout, écrans et calculs compris : c'est la seule valeur à
+ * toucher si EasyTech révise sa règle.
+ */
+export const TAUX_PAR_DEFAUT_PCT = 3;
 
 /** Décimal Prisma, nombre, ou rien. */
 export type Taux = { toString(): string } | number | null | undefined;
 
-export function tauxEnNombre(taux: Taux): number | null {
-  if (taux === null || taux === undefined) return null;
+/**
+ * Taux réellement appliqué : celui du compte, ou le taux maison.
+ *
+ * Un taux explicite de zéro est respecté : il peut résulter d'une décision,
+ * et le remplacer par 3 % attribuerait une commission que personne n'a
+ * accordée. Seule son absence déclenche le repli.
+ */
+export function tauxEffectif(taux: Taux): number {
+  if (taux === null || taux === undefined) return TAUX_PAR_DEFAUT_PCT;
   const n = Number(taux);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) ? n : TAUX_PAR_DEFAUT_PCT;
 }
 
 /**
  * Commission due sur un bénéfice donné.
- * Renvoie null quand aucun taux n'est fixé, et jamais un montant négatif :
- * une vente à perte ne coûte pas d'argent au commercial, elle ne lui en
- * rapporte simplement pas.
+ *
+ * Jamais un montant négatif : une vente à perte ne coûte pas d'argent au
+ * commercial, elle ne lui en rapporte simplement pas.
  */
-export function commissionDe(benefice: number, taux: Taux): number | null {
-  const pct = tauxEnNombre(taux);
-  if (pct === null) return null;
-  return Math.round(Math.max(0, benefice) * (pct / 100));
+export function commissionDe(benefice: number, taux: Taux): number {
+  return Math.round(Math.max(0, benefice) * (tauxEffectif(taux) / 100));
 }

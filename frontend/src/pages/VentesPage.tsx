@@ -107,6 +107,10 @@ export default function VentesPage() {
     }
     const total = vente * q;
     const benefice = (vente - achat) * q;
+    /* Même calcul que le serveur, pour que l'aperçu annonce exactement ce qui
+       sera enregistré. Tant que le tableau de bord n'est pas chargé, le taux
+       est inconnu et la case reste vide plutôt que d'afficher un montant
+       fondé sur une hypothèse. */
     const taux = donnees?.commissions.tauxPct ?? null;
     return {
       total,
@@ -385,7 +389,7 @@ export default function VentesPage() {
             <div className="barre-case">
               <span className="barre-label">{t("ve.apercuCommission")}</span>
               <strong className="barre-valeur">
-                {!apercu ? "-" : apercu.commission === null ? t("co.tauxNonDefini") : montant(apercu.commission)}
+                {!apercu || apercu.commission === null ? "-" : montant(apercu.commission)}
               </strong>
             </div>
           </div>

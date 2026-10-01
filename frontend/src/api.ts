@@ -624,10 +624,12 @@ export type TableauCommercial = {
   };
   portefeuille: { total: number; avecVente: number; couverturePct: number | null };
   commissions: {
-    /** Null quand aucun taux n'est fixé : à distinguer d'un taux à zéro. */
-    tauxPct: number | null;
-    attendu: number | null;
-    recu: number | null;
+    /** Taux réellement appliqué, taux maison compris. */
+    tauxPct: number;
+    /** Faux quand c'est le taux maison qui s'applique, faute d'accord. */
+    tauxNegocie: boolean;
+    attendu: number;
+    recu: number;
     nbVentesReglees: number;
   };
   /** Douze mois glissants, les mois sans vente compris. */
@@ -790,11 +792,12 @@ export type FicheCommercial = {
     pays: string | null;
     dernierAcces: string | null;
     responsable: { id: string; nomComplet: string } | null;
-    tauxCommissionPct: number | null;
+    /** Taux réellement appliqué, taux maison compris. */
+    tauxCommissionPct: number;
   };
   chiffreAffaires: number;
   benefice: number;
-  commissions: number | null;
+  commissions: number;
   margePct: number;
   nbVentes: number;
   nbClients: number;

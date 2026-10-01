@@ -79,9 +79,10 @@ const COMPTES = [
     pays: "Côte d'Ivoire",
     tauxCommissionPct: 7,
   },
-  /* Un commercial sans taux fixé : la fiche doit afficher « taux non défini »
-     et non un zéro, sinon on ne distingue plus « rien touché » de « règle pas
-     encore arbitrée ». */
+  /* Un commercial sans taux négocié : sa fiche doit afficher une commission
+     calculée au taux maison de 3 % (TAUX_PAR_DEFAUT_PCT), signalée comme
+     telle. C'est le cas le plus courant en production, il doit figurer dans
+     le jeu de démonstration. */
   {
     identifiant: "demo-samuel",
     nomComplet: "Samuel Eto'o",

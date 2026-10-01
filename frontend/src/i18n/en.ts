@@ -512,8 +512,6 @@ export const en: Record<keyof typeof fr, string> = {
   "fc.beneficeNote": "A {marge}% margin",
   "fc.commissions": "Commission earned",
   "fc.commissionsNote": "{taux}% of the profit generated",
-  "fc.commissionsAbsentes": "No rate set",
-  "fc.commissionsAbsentesNote": "No commission rate has been set for this account.",
   "fc.rang": "{rang} of {total}",
   "fc.partEquipe": "{part}% of the team's revenue",
   "fc.evolutionTitre": "Their trend",
@@ -782,8 +780,6 @@ export const en: Record<keyof typeof fr, string> = {
 
   "co.commissions": "Commissions",
   "co.commissionsNote": "{n} sales settled out of {total}, at a {taux}% rate",
-  "co.tauxNonDefini": "Rate not set",
-  "co.tauxNonDefiniNote": "No commission rate has been set for your account yet",
 
 
   "co.ventesSousTitre": "Your sales, most recent first",
@@ -850,4 +846,5 @@ export const en: Record<keyof typeof fr, string> = {
   "ve.etapeProduit": "What did you sell?",
   "ve.etapePrix": "At what price, and when?",
   "ve.dateAide": "Today by default, never a future date",
+  "co.commissionsNoteDefaut": "{n} sales settled out of {total}, at the standard {taux}% rate",
 };
