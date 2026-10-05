@@ -10,7 +10,7 @@ import { IconArrowRight, IconCalendar, IconTrend } from "../components/Icons";
  * doit l'être. Les réunir sur un écran unique ferait d'un engagement et d'un
  * relevé la même chose.
  */
-export default function AgendaPage() {
+export default function PlanningPage() {
   const { t } = useLangue();
   const navigate = useNavigate();
 
@@ -55,14 +55,14 @@ export default function AgendaPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>{t("nav.agenda")}</h1>
+          <h1>{t("nav.planning")}</h1>
           <div className="page-sub">{t("ag.sousTitre")}</div>
         </div>
       </div>
 
       <div className="equipes-grille">
         <Encart
-          vers="/agenda/feuille-de-temps"
+          vers="/planning/feuille-de-temps"
           titre={t("ag.feuilleTitre")}
           libelle={t("ag.feuilleLibelle")}
           portee={t("ag.feuillePortee")}
@@ -70,7 +70,7 @@ export default function AgendaPage() {
           classeIcone="equipe-icone-vente"
         />
         <Encart
-          vers="/agenda/objectifs"
+          vers="/planning/objectifs"
           titre={t("ag.objectifsTitre")}
           libelle={t("ag.objectifsLibelle")}
           portee={t("ag.objectifsPortee")}

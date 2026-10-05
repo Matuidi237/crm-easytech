@@ -421,6 +421,15 @@ model ObjectifCommercial {
   utilisateur   Utilisateur @relation("Objectifs", fields: [utilisateurId], references: [id], onDelete: Cascade)
   utilisateurId String
 
+  /// Intitulé court, comme un nom de chantier. Un objectif qui ne s'appelle
+  /// que « mois d'octobre » ne se cite pas en réunion et ne se retient pas.
+  titre String?
+
+  /// Ce qu'il recouvre : marché visé, moyens convenus, contrepartie. C'est la
+  /// partie qui se relit six mois plus tard, quand plus personne ne se
+  /// souvient du contexte de l'engagement.
+  description String?
+
   periode   PeriodeObjectif
   /// Début de la fenêtre, à minuit heure locale. La fin se déduit de la
   /// période : la stocker ouvrirait la porte à une incohérence entre les deux.
@@ -447,10 +456,62 @@ model ObjectifCommercial {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  jalons JalonObjectif[]
+
   /// Un seul objectif par personne, période et fenêtre, quelle que soit son
   /// origine : deux chiffres pour le même mois ne se départagent pas.
   @@unique([utilisateurId, periode, debut, fixeParEncadrement])
   @@index([utilisateurId, periode])
+  @@index([debut])
+  @@index([estDemo])
+}
+
+/// Unité d'un jalon, qui dit comment son avancement se lit.
+enum UniteJalon {
+  /// Montant en XAF, comparé au chiffre d'affaires réalisé.
+  MONTANT
+  /// Un décompte : nombre de rendez-vous, de devis, de certifications.
+  NOMBRE
+  /// Fait ou pas fait. Le seul cas où l'avancement n'a pas de fraction.
+  BINAIRE
+}
+
+/// Étape mesurable d'un objectif, à la façon d'un jalon de projet.
+///
+/// Un objectif réduit à un montant annuel ne se pilote pas : on ne sait ni
+/// par où commencer, ni si l'on dérive avant la clôture. Le découper en
+/// jalons datés et chiffrés rend l'engagement vérifiable en cours de route,
+/// et c'est là que se tient la conversation avec l'encadrement.
+///
+/// L'avancement est déclaré et non calculé : un jalon porte souvent sur ce
+/// que le CRM ne mesure pas (une certification obtenue, un partenariat signé,
+/// un territoire ouvert). Ceux qui portent sur le chiffre d'affaires sont
+/// doublés par l'objectif lui-même, qui lui se mesure sur les ventes.
+model JalonObjectif {
+  id String @id @default(uuid())
+
+  objectif   ObjectifCommercial @relation(fields: [objectifId], references: [id], onDelete: Cascade)
+  objectifId String
+
+  libelle String
+  unite   UniteJalon @default(NOMBRE)
+
+  /// Cible et avancement déclaré. Pour un jalon BINAIRE, 0 ou 1.
+  cible   Decimal @db.Decimal(18, 2)
+  realise Decimal @default(0) @db.Decimal(18, 2)
+
+  /// Échéance intermédiaire, toujours dans la fenêtre de l'objectif. Sans
+  /// date, un jalon se repousse indéfiniment et cesse d'être un jalon.
+  echeance DateTime @db.Date
+
+  ordre Int @default(0)
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([objectifId])
   @@index([estDemo])
 }
 

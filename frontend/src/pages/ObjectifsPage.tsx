@@ -1,72 +1,80 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
-  Objectif,
+  Jalon,
+  ObjectifSuivi,
   PERIODES,
   PeriodeObjectif,
-  SuiviObjectifs,
+  UNITES_JALON,
+  UniteJalon,
+  FeuilleDeRoute,
+  ajouterJalon,
   definirSourceObjectifs,
   enregistrerObjectif,
-  fetchObjectifs,
+  fetchFeuilleDeRoute,
+  majAvancementJalon,
+  supprimerJalon,
   supprimerObjectif,
 } from "../api";
 import { useLangue, type CleTraduction } from "../i18n";
 import { useFilAriane } from "../ContexteEntete";
-import { IconAlert, IconCheck, IconChevronLeft, IconChevronRight, IconShield, IconUserCircle } from "../components/Icons";
+import { IconAlert, IconCheck, IconInbox, IconPlus, IconShield, IconTrash, IconUserCircle } from "../components/Icons";
 
 function cleJour(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Décale la date de référence d'un cran de la granularité choisie. */
-function decaler(periode: PeriodeObjectif, d: Date, pas: number) {
-  const n = new Date(d);
-  if (periode === "JOUR") n.setDate(n.getDate() + pas);
-  else if (periode === "SEMAINE") n.setDate(n.getDate() + pas * 7);
-  else if (periode === "MOIS") n.setMonth(n.getMonth() + pas);
-  else if (periode === "TRIMESTRE") n.setMonth(n.getMonth() + pas * 3);
-  else if (periode === "SEMESTRE") n.setMonth(n.getMonth() + pas * 6);
-  else n.setFullYear(n.getFullYear() + pas);
-  return n;
-}
+const FORM_VIDE = {
+  titre: "",
+  description: "",
+  periode: "MOIS" as PeriodeObjectif,
+  date: cleJour(new Date()),
+  cibleCaXAF: "",
+  cibleVentes: "",
+  cibleRendezVous: "",
+  note: "",
+};
 
-const VIDE = { cibleCaXAF: "", cibleVentes: "", cibleRendezVous: "", note: "" };
+const JALON_VIDE = { libelle: "", unite: "NOMBRE" as UniteJalon, cible: "", echeance: "" };
+
+const TEINTE_STATUT: Record<string, string> = {
+  A_VENIR: "pill-neutral",
+  EN_COURS: "pill-brand",
+  ATTEINT: "pill-success",
+  MANQUE: "pill-danger",
+};
 
 /**
- * Objectifs commerciaux, de la journée à l'année.
+ * Objectifs commerciaux, en feuille de route.
  *
- * Deux plannings coexistent : celui que fixe le responsable et celui que le
- * commercial se donne. Un seul pilote le suivi, mais les deux restent
- * affichés. Masquer celui du responsable quand on travaille en libre
- * supprimerait justement la comparaison qui rend la conversation possible.
+ * Un objectif annuel, ses trimestres et ses mois se lisent ensemble ou pas du
+ * tout : les consulter un par un en changeant de granularité oblige à tenir
+ * la hiérarchie de tête. La page les empile donc dans l'ordre du calendrier,
+ * chacun avec sa fenêtre, son cible-bloc et ses jalons.
  *
- * Chaque avancement est confronté au temps écoulé : 40 % du chiffre au tiers
- * du trimestre est une avance, le même chiffre la veille de la clôture est un
- * échec. Une barre sans ce repère ne dit rien d'utile.
+ * Deux plannings coexistent, celui du responsable et le sien. Un seul pilote
+ * le suivi, mais les deux restent en base : basculer ne détruit rien, et on
+ * peut revenir.
  */
 export default function ObjectifsPage() {
-  const { t, nombre, montant, montantCompact, locale } = useLangue();
-  const [periode, setPeriode] = useState<PeriodeObjectif>("MOIS");
-  const [reference, setReference] = useState(() => new Date());
-  const [suivi, setSuivi] = useState<SuiviObjectifs | null>(null);
+  const { t, nombre, montant, montantCompact, date, locale } = useLangue();
+  const [route, setRoute] = useState<FeuilleDeRoute | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
   const [edition, setEdition] = useState(false);
-  const [form, setForm] = useState(VIDE);
+  const [form, setForm] = useState(FORM_VIDE);
   const [envoi, setEnvoi] = useState(false);
+  const [jalonPour, setJalonPour] = useState<string | null>(null);
+  const [jalonForm, setJalonForm] = useState(JALON_VIDE);
 
-  useFilAriane("/agenda", t("ag.retour"), t("ag.objectifsTitre"));
+  useFilAriane("/planning", t("ag.retour"), t("ag.objectifsTitre"));
 
   function recharger() {
-    fetchObjectifs(periode, cleJour(reference))
-      .then(setSuivi)
+    fetchFeuilleDeRoute()
+      .then(setRoute)
       .catch((e) => setErreur(e.message));
   }
 
-  useEffect(() => {
-    setSuivi(null);
-    setEdition(false);
-    recharger();
-  }, [periode, reference]);
+  useEffect(recharger, []);
 
   async function basculer(personnel: boolean) {
     setErreur(null);
@@ -78,17 +86,6 @@ export default function ObjectifsPage() {
     }
   }
 
-  function ouvrirEdition() {
-    const o = suivi?.objectifPersonnel;
-    setForm({
-      cibleCaXAF: o?.cibleCaXAF !== null && o?.cibleCaXAF !== undefined ? String(o.cibleCaXAF) : "",
-      cibleVentes: o?.cibleVentes != null ? String(o.cibleVentes) : "",
-      cibleRendezVous: o?.cibleRendezVous != null ? String(o.cibleRendezVous) : "",
-      note: o?.note ?? "",
-    });
-    setEdition(true);
-  }
-
   async function enregistrer(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
@@ -97,8 +94,10 @@ export default function ObjectifsPage() {
     const chiffre = (v: string) => (v.trim() === "" ? null : Number(v));
     try {
       await enregistrerObjectif({
-        periode,
-        date: cleJour(reference),
+        titre: form.titre,
+        description: form.description,
+        periode: form.periode,
+        date: form.date,
         cibleCaXAF: chiffre(form.cibleCaXAF),
         cibleVentes: chiffre(form.cibleVentes),
         cibleRendezVous: chiffre(form.cibleRendezVous),
@@ -106,6 +105,7 @@ export default function ObjectifsPage() {
       });
       setSucces(t("ag.objectifEnregistre"));
       setEdition(false);
+      setForm(FORM_VIDE);
       recharger();
     } catch (err) {
       setErreur((err as Error).message);
@@ -114,7 +114,25 @@ export default function ObjectifsPage() {
     }
   }
 
-  async function retirer(o: Objectif) {
+  function ouvrirEdition(o?: ObjectifSuivi) {
+    setForm(
+      o
+        ? {
+            titre: o.titre ?? "",
+            description: o.description ?? "",
+            periode: o.periode,
+            date: o.debut.slice(0, 10),
+            cibleCaXAF: o.cibleCaXAF !== null ? String(o.cibleCaXAF) : "",
+            cibleVentes: o.cibleVentes !== null ? String(o.cibleVentes) : "",
+            cibleRendezVous: o.cibleRendezVous !== null ? String(o.cibleRendezVous) : "",
+            note: o.note ?? "",
+          }
+        : FORM_VIDE
+    );
+    setEdition(true);
+  }
+
+  async function retirerObjectif(o: ObjectifSuivi) {
     if (!confirm(t("ag.confirmerSuppressionObjectif"))) return;
     setErreur(null);
     try {
@@ -125,20 +143,56 @@ export default function ObjectifsPage() {
     }
   }
 
-  /** Libellé de la fenêtre courante, adapté à sa granularité. */
-  function libelleFenetre(s: SuiviObjectifs) {
-    const d = new Date(s.debut);
-    if (s.periode === "JOUR") {
-      return d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  async function poserJalon(e: FormEvent, objectifId: string) {
+    e.preventDefault();
+    setErreur(null);
+    try {
+      await ajouterJalon(objectifId, {
+        libelle: jalonForm.libelle,
+        unite: jalonForm.unite,
+        cible: jalonForm.unite === "BINAIRE" ? 1 : Number(jalonForm.cible),
+        echeance: jalonForm.echeance,
+      });
+      setJalonForm(JALON_VIDE);
+      setJalonPour(null);
+      recharger();
+    } catch (err) {
+      setErreur((err as Error).message);
     }
-    if (s.periode === "SEMAINE") {
-      const fin = new Date(s.fin);
+  }
+
+  async function avancerJalon(j: Jalon, valeur: number) {
+    setErreur(null);
+    try {
+      await majAvancementJalon(j.id, valeur);
+      recharger();
+    } catch (err) {
+      setErreur((err as Error).message);
+    }
+  }
+
+  async function retirerJalon(id: string) {
+    setErreur(null);
+    try {
+      await supprimerJalon(id);
+      recharger();
+    } catch (err) {
+      setErreur((err as Error).message);
+    }
+  }
+
+  function libelleFenetre(o: ObjectifSuivi) {
+    const d = new Date(o.debut);
+    if (o.periode === "JOUR")
+      return d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    if (o.periode === "SEMAINE") {
+      const fin = new Date(o.fin);
       fin.setDate(fin.getDate() - 1);
       return `${d.toLocaleDateString(locale, { day: "numeric", month: "short" })} - ${fin.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}`;
     }
-    if (s.periode === "MOIS") return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
-    if (s.periode === "TRIMESTRE") return t("ag.trimestreN", { n: Math.floor(d.getMonth() / 3) + 1, annee: d.getFullYear() });
-    if (s.periode === "SEMESTRE") return t("ag.semestreN", { n: d.getMonth() < 6 ? 1 : 2, annee: d.getFullYear() });
+    if (o.periode === "MOIS") return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
+    if (o.periode === "TRIMESTRE") return t("ag.trimestreN", { n: Math.floor(d.getMonth() / 3) + 1, annee: d.getFullYear() });
+    if (o.periode === "SEMESTRE") return t("ag.semestreN", { n: d.getMonth() < 6 ? 1 : 2, annee: d.getFullYear() });
     return String(d.getFullYear());
   }
 
@@ -148,10 +202,18 @@ export default function ObjectifsPage() {
         <h1>{t("ag.objectifsTitre")}</h1>
         <div className="page-sub">{t("ag.objectifsSousTitre")}</div>
       </div>
+      {route?.source === "PERSONNEL" && (
+        <div className="head-actions">
+          <button className="btn btn-primary" onClick={() => ouvrirEdition()}>
+            <IconPlus size={16} />
+            {t("ag.definirObjectif")}
+          </button>
+        </div>
+      )}
     </div>
   );
 
-  if (!suivi) {
+  if (!route) {
     return (
       <>
         {entete}
@@ -171,47 +233,283 @@ export default function ObjectifsPage() {
     );
   }
 
-  const pilote = suivi.source === "PERSONNEL" ? suivi.objectifPersonnel : suivi.objectifEncadrement;
+  const encadrement = route.source === "ENCADREMENT";
+  const pilotes = route.objectifs.filter((o) => o.fixeParEncadrement === encadrement);
+  const autres = route.objectifs.filter((o) => o.fixeParEncadrement !== encadrement);
 
-  /** Une cible, son réalisé, et la comparaison au temps écoulé. */
+  /** Une cible chiffrée, son réalisé, et la comparaison au temps écoulé. */
   function Avancement({
     libelle,
     cible,
     realise,
+    partEcoulee,
     formater,
   }: {
     libelle: string;
     cible: number;
     realise: number;
+    partEcoulee: number;
     formater: (n: number) => string;
   }) {
     const part = cible > 0 ? Math.round((realise / cible) * 100) : 0;
-    /* « En avance » se juge sur le temps, pas sur le chiffre seul. La marge de
-       5 points évite de qualifier d'échec un écart insignifiant. */
-    const etat = part >= 100 ? "atteint" : part + 5 >= suivi!.partEcoulee ? "en-ligne" : "en-retard";
+    /* « Dans les temps » se juge sur le temps, pas sur le chiffre seul. La
+       marge de 5 points évite de qualifier d'échec un écart insignifiant. */
+    const etat = part >= 100 ? "atteint" : part + 5 >= partEcoulee ? "en-ligne" : "en-retard";
     return (
-      <div className="avancement">
-        <div className="avancement-tete">
-          <span className="avancement-libelle">{libelle}</span>
+      <div className="cible-bloc">
+        <div className="cible-tete">
+          <span className="cible-libelle">{libelle}</span>
           <span className={`pill pill-${etat === "atteint" ? "success" : etat === "en-ligne" ? "brand" : "warn"}`}>
             {t(`ag.etat.${etat}` as CleTraduction)}
           </span>
         </div>
-        <div className="avancement-chiffres">
+        <div className="cible-chiffres">
           <strong>{formater(realise)}</strong>
-          <span className="avancement-cible">{t("ag.surCible", { cible: formater(cible) })}</span>
+          <span className="cible-reference">{t("ag.surCible", { cible: formater(cible) })}</span>
         </div>
-        <div className="avancement-rail">
-          <span className="avancement-barre" style={{ width: `${Math.min(100, part)}%` }} />
-          {/* Repère du temps écoulé : c'est lui qui transforme une barre en
-              jugement. Sans lui, 40 % ne dit ni bien ni mal. */}
-          <span className="avancement-repere" style={{ left: `${suivi!.partEcoulee}%` }} title={t("ag.repereTemps", { pct: suivi!.partEcoulee })} />
+        <div className="cible-rail">
+          <span className="cible-barre" style={{ width: `${Math.min(100, part)}%` }} />
+          <span
+            className="cible-repere"
+            style={{ left: `${partEcoulee}%` }}
+            title={t("ag.repereTemps", { pct: partEcoulee })}
+          />
         </div>
-        <div className="avancement-pied">
+        <div className="cible-pied">
           <span>{nombre(part)}%</span>
-          <span className="muted-3">{t("ag.tempsEcoule", { pct: suivi!.partEcoulee })}</span>
+          <span className="muted-3">{t("ag.tempsEcoule", { pct: partEcoulee })}</span>
         </div>
       </div>
+    );
+  }
+
+  /** Un objectif, sa fenêtre, ses cibles et ses jalons. */
+  function CarteObjectif({ o, modifiable }: { o: ObjectifSuivi; modifiable: boolean }) {
+    const enRetard = (j: Jalon) => j.realise < j.cible && new Date(j.echeance) < new Date();
+
+    return (
+      <article className="objectif-carte">
+        <header className="objectif-carte-tete">
+          <div style={{ minWidth: 0 }}>
+            <div className="objectif-periode">
+              {t(`periode.${o.periode}` as CleTraduction)} · {libelleFenetre(o)}
+            </div>
+            <h3 className="objectif-titre">{o.titre || libelleFenetre(o)}</h3>
+            <div className="objectif-auteur">
+              {o.fixeParEncadrement
+                ? t("ag.fixeParNom", { nom: o.definiParNom })
+                : t("ag.fixeParVous")}
+            </div>
+          </div>
+          <span className={`pill ${TEINTE_STATUT[o.statut] ?? "pill-neutral"}`}>
+            {t(`ag.statut.${o.statut}` as CleTraduction)}
+          </span>
+        </header>
+
+        {o.description && <p className="objectif-description">{o.description}</p>}
+
+        <div className="cibles-bloc">
+          {o.cibleCaXAF !== null && (
+            <Avancement
+              libelle={t("ag.cibleCa")}
+              cible={o.cibleCaXAF}
+              realise={o.realise.chiffreAffaires}
+              partEcoulee={o.partEcoulee}
+              formater={montantCompact}
+            />
+          )}
+          {o.cibleVentes !== null && (
+            <Avancement
+              libelle={t("ag.cibleVentes")}
+              cible={o.cibleVentes}
+              realise={o.realise.nbVentes}
+              partEcoulee={o.partEcoulee}
+              formater={(n) => nombre(n)}
+            />
+          )}
+          {o.cibleRendezVous !== null && (
+            <Avancement
+              libelle={t("ag.cibleRendezVous")}
+              cible={o.cibleRendezVous}
+              realise={o.realise.nbRendezVous}
+              partEcoulee={o.partEcoulee}
+              formater={(n) => nombre(n)}
+            />
+          )}
+        </div>
+
+        {/* Jalons : ce qui rend l'engagement vérifiable en cours de route. */}
+        <div className="jalons">
+          <div className="jalons-tete">
+            <span className="jalons-titre">
+              {t("ag.jalonsTitre", { n: nombre(o.jalons.length) })}
+            </span>
+            {modifiable && (
+              <button
+                type="button"
+                className="link-action"
+                onClick={() => {
+                  setJalonPour(jalonPour === o.id ? null : o.id);
+                  setJalonForm({ ...JALON_VIDE, echeance: o.fin.slice(0, 10) });
+                }}
+              >
+                {jalonPour === o.id ? t("commun.annuler") : t("ag.ajouterJalon")}
+              </button>
+            )}
+          </div>
+
+          {o.jalons.length === 0 ? (
+            <p className="jalons-vide">{modifiable ? t("ag.jalonsVide") : t("ag.jalonsVideEncadrement")}</p>
+          ) : (
+            <ul className="jalons-liste">
+              {o.jalons.map((j) => {
+                const part = j.cible > 0 ? Math.round((j.realise / j.cible) * 100) : 0;
+                const fait = j.realise >= j.cible;
+                return (
+                  <li key={j.id} className={`jalon${fait ? " fait" : enRetard(j) ? " retard" : ""}`}>
+                    <span className="jalon-puce" aria-hidden>
+                      {fait ? <IconCheck size={12} /> : null}
+                    </span>
+                    <div className="jalon-corps">
+                      <div className="jalon-ligne">
+                        <span className="jalon-libelle">{j.libelle}</span>
+                        <span className="jalon-echeance">{date(j.echeance)}</span>
+                      </div>
+                      <div className="jalon-mesure">
+                        <span className="jalon-rail">
+                          <span className="jalon-barre" style={{ width: `${Math.min(100, part)}%` }} />
+                        </span>
+                        <span className="jalon-valeur">
+                          {j.unite === "BINAIRE"
+                            ? fait
+                              ? t("ag.jalonFait")
+                              : t("ag.jalonAFaire")
+                            : j.unite === "MONTANT"
+                              ? `${montantCompact(j.realise)} / ${montantCompact(j.cible)}`
+                              : `${nombre(j.realise)} / ${nombre(j.cible)}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {modifiable && (
+                      <div className="jalon-actions">
+                        {j.unite === "BINAIRE" ? (
+                          <button
+                            type="button"
+                            className="link-action"
+                            onClick={() => avancerJalon(j, fait ? 0 : 1)}
+                          >
+                            {fait ? t("ag.jalonRouvrir") : t("ag.jalonCocher")}
+                          </button>
+                        ) : (
+                          <input
+                            type="number"
+                            className="jalon-saisie"
+                            min={0}
+                            max={j.cible}
+                            defaultValue={j.realise}
+                            aria-label={t("ag.jalonAvancement")}
+                            onBlur={(e) => {
+                              const v = Number(e.target.value);
+                              if (Number.isFinite(v) && v !== j.realise) avancerJalon(j, v);
+                            }}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          className="icon-btn danger"
+                          onClick={() => retirerJalon(j.id)}
+                          aria-label={t("ag.supprimerJalon")}
+                          title={t("ag.supprimerJalon")}
+                        >
+                          <IconTrash size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {jalonPour === o.id && (
+            <form className="jalon-form" onSubmit={(e) => poserJalon(e, o.id)}>
+              <div className="form-grid form-grid-jalon">
+                <div className="field">
+                  <label htmlFor={`jl-${o.id}`}>{t("ag.jalonLibelle")}</label>
+                  <input
+                    id={`jl-${o.id}`}
+                    value={jalonForm.libelle}
+                    onChange={(e) => setJalonForm((f) => ({ ...f, libelle: e.target.value }))}
+                    placeholder={t("ag.jalonLibellePlaceholder")}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={`ju-${o.id}`}>{t("ag.jalonUnite")}</label>
+                  <select
+                    id={`ju-${o.id}`}
+                    value={jalonForm.unite}
+                    onChange={(e) => setJalonForm((f) => ({ ...f, unite: e.target.value as UniteJalon }))}
+                  >
+                    {UNITES_JALON.map((u) => (
+                      <option key={u} value={u}>
+                        {t(`uniteJalon.${u}` as CleTraduction)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* Un jalon binaire vaut 1 par construction : demander sa cible
+                    ouvrirait la porte à « 0 sur 3 », qui ne veut rien dire
+                    pour un fait accompli ou non. */}
+                {jalonForm.unite !== "BINAIRE" && (
+                  <div className="field">
+                    <label htmlFor={`jc-${o.id}`}>{t("ag.jalonCible")}</label>
+                    <input
+                      id={`jc-${o.id}`}
+                      type="number"
+                      min={1}
+                      value={jalonForm.cible}
+                      onChange={(e) => setJalonForm((f) => ({ ...f, cible: e.target.value }))}
+                      required
+                    />
+                  </div>
+                )}
+                <div className="field">
+                  <label htmlFor={`je-${o.id}`}>{t("ag.jalonEcheance")}</label>
+                  <input
+                    id={`je-${o.id}`}
+                    type="date"
+                    min={o.debut.slice(0, 10)}
+                    max={o.fin.slice(0, 10)}
+                    value={jalonForm.echeance}
+                    onChange={(e) => setJalonForm((f) => ({ ...f, echeance: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-actions">
+                <button className="btn btn-primary btn-sm" type="submit">
+                  {t("ag.ajouterJalon")}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {o.note && <p className="objectif-note">{o.note}</p>}
+
+        {modifiable && (
+          <div className="objectif-pied">
+            <button className="link-action" onClick={() => ouvrirEdition(o)}>
+              {t("ag.modifierObjectif")}
+            </button>
+            <button className="link-action danger" onClick={() => retirerObjectif(o)}>
+              {t("ag.supprimerObjectif")}
+            </button>
+          </div>
+        )}
+      </article>
     );
   }
 
@@ -232,47 +530,6 @@ export default function ObjectifsPage() {
         </div>
       )}
 
-      {/* Granularité, puis navigation dans le temps. */}
-      <div className="card">
-        <div className="dim-switch dim-switch-large" role="group" aria-label={t("ag.granularite")}>
-          {PERIODES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`dim-opt${p === periode ? " on" : ""}`}
-              onClick={() => setPeriode(p)}
-              aria-pressed={p === periode}
-            >
-              {t(`periode.${p}` as CleTraduction)}
-            </button>
-          ))}
-        </div>
-
-        <div className="semaine-tete" style={{ marginTop: 14 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setReference((d) => decaler(periode, d, -1))}
-            aria-label={t("ag.precedent")}
-          >
-            <IconChevronLeft size={15} />
-          </button>
-          <div className="semaine-titre">
-            <div className="semaine-libelle">{libelleFenetre(suivi)}</div>
-            <div className="semaine-total">{t("ag.tempsEcoule", { pct: suivi.partEcoulee })}</div>
-          </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setReference((d) => decaler(periode, d, 1))}
-            aria-label={t("ag.suivant")}
-          >
-            <IconChevronRight size={15} />
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setReference(new Date())}>
-            {t("ag.maintenant")}
-          </button>
-        </div>
-      </div>
-
       {/* Quel planning pilote le suivi. */}
       <div className="card">
         <div className="card-head">
@@ -285,25 +542,25 @@ export default function ObjectifsPage() {
         <div className="choix-planning">
           <button
             type="button"
-            className={`planning-option${suivi.source === "ENCADREMENT" ? " on" : ""}`}
+            className={`planning-option${encadrement ? " on" : ""}`}
             onClick={() => basculer(false)}
-            aria-pressed={suivi.source === "ENCADREMENT"}
+            aria-pressed={encadrement}
           >
             <IconShield size={18} />
             <span>
               <span className="planning-titre">{t("ag.planningEncadrement")}</span>
               <span className="planning-texte">
-                {suivi.responsableNom
-                  ? t("ag.planningEncadrementNote", { nom: suivi.responsableNom })
+                {route.responsableNom
+                  ? t("ag.planningEncadrementNote", { nom: route.responsableNom })
                   : t("ag.planningSansResponsable")}
               </span>
             </span>
           </button>
           <button
             type="button"
-            className={`planning-option${suivi.source === "PERSONNEL" ? " on" : ""}`}
+            className={`planning-option${!encadrement ? " on" : ""}`}
             onClick={() => basculer(true)}
-            aria-pressed={suivi.source === "PERSONNEL"}
+            aria-pressed={!encadrement}
           >
             <IconUserCircle size={18} />
             <span>
@@ -314,80 +571,69 @@ export default function ObjectifsPage() {
         </div>
       </div>
 
-      {/* Avancement sur le planning retenu. */}
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("ag.avancementTitre")}</div>
-            <div className="card-sub">
-              {pilote
-                ? t("ag.avancementSousTitre", { auteur: pilote.definiParNom })
-                : t("ag.avancementSansObjectif")}
-            </div>
-          </div>
-          {suivi.source === "PERSONNEL" && (
-            <button className="btn btn-ghost btn-sm" onClick={ouvrirEdition}>
-              {suivi.objectifPersonnel ? t("ag.modifierObjectif") : t("ag.definirObjectif")}
-            </button>
-          )}
-        </div>
-
-        {!pilote ? (
-          <div className="alert alert-info" style={{ marginTop: 14 }}>
-            <IconAlert />
-            {suivi.source === "PERSONNEL" ? t("ag.aucunObjectifPersonnel") : t("ag.aucunObjectifEncadrement")}
-          </div>
-        ) : (
-          <div className="avancements">
-            {pilote.cibleCaXAF !== null && (
-              <Avancement
-                libelle={t("ag.cibleCa")}
-                cible={pilote.cibleCaXAF}
-                realise={suivi.realise.chiffreAffaires}
-                formater={montantCompact}
-              />
-            )}
-            {pilote.cibleVentes !== null && (
-              <Avancement
-                libelle={t("ag.cibleVentes")}
-                cible={pilote.cibleVentes}
-                realise={suivi.realise.nbVentes}
-                formater={(n) => nombre(n)}
-              />
-            )}
-            {pilote.cibleRendezVous !== null && (
-              <Avancement
-                libelle={t("ag.cibleRendezVous")}
-                cible={pilote.cibleRendezVous}
-                realise={suivi.realise.nbRendezVous}
-                formater={(n) => nombre(n)}
-              />
-            )}
-          </div>
-        )}
-
-        {pilote?.note && <p className="objectif-note">{pilote.note}</p>}
-
-        {pilote && !pilote.fixeParEncadrement && (
-          <div className="form-actions">
-            <button className="link-action danger" onClick={() => retirer(pilote)}>
-              {t("ag.supprimerObjectif")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Saisie d'un objectif personnel. */}
+      {/* Création ou modification. */}
       {edition && (
         <form className="card" onSubmit={enregistrer}>
           <div className="card-head">
             <div>
-              <div className="card-title">{t("ag.editionTitre", { fenetre: libelleFenetre(suivi) })}</div>
+              <div className="card-title">{t("ag.editionTitreLibre")}</div>
               <div className="card-sub">{t("ag.editionSousTitre")}</div>
             </div>
           </div>
 
-          <div className="form-grid form-grid-trois" style={{ marginTop: 14 }}>
+          <div className="form-grid" style={{ marginTop: 14 }}>
+            <div className="field">
+              <label htmlFor="ob-titre">{t("ag.objectifIntitule")}</label>
+              <input
+                id="ob-titre"
+                value={form.titre}
+                onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))}
+                placeholder={t("ag.objectifIntitulePlaceholder")}
+              />
+              {/* Un objectif qui ne s'appelle que « mois d'octobre » ne se cite
+                  pas en réunion et ne se retient pas. */}
+              <div className="field-hint">{t("ag.objectifIntituleAide")}</div>
+            </div>
+            <div className="field">
+              <label htmlFor="ob-periode">{t("ag.objectifPeriode")}</label>
+              <select
+                id="ob-periode"
+                value={form.periode}
+                onChange={(e) => setForm((f) => ({ ...f, periode: e.target.value as PeriodeObjectif }))}
+              >
+                {PERIODES.map((p) => (
+                  <option key={p} value={p}>
+                    {t(`periode.${p}` as CleTraduction)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="ob-desc">{t("ag.objectifDescription")}</label>
+            <textarea
+              id="ob-desc"
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder={t("ag.objectifDescriptionPlaceholder")}
+            />
+            <div className="field-hint">{t("ag.objectifDescriptionAide")}</div>
+          </div>
+
+          <div className="form-grid form-grid-trois">
+            <div className="field">
+              <label htmlFor="ob-date">{t("ag.objectifDate")}</label>
+              <input
+                id="ob-date"
+                type="date"
+                value={form.date}
+                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                required
+              />
+              <div className="field-hint">{t("ag.objectifDateAide")}</div>
+            </div>
             <div className="field">
               <label htmlFor="ob-ca">{t("ag.cibleCa")}</label>
               <div className="champ-montant">
@@ -414,6 +660,9 @@ export default function ObjectifsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, cibleVentes: e.target.value }))}
               />
             </div>
+          </div>
+
+          <div className="form-grid">
             <div className="field">
               <label htmlFor="ob-rdv">{t("ag.cibleRendezVous")}</label>
               <input
@@ -424,20 +673,17 @@ export default function ObjectifsPage() {
                 value={form.cibleRendezVous}
                 onChange={(e) => setForm((f) => ({ ...f, cibleRendezVous: e.target.value }))}
               />
-              {/* Les rendez-vous se comptent dans la feuille de temps : une
-                  seconde saisie du même fait produirait deux chiffres. */}
               <div className="field-hint">{t("ag.cibleRendezVousAide")}</div>
             </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="ob-note">{t("ag.note")}</label>
-            <input
-              id="ob-note"
-              value={form.note}
-              onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-              placeholder={t("ag.notePlaceholder")}
-            />
+            <div className="field">
+              <label htmlFor="ob-note">{t("ag.note")}</label>
+              <input
+                id="ob-note"
+                value={form.note}
+                onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+                placeholder={t("ag.notePlaceholder")}
+              />
+            </div>
           </div>
 
           <div className="form-actions">
@@ -451,38 +697,52 @@ export default function ObjectifsPage() {
         </form>
       )}
 
-      {/* Le planning qui ne pilote pas reste visible : c'est la comparaison
-          qui permet d'en discuter. */}
-      {suivi.source === "PERSONNEL" && suivi.objectifEncadrement && (
+      {/* La feuille de route proprement dite. */}
+      {pilotes.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            <div className="empty-icon">
+              <IconInbox />
+            </div>
+            <div className="empty-title">
+              {encadrement ? t("ag.aucunObjectifEncadrement") : t("ag.aucunObjectifPersonnel")}
+            </div>
+            <p className="empty-text" style={{ margin: 0 }}>
+              {encadrement ? t("ag.aucunObjectifEncadrementTexte") : t("ag.aucunObjectifPersonnelTexte")}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="feuille-de-route">
+          {pilotes.map((o) => (
+            <CarteObjectif key={o.id} o={o} modifiable={!o.fixeParEncadrement} />
+          ))}
+        </div>
+      )}
+
+      {/* Le planning qui ne pilote pas reste consultable : c'est la
+          comparaison qui rend la conversation possible. */}
+      {autres.length > 0 && (
         <div className="card">
           <div className="card-head">
             <div>
-              <div className="card-title">{t("ag.rappelEncadrement")}</div>
-              <div className="card-sub">
-                {t("ag.rappelEncadrementNote", { nom: suivi.objectifEncadrement.definiParNom })}
+              <div className="card-title">
+                {encadrement ? t("ag.rappelPersonnel") : t("ag.rappelEncadrement")}
               </div>
+              <div className="card-sub">{t("ag.rappelNote")}</div>
             </div>
           </div>
-          <dl className="rappel-cibles">
-            {suivi.objectifEncadrement.cibleCaXAF !== null && (
-              <div>
-                <dt>{t("ag.cibleCa")}</dt>
-                <dd>{montant(suivi.objectifEncadrement.cibleCaXAF)}</dd>
-              </div>
-            )}
-            {suivi.objectifEncadrement.cibleVentes !== null && (
-              <div>
-                <dt>{t("ag.cibleVentes")}</dt>
-                <dd>{nombre(suivi.objectifEncadrement.cibleVentes)}</dd>
-              </div>
-            )}
-            {suivi.objectifEncadrement.cibleRendezVous !== null && (
-              <div>
-                <dt>{t("ag.cibleRendezVous")}</dt>
-                <dd>{nombre(suivi.objectifEncadrement.cibleRendezVous)}</dd>
-              </div>
-            )}
-          </dl>
+          <ul className="rappel-liste">
+            {autres.map((o) => (
+              <li key={o.id}>
+                <span className="rappel-periode">{libelleFenetre(o)}</span>
+                <span className="rappel-cible">
+                  {o.cibleCaXAF !== null ? montant(o.cibleCaXAF) : t("ag.sansCibleChiffre")}
+                </span>
+                <span className="rappel-auteur">{o.definiParNom}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </>

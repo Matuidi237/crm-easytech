@@ -114,17 +114,17 @@ export default function DetailObjectifPage() {
               </span>
             </div>
 
-            <div className="avancement-rail" style={{ marginTop: 16 }}>
-              <span className="avancement-barre" style={{ width: `${Math.min(100, completionPct ?? 0)}%` }} />
+            <div className="cible-rail" style={{ marginTop: 16 }}>
+              <span className="cible-barre" style={{ width: `${Math.min(100, completionPct ?? 0)}%` }} />
               {/* Repère du temps consommé : sans lui, un taux ne dit ni bien
                   ni mal. 70 % en octobre et 70 % en mars n'ont rien à voir. */}
               <span
-                className="avancement-repere"
+                className="cible-repere"
                 style={{ left: `${o.partEcoulee}%` }}
                 title={t("ag.repereTemps", { pct: o.partEcoulee })}
               />
             </div>
-            <div className="avancement-pied">
+            <div className="cible-pied">
               <span>{t("co.detailCompletion", { pct: nombre(completionPct ?? 0) })}</span>
               <span className="muted-3">{t("ag.tempsEcoule", { pct: o.partEcoulee })}</span>
             </div>

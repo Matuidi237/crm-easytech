@@ -342,6 +342,7 @@ async function supprimer({ silencieux = false } = {}) {
      retire explicitement : le drapeau reste exact même si quelqu'un a gardé
      un compte à la main, et le décompte affiché le prouve. */
   const temps = await prisma.saisieTemps.deleteMany({ where: { estDemo: true } });
+  const jalons = await prisma.jalonObjectif.deleteMany({ where: { estDemo: true } });
   const objectifs = await prisma.objectifCommercial.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
@@ -357,7 +358,7 @@ async function supprimer({ silencieux = false } = {}) {
     console.log(
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
-    console.log(`  Plus ${temps.count} créneau(x) de feuille de temps et ${objectifs.count} objectif(s).`);
+    console.log(`  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s) et ${jalons.count} jalon(s).`);
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
     const restant = c.ventes + c.projets + c.partenaires + c.clientsRattaches + c.temps + c.objectifs;
@@ -622,6 +623,7 @@ async function creer() {
     objectifs.push(
       {
         utilisateurId: ids[vendeur],
+        titre: "Rythme mensuel",
         periode: "MOIS",
         debut: jourCalendaire(debutMois),
         cibleCaXAF: arrondi(mensuel),
@@ -634,6 +636,7 @@ async function creer() {
       },
       {
         utilisateurId: ids[vendeur],
+        titre: "Engagement trimestriel",
         periode: "TRIMESTRE",
         debut: jourCalendaire(debutTrimestre),
         cibleCaXAF: arrondi(mensuel * 3),
@@ -645,6 +648,9 @@ async function creer() {
       },
       {
         utilisateurId: ids[vendeur],
+        titre: "Plan annuel de l'équipe",
+        description:
+          "Cible annuelle répartie sur les quatre trimestres, revue en comité commercial chaque fin de trimestre.",
         periode: "ANNEE",
         debut: jourCalendaire(debutAnnee),
         cibleCaXAF: arrondi(mensuel * 12),
@@ -669,6 +675,7 @@ async function creer() {
       cibleRendezVous: 12,
       fixeParEncadrement: false,
       definiParNom: "Nerea Vendeuse",
+      titre: "Pousser sur le mois",
       note: "Je vise plus haut que l'objectif d'équipe ce mois-ci.",
       estDemo: true,
     },
@@ -683,6 +690,8 @@ async function creer() {
       cibleVentes: 30,
       fixeParEncadrement: false,
       definiParNom: "Nerea Vendeuse",
+      titre: "Conquête du secteur bancaire",
+      description: "Ouvrir trois comptes bancaires en Côte d'Ivoire, obtenir la certification Fortinet et sécuriser la reconduction des contrats de maintenance.",
       note: "Engagement annuel pris en entretien de début d'exercice.",
       estDemo: true,
     }
@@ -692,6 +701,62 @@ async function creer() {
     where: { id: ids["demo-nerea"] },
     data: { objectifsPersonnels: true },
   });
+
+  /* Jalons de l'objectif annuel personnel : c'est ce qui montre qu'un
+     objectif se pilote en cours de route et pas seulement à la clôture. Deux
+     sont tenus, un est en cours, un est en retard : les quatre états de la
+     liste doivent se voir dans la démonstration. */
+  const annuelNerea = await prisma.objectifCommercial.findFirst({
+    where: { utilisateurId: ids["demo-nerea"], periode: "ANNEE", fixeParEncadrement: false },
+    select: { id: true },
+  });
+  if (annuelNerea) {
+    const jalon = (mois, jour) => jourCalendaire(new Date(maintenant.getFullYear(), mois, jour));
+    await prisma.jalonObjectif.createMany({
+      data: [
+        {
+          objectifId: annuelNerea.id,
+          libelle: "Ouvrir le secteur bancaire ivoirien",
+          unite: "NOMBRE",
+          cible: 3,
+          realise: 3,
+          echeance: jalon(2, 31),
+          ordre: 0,
+          estDemo: true,
+        },
+        {
+          objectifId: annuelNerea.id,
+          libelle: "Certification Fortinet NSE4",
+          unite: "BINAIRE",
+          cible: 1,
+          realise: 1,
+          echeance: jalon(5, 30),
+          ordre: 1,
+          estDemo: true,
+        },
+        {
+          objectifId: annuelNerea.id,
+          libelle: "Reconduire les contrats de maintenance",
+          unite: "MONTANT",
+          cible: 12000000,
+          realise: 4500000,
+          echeance: jalon(8, 30),
+          ordre: 2,
+          estDemo: true,
+        },
+        {
+          objectifId: annuelNerea.id,
+          libelle: "Dix démonstrations grands comptes",
+          unite: "NOMBRE",
+          cible: 10,
+          realise: 6,
+          echeance: jalon(11, 31),
+          ordre: 3,
+          estDemo: true,
+        },
+      ],
+    });
+  }
 
   for (const p of PARTENAIRES) {
     const { conditions, moisDepuis, ...champs } = p;

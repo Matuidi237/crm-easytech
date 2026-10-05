@@ -689,20 +689,51 @@ export type SaisieTemps = {
   clientNom: string | null;
 };
 
-export type SemaineTemps = {
+export type FeuilleDeTemps = {
+  periode: PeriodeObjectif;
   debut: string;
   fin: string;
+  /** Vide au-delà de la semaine : une année de pointage ne se lit pas ligne à ligne. */
   saisies: SaisieTemps[];
+  detaille: boolean;
   totalMinutes: number;
+  cibleMinutes: number;
+  cibleParJourMinutes: number;
+  joursOuvres: number;
+  joursPointes: number;
+  joursTenus: number;
+  joursSousCible: number;
+  nbCreneaux: number;
+  nbClients: number;
   /** Minutes par jour, indexées sur la date ISO. */
   parJour: Record<string, number>;
+  parMois: { mois: string; minutes: number }[];
   parActivite: { activite: TypeActivite; minutes: number }[];
 };
 
-export async function fetchSemaineTemps(semaine: string) {
-  const res = await authedFetch(`/api/agenda/temps?semaine=${encodeURIComponent(semaine)}`);
+export async function fetchFeuilleDeTemps(periode: PeriodeObjectif, date: string) {
+  const res = await authedFetch(`/api/planning/temps?periode=${periode}&date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
-  return res.json() as Promise<SemaineTemps>;
+  return res.json() as Promise<FeuilleDeTemps>;
+}
+
+export async function modifierSaisieTemps(
+  id: string,
+  saisie: {
+    debutMinutes: number;
+    finMinutes: number;
+    activite: TypeActivite;
+    description: string;
+    clientId: string | null;
+  }
+) {
+  const res = await authedFetch(`/api/planning/temps/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(saisie),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la modification du créneau.");
+  return res.json() as Promise<SaisieTemps>;
 }
 
 export async function creerSaisieTemps(saisie: {
@@ -713,7 +744,7 @@ export async function creerSaisieTemps(saisie: {
   description: string;
   clientId: string | null;
 }) {
-  const res = await authedFetch("/api/agenda/temps", {
+  const res = await authedFetch("/api/planning/temps", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(saisie),
@@ -723,13 +754,30 @@ export async function creerSaisieTemps(saisie: {
 }
 
 export async function supprimerSaisieTemps(id: string) {
-  const res = await authedFetch(`/api/agenda/temps/${id}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/planning/temps/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
   return res.json();
 }
 
+export const UNITES_JALON = ["MONTANT", "NOMBRE", "BINAIRE"] as const;
+export type UniteJalon = (typeof UNITES_JALON)[number];
+
+/** Étape mesurable d'un objectif, à la façon d'un jalon de projet. */
+export type Jalon = {
+  id: string;
+  libelle: string;
+  unite: UniteJalon;
+  cible: number;
+  /** Avancement déclaré : un jalon porte souvent sur ce que le CRM ne mesure pas. */
+  realise: number;
+  echeance: string;
+  ordre: number;
+};
+
 export type Objectif = {
   id: string;
+  titre: string | null;
+  description: string | null;
   periode: PeriodeObjectif;
   debut: string;
   cibleCaXAF: number | null;
@@ -738,7 +786,59 @@ export type Objectif = {
   fixeParEncadrement: boolean;
   definiParNom: string;
   note: string | null;
+  jalons: Jalon[];
 };
+
+export type StatutObjectif = "A_VENIR" | "EN_COURS" | "ATTEINT" | "MANQUE";
+
+/** Un objectif de la feuille de route, avec sa fenêtre et son réalisé. */
+export type ObjectifSuivi = Objectif & {
+  fin: string;
+  statut: StatutObjectif;
+  partEcoulee: number;
+  realise: { chiffreAffaires: number; benefice: number; nbVentes: number; nbRendezVous: number };
+};
+
+export type FeuilleDeRoute = {
+  source: "PERSONNEL" | "ENCADREMENT";
+  responsableNom: string | null;
+  objectifs: ObjectifSuivi[];
+};
+
+export async function fetchFeuilleDeRoute() {
+  const res = await authedFetch("/api/planning/objectifs/feuille-de-route");
+  if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de route.");
+  return res.json() as Promise<FeuilleDeRoute>;
+}
+
+export async function ajouterJalon(
+  objectifId: string,
+  jalon: { libelle: string; unite: UniteJalon; cible: number; echeance: string }
+) {
+  const res = await authedFetch(`/api/planning/objectifs/${objectifId}/jalons`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(jalon),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'ajout du jalon.");
+  return res.json() as Promise<Jalon>;
+}
+
+export async function majAvancementJalon(id: string, realise: number) {
+  const res = await authedFetch(`/api/planning/jalons/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ realise }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la mise à jour du jalon.");
+  return res.json() as Promise<Jalon>;
+}
+
+export async function supprimerJalon(id: string) {
+  const res = await authedFetch(`/api/planning/jalons/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression du jalon.");
+  return res.json();
+}
 
 export type SuiviObjectifs = {
   periode: PeriodeObjectif;
@@ -754,13 +854,13 @@ export type SuiviObjectifs = {
 };
 
 export async function fetchObjectifs(periode: PeriodeObjectif, date: string) {
-  const res = await authedFetch(`/api/agenda/objectifs?periode=${periode}&date=${encodeURIComponent(date)}`);
+  const res = await authedFetch(`/api/planning/objectifs?periode=${periode}&date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error("Erreur lors du chargement de vos objectifs.");
   return res.json() as Promise<SuiviObjectifs>;
 }
 
 export async function definirSourceObjectifs(personnel: boolean) {
-  const res = await authedFetch("/api/agenda/objectifs/source", {
+  const res = await authedFetch("/api/planning/objectifs/source", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ personnel }),
@@ -770,6 +870,8 @@ export async function definirSourceObjectifs(personnel: boolean) {
 }
 
 export async function enregistrerObjectif(objectif: {
+  titre: string;
+  description: string;
   periode: PeriodeObjectif;
   date: string;
   cibleCaXAF: number | null;
@@ -777,7 +879,7 @@ export async function enregistrerObjectif(objectif: {
   cibleRendezVous: number | null;
   note: string;
 }) {
-  const res = await authedFetch("/api/agenda/objectifs", {
+  const res = await authedFetch("/api/planning/objectifs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(objectif),
@@ -787,7 +889,7 @@ export async function enregistrerObjectif(objectif: {
 }
 
 export async function supprimerObjectif(id: string) {
-  const res = await authedFetch(`/api/agenda/objectifs/${id}`, { method: "DELETE" });
+  const res = await authedFetch(`/api/planning/objectifs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
   return res.json();
 }

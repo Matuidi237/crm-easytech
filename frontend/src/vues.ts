@@ -54,7 +54,7 @@ const NAV_COMMERCIAL: EntreeNav[] = [
   { to: "/ventes", cle: "nav.ventes", icone: "tag" },
   { to: "/clients", cle: "nav.clients", icone: "users" },
   { to: "/commissions", cle: "nav.commissions", icone: "coins" },
-  { to: "/agenda", cle: "nav.agenda", icone: "calendar" },
+  { to: "/planning", cle: "nav.planning", icone: "calendar" },
 ];
 
 export function navDe(role: Role | undefined): EntreeNav[] {

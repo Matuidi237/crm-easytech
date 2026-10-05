@@ -88,10 +88,10 @@ export default function DetailPortefeuillePage() {
           </div>
         </div>
 
-        <div className="avancement-rail" style={{ marginTop: 18 }}>
-          <span className="avancement-barre" style={{ width: `${donnees.couverturePct ?? 0}%` }} />
+        <div className="cible-rail" style={{ marginTop: 18 }}>
+          <span className="cible-barre" style={{ width: `${donnees.couverturePct ?? 0}%` }} />
         </div>
-        <div className="avancement-pied">
+        <div className="cible-pied">
           <span>{t("co.detailCouverture", { pct: nombre(donnees.couverturePct ?? 0) })}</span>
         </div>
       </div>

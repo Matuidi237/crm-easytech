@@ -4573,14 +4573,14 @@ td.col-actions {
   line-height: 1.5;
 }
 
-.avancements {
+.cibles-bloc {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 18px 24px;
   margin-top: 16px;
 }
 
-.avancement-tete {
+.cible-tete {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4588,30 +4588,30 @@ td.col-actions {
   margin-bottom: 6px;
 }
 
-.avancement-libelle {
+.cible-libelle {
   font-size: 12.5px;
   color: var(--ink-2);
 }
 
-.avancement-chiffres {
+.cible-chiffres {
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.avancement-chiffres strong {
+.cible-chiffres strong {
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);
 }
 
-.avancement-cible {
+.cible-reference {
   font-size: 12.5px;
   color: var(--ink-3);
 }
 
-.avancement-rail {
+.cible-rail {
   position: relative;
   height: 9px;
   margin-top: 10px;
@@ -4619,7 +4619,7 @@ td.col-actions {
   background: var(--surface-2);
 }
 
-.avancement-barre {
+.cible-barre {
   display: block;
   height: 100%;
   border-radius: 999px;
@@ -4628,7 +4628,7 @@ td.col-actions {
 
 /* Repere du temps ecoule : c est lui qui transforme une barre en jugement.
    Sans lui, 40 % ne dit ni bien ni mal. */
-.avancement-repere {
+.cible-repere {
   position: absolute;
   top: -3px;
   bottom: -3px;
@@ -4637,7 +4637,7 @@ td.col-actions {
   border-radius: 1px;
 }
 
-.avancement-pied {
+.cible-pied {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4944,5 +4944,366 @@ td.col-actions {
 
   .search-encart {
     margin: 14px 14px 4px;
+  }
+}
+
+/* Planning : bande des jours et jalons ---------------------------------- */
+
+/* Au-dela de la semaine, les cases se resserrent et laissent tomber le
+   libelle du jour : trente cases portant « lun. » ne s y lisent plus. */
+.bande-mois {
+  grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+}
+
+.bande-mois .jour-nom {
+  font-size: 9.5px;
+}
+
+.bande-mois .jour-num {
+  font-size: 13px;
+}
+
+.bande-mois .jour-charge {
+  font-size: 9.5px;
+}
+
+/* Le week-end se distingue sans s effacer : un samedi travaille doit rester
+   lisible, il n est simplement pas attendu. */
+.jour-case.weekend {
+  background: var(--surface-2);
+}
+
+.jour-rail {
+  width: 100%;
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: var(--viz-track);
+  overflow: hidden;
+}
+
+.jour-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--viz-4);
+}
+
+.jour-barre.tenu {
+  background: #0c8074;
+}
+
+.stat-sur {
+  font-size: 0.62em;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.creneau.en-edition {
+  border-color: var(--brand);
+  background: var(--brand-100);
+}
+
+/* Feuille de route ------------------------------------------------------ */
+
+.feuille-de-route {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.objectif-carte {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+}
+
+.objectif-carte-tete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.objectif-periode {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.objectif-titre {
+  margin: 3px 0 2px;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.objectif-auteur {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.objectif-description {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.objectif-pied {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* Jalons ---------------------------------------------------------------- */
+
+.jalons {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.jalons-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jalons-titre {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.jalons-vide {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.jalons-liste {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Une ligne par jalon, avec sa puce en tete : la colonne de puces dessine
+   la chronologie sans qu on ait a tracer une frise. */
+.jalon {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.jalon-puce {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.jalon.fait .jalon-puce {
+  background: #0c8074;
+  border-color: #0c8074;
+}
+
+/* Echeance depassee et jalon non tenu : la bordure suffit, sans rouge
+   agressif sur une ligne qui reste rattrapable. */
+.jalon.retard {
+  border-color: #e3b96b;
+  background: #fffaf0;
+}
+
+.jalon-corps {
+  flex: 1;
+  min-width: 0;
+}
+
+.jalon-ligne {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jalon-libelle {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+  min-width: 0;
+}
+
+.jalon.fait .jalon-libelle {
+  color: var(--ink-2);
+}
+
+.jalon-echeance {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.jalon-mesure {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.jalon-rail {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--viz-track);
+  overflow: hidden;
+}
+
+.jalon-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.jalon.fait .jalon-barre {
+  background: #0c8074;
+}
+
+.jalon-valeur {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.jalon-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.jalon-saisie {
+  width: 72px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 8px;
+  font-family: var(--font);
+  font-size: 12.5px;
+  text-align: right;
+}
+
+.jalon-form {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.form-grid-jalon {
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+}
+
+/* Rappel du planning qui ne pilote pas. */
+.rappel-liste {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rappel-liste li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.rappel-periode {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.rappel-cible {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.rappel-auteur {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .form-grid-jalon {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-grid-jalon .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .jalon {
+    flex-wrap: wrap;
+  }
+
+  .jalon-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .rappel-liste li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+/* Bloc d avancement d une cible : il empile libelle, chiffres, jauge et
+   reperes. Prefixe « cible- » et non « avancement- » : ce dernier designe
+   deja la petite jauge en ligne des pages Projets et Partenaires, et les deux
+   definitions se marchaient dessus. */
+.cible-bloc {
+  display: block;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  /* Sur une colonne etroite, « 76 % du temps ecoule » se brise en quatre
+     lignes a cote du pourcentage. Les deux passent l un sous l autre. */
+  .cible-pied {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .cible-chiffres strong {
+    font-size: 17px;
   }
 }
