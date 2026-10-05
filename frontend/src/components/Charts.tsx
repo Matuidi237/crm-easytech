@@ -30,6 +30,149 @@ export function foldTail(data: Repartition[], keep: number, libelleReste = "Autr
   return reste > 0 ? [...head, { label: libelleReste, count: reste }] : head;
 }
 
+/* ----------------------------------------------------------- Courbe */
+
+export type PointCourbe = { mois: string; libelle: string; ca: number; benefice: number; nbVentes: number };
+
+/* Deux séries, deux teintes de familles différentes et non deux pas du même
+   bleu : les courbes se croisent et se superposent, là où des barres restent
+   côte à côte. Paire vérifiée au validateur de palette, écart 27,5 en vision
+   normale et 23,2 en protanopie. La couleur suit la série, jamais sa valeur. */
+const SERIE_CA = "#1f86c8";
+const SERIE_BENEFICE = "#c07a00";
+
+/** Géométrie du tracé, en unités du viewBox. */
+const G = { w: 720, h: 230, hautMarge: 16, basMarge: 26, gaucheMarge: 8, droiteMarge: 8 };
+
+/**
+ * Évolution mensuelle en courbes, façon cours de change.
+ *
+ * Deux lignes sur un seul axe : chiffre d'affaires et bénéfice partagent
+ * l'unité, ce qui interdit le double axe et rend la comparaison honnête. Un
+ * second axe ferait se croiser des courbes qui ne se comparent pas, et c'est
+ * l'erreur de lecture la plus coûteuse d'un graphique.
+ *
+ * Le repère suit le curseur et désigne un mois entier : viser un point de
+ * quelques pixels sur une courbe est un exercice d'adresse, pas de lecture.
+ */
+export function CourbeEvolution({ points }: { points: PointCourbe[] }) {
+  const { t, nombre } = useLangue();
+  const [actif, setActif] = useState<number | null>(null);
+  const [tip, setTip] = useState<Tip>(null);
+
+  if (points.length === 0) return null;
+
+  /* Échelle commune aux deux séries, bornée à zéro : une ligne de base
+     flottante exagère les variations, ce qui est précisément le reproche fait
+     aux graphiques tronqués. */
+  const max = Math.max(1, ...points.map((p) => Math.max(p.ca, p.benefice)));
+  const utileH = G.h - G.hautMarge - G.basMarge;
+  const utileW = G.w - G.gaucheMarge - G.droiteMarge;
+  const pasX = points.length > 1 ? utileW / (points.length - 1) : 0;
+
+  const x = (i: number) => G.gaucheMarge + i * pasX;
+  const y = (v: number) => G.hautMarge + utileH - (v / max) * utileH;
+
+  const chemin = (cle: "ca" | "benefice") =>
+    points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p[cle]).toFixed(1)}`).join(" ");
+
+  // Quatre lignes de repère : assez pour situer, assez peu pour rester discret.
+  const paliers = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ f, valeur: max * f }));
+
+  function survol(e: React.MouseEvent<SVGRectElement>) {
+    const boite = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientX - boite.left) / boite.width;
+    const i = Math.max(0, Math.min(points.length - 1, Math.round(ratio * (points.length - 1))));
+    const p = points[i];
+    setActif(i);
+    setTip({
+      x: e.clientX,
+      y: e.clientY,
+      title: p.libelle,
+      detail:
+        p.nbVentes === 0
+          ? t("dg.moisSansVente")
+          : t("dg.moisDetail", { ca: nombre(p.ca), benefice: nombre(p.benefice), n: nombre(p.nbVentes) }),
+    });
+  }
+
+  return (
+    <>
+      <div className="courbe">
+        <svg viewBox={`0 0 ${G.w} ${G.h}`} className="courbe-svg" role="img" aria-label={t("dg.evolutionTitre")}>
+          {paliers.map((p) => (
+            <g key={p.f}>
+              <line
+                x1={G.gaucheMarge}
+                x2={G.w - G.droiteMarge}
+                y1={y(p.valeur)}
+                y2={y(p.valeur)}
+                className="courbe-grille"
+              />
+            </g>
+          ))}
+
+          {/* Le repère vertical passe sous les tracés : au-dessus, il couperait
+              les courbes qu'il sert à lire. */}
+          {actif !== null && (
+            <line x1={x(actif)} x2={x(actif)} y1={G.hautMarge} y2={G.hautMarge + utileH} className="courbe-repere" />
+          )}
+
+          <path d={chemin("ca")} className="courbe-trace" style={{ stroke: SERIE_CA }} />
+          <path d={chemin("benefice")} className="courbe-trace" style={{ stroke: SERIE_BENEFICE }} />
+
+          {actif !== null && (
+            <>
+              {/* Anneau de surface autour du point : sans lui, deux marqueurs
+                  superposés se confondent en une tache unique. */}
+              <circle cx={x(actif)} cy={y(points[actif].ca)} r={5} className="courbe-point" style={{ fill: SERIE_CA }} />
+              <circle
+                cx={x(actif)}
+                cy={y(points[actif].benefice)}
+                r={5}
+                className="courbe-point"
+                style={{ fill: SERIE_BENEFICE }}
+              />
+            </>
+          )}
+
+          {points.map((p, i) => (
+            <text key={p.mois} x={x(i)} y={G.h - 8} className="courbe-mois" textAnchor="middle">
+              {p.libelle}
+            </text>
+          ))}
+
+          <rect
+            x={0}
+            y={0}
+            width={G.w}
+            height={G.h}
+            fill="transparent"
+            onMouseMove={survol}
+            onMouseLeave={() => {
+              setActif(null);
+              setTip(null);
+            }}
+          />
+        </svg>
+      </div>
+
+      <div className="legend legend-inline">
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: SERIE_CA }} />
+          <span className="legend-name">{t("dg.legendeCa")}</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: SERIE_BENEFICE }} />
+          <span className="legend-name">{t("dg.legendeBenefice")}</span>
+        </div>
+      </div>
+
+      <Tooltip tip={tip} />
+    </>
+  );
+}
+
 /* ---------------------------------------------------------------- Barres */
 
 export function BarList({ data, total, unite }: { data: Repartition[]; total: number; unite?: string }) {

@@ -2254,6 +2254,13 @@ td.col-actions {
     padding-bottom: 10px;
   }
 
+  /* L'étiquette est masquée pour de bon : la règle l'annonçait sans la
+     retirer, et toute cellule principale portant un data-label affichait
+     « CLIENTACE MICRO SERVICES », le libellé collé à la valeur. */
+  .table-card td.td-main[data-label]::before {
+    content: none;
+  }
+
   .table-card td.col-check {
     position: absolute;
     right: 16px;
@@ -4722,5 +4729,220 @@ td.col-actions {
   .creneau-corps {
     flex-basis: 100%;
     order: 3;
+  }
+}
+
+/* Courbe d evolution ---------------------------------------------------- */
+
+.courbe {
+  margin-top: 6px;
+}
+
+.courbe-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Grille et reperes restent en retrait : ils servent a situer les traces,
+   pas a se faire lire. */
+.courbe-grille {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.courbe-repere {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 2 px d epaisseur quelle que soit l echelle du viewBox : sans
+   non-scaling-stroke, l etirement horizontal amincit le trait. */
+.courbe-trace {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Anneau de surface autour du marqueur : sans lui, deux points superposes se
+   confondent en une tache unique. */
+.courbe-point {
+  stroke: var(--surface);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.courbe-mois {
+  font-size: 11px;
+  fill: var(--ink-3);
+  font-family: var(--font);
+}
+
+/* Cartes cliquables ------------------------------------------------------ */
+
+.stat-cliquable {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.stat-cliquable:hover {
+  border-color: var(--brand-200);
+  box-shadow: 0 6px 18px rgba(32, 28, 27, 0.08);
+}
+
+.stat-cliquable:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Le lien est annonce en toutes lettres : une carte entierement cliquable
+   sans repere visible ne se decouvre qu au hasard du curseur. */
+.stat-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+/* Pages de detail -------------------------------------------------------- */
+
+.objectif-entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.objectif-taux {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.objectif-legende {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+
+.chiffres-cles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 18px 24px;
+  margin-top: 14px;
+}
+
+.chiffres-cles > div {
+  min-width: 0;
+}
+
+.chiffre-label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 3px;
+}
+
+.chiffres-cles strong {
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Reperes d equipe : des agregats anonymes, et la ligne du lecteur mise en
+   avant pour qu il se trouve sans compter. */
+.reperes {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.repere-ligne {
+  display: grid;
+  grid-template-columns: 200px 1fr 110px;
+  align-items: center;
+  gap: 12px;
+}
+
+.repere-nom {
+  font-size: 13px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repere-ligne.moi .repere-nom,
+.repere-ligne.moi .repere-valeur {
+  color: var(--brand-700);
+  font-weight: 650;
+}
+
+.repere-rail {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.repere-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--viz-4);
+}
+
+.repere-ligne.moi .repere-barre {
+  background: var(--brand);
+}
+
+.repere-valeur {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Recherche posee dans un encart plutot que dans la barre du haut. */
+.search-encart {
+  margin: 14px 20px 4px;
+}
+
+@media (max-width: 760px) {
+  .repere-ligne {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .repere-valeur {
+    text-align: left;
+  }
+
+  .objectif-taux {
+    font-size: 28px;
+  }
+
+  .search-encart {
+    margin: 14px 14px 4px;
   }
 }

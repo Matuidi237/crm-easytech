@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { commissionDe, tauxEffectif } from "../lib/commissions.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
+import { fenetreDe, partEcoulee } from "../lib/periodes.js";
 
 export const commercialRouter = Router();
 
@@ -59,7 +60,7 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
 
   const compte = await prisma.utilisateur.findUnique({
     where: { id: moi.id },
-    select: { nomComplet: true, pays: true, tauxCommissionPct: true },
+    select: { nomComplet: true, pays: true, tauxCommissionPct: true, objectifsPersonnels: true },
   });
   if (!compte) return res.status(404).json({ error: "Compte introuvable." });
 
@@ -93,6 +94,23 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     }),
   ]);
 
+  /* Objectif de l'année en cours, dans la source que le compte a retenue
+     (voir l'onglet Agenda). Il remplace le chiffre d'affaires brut en tête du
+     tableau de bord : savoir qu'on a fait 30 M n'apprend rien tant qu'on
+     ignore ce qui était attendu. */
+  const anneeEnCours = fenetreDe("ANNEE", new Date());
+  const objectifsAnnee = await prisma.objectifCommercial.findMany({
+    where: {
+      utilisateurId: moi.id,
+      periode: "ANNEE",
+      debut: new Date(Date.UTC(anneeEnCours.debut.getFullYear(), 0, 1)),
+    },
+    select: { cibleCaXAF: true, fixeParEncadrement: true, definiParNom: true },
+  });
+  // Le compte suit soit son propre objectif, soit celui de l'encadrement.
+  const sourceEncadrement = !compte.objectifsPersonnels;
+  const objectifRetenu = objectifsAnnee.find((o) => o.fixeParEncadrement === sourceEncadrement) ?? null;
+
   /* --- Ce que j'ai réalisé ------------------------------------------------ */
   const { debutMois, debutMoisPrecedent } = bornesMensuelles();
   let ca = 0;
@@ -101,6 +119,12 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   let caMoisPrecedent = 0;
   let commissionsAttendues = 0;
   let commissionsRecues = 0;
+  /* Le cumul de l'année civile, seul comparable à un objectif annuel. Le
+     total de tous les temps inclurait les exercices précédents et donnerait
+     un taux de complétion flatteur et faux. */
+  let caAnnee = 0;
+  let beneficeAnnee = 0;
+  let nbVentesAnnee = 0;
   const mesClients = new Set<string>();
 
   /* Douze mois glissants, créés vides puis remplis. Partir des ventes
@@ -128,6 +152,11 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     benefice += marge;
     if (v.dateVente >= debutMois) caMois += montant;
     else if (v.dateVente >= debutMoisPrecedent) caMoisPrecedent += montant;
+    if (v.dateVente >= anneeEnCours.debut && v.dateVente < anneeEnCours.fin) {
+      caAnnee += montant;
+      beneficeAnnee += marge;
+      nbVentesAnnee += 1;
+    }
     if (v.clientId) mesClients.add(v.clientId);
 
     /* Commission calculée vente par vente, comme sur la fiche que consulte le
@@ -219,6 +248,23 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
 
   res.json({
     identite: { nomComplet: compte.nomComplet, pays: compte.pays },
+    /* L'indicateur de tête : où en est l'année par rapport à l'engagement.
+       « cible null » dit qu'aucun objectif n'a été posé, ce qui n'est pas la
+       même chose qu'un objectif à zéro et appelle une autre réaction. */
+    objectifAnnuel: {
+      annee: anneeEnCours.debut.getFullYear(),
+      cible: objectifRetenu?.cibleCaXAF === undefined || objectifRetenu?.cibleCaXAF === null
+        ? null
+        : Math.round(Number(objectifRetenu.cibleCaXAF)),
+      realise: Math.round(caAnnee),
+      benefice: Math.round(beneficeAnnee),
+      nbVentes: nbVentesAnnee,
+      /* Part de l'année écoulée : un taux de complétion ne se juge que
+         comparé au temps consommé. */
+      partEcoulee: Math.round(partEcoulee(anneeEnCours) * 100),
+      source: compte.objectifsPersonnels ? "PERSONNEL" : "ENCADREMENT",
+      definiParNom: objectifRetenu?.definiParNom ?? null,
+    },
     chiffreAffaires: {
       total: Math.round(ca),
       benefice: Math.round(benefice),
@@ -258,6 +304,220 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     },
     parMois: parMois.map((m) => ({ ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) })),
     ventes: detail,
+  });
+});
+
+/* ==========================================================================
+   Détail du classement
+   ========================================================================== */
+
+/**
+ * Comment le rang se construit, sans nommer personne.
+ *
+ * Un commercial a le droit de savoir où il se situe et de quoi dépend sa
+ * place ; il n'a pas à connaître le chiffre d'affaires nominatif de ses
+ * collègues, qui relève de l'encadrement. On renvoie donc des repères
+ * agrégés : le premier, la moyenne, la médiane, et sa propre position sur
+ * chacun des deux axes.
+ */
+commercialRouter.get("/classement", async (req, res) => {
+  const moi = req.utilisateur!;
+
+  const [equipe, ventesEquipe] = await Promise.all([
+    prisma.utilisateur.findMany({
+      where: { role: { in: [...ROLES_COMMERCIALE] }, actif: true },
+      select: { id: true },
+    }),
+    prisma.vente.findMany({
+      where: { vendeurId: { not: null } },
+      select: { vendeurId: true, dateVente: true, prixAchat: true, prixVente: true, quantite: true },
+    }),
+  ]);
+
+  const perfs = new Map<string, Perf>(equipe.map((e) => [e.id, { id: e.id, ca: 0, benefice: 0, nbVentes: 0 }]));
+  /* Rang mois par mois sur douze mois : une place isolée ne dit pas si l'on
+     monte ou si l'on décroche, et c'est la tendance qui se discute. */
+  const maintenant = new Date();
+  const mois: string[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+    mois.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+  const caMensuel = new Map<string, Map<string, number>>(mois.map((m) => [m, new Map()]));
+
+  for (const v of ventesEquipe) {
+    const montant = nb(v.prixVente) * v.quantite;
+    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const p = perfs.get(v.vendeurId!);
+    if (!p) continue;
+    p.ca += montant;
+    p.benefice += marge;
+    p.nbVentes += 1;
+
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const duMois = caMensuel.get(cle);
+    if (duMois) duMois.set(v.vendeurId!, (duMois.get(v.vendeurId!) ?? 0) + montant);
+  }
+
+  const membres = [...perfs.values()];
+  const parCa = membres.map((p) => ({ id: p.id, score: p.ca })).sort((a, b) => b.score - a.score);
+  const parMarge = membres
+    .map((p) => ({ id: p.id, score: p.ca > 0 ? p.benefice / p.ca : -1 }))
+    .sort((a, b) => b.score - a.score);
+  const parCombine = membres
+    .map((p) => ({
+      id: p.id,
+      score: (rangDe(parCa, p.id) ?? membres.length) + (rangDe(parMarge, p.id) ?? membres.length),
+    }))
+    .sort((a, b) => a.score - b.score);
+
+  const moiPerf = perfs.get(moi.id) ?? { id: moi.id, ca: 0, benefice: 0, nbVentes: 0 };
+  const cas = parCa.map((c) => c.score);
+  const mediane = cas.length === 0 ? 0 : cas[Math.floor(cas.length / 2)];
+
+  res.json({
+    rang: rangDe(parCombine, moi.id),
+    rangChiffreAffaires: rangDe(parCa, moi.id),
+    rangRentabilite: rangDe(parMarge, moi.id),
+    effectif: membres.length,
+    moi: {
+      chiffreAffaires: Math.round(moiPerf.ca),
+      benefice: Math.round(moiPerf.benefice),
+      margePct: moiPerf.ca > 0 ? Math.round((moiPerf.benefice / moiPerf.ca) * 100) : null,
+      nbVentes: moiPerf.nbVentes,
+    },
+    /* Repères anonymes : ils situent sans désigner. */
+    equipe: {
+      caPremier: Math.round(cas[0] ?? 0),
+      caMoyen: Math.round(cas.reduce((s, c) => s + c, 0) / Math.max(1, cas.length)),
+      caMedian: Math.round(mediane),
+      margeMoyennePct:
+        membres.reduce((s, p) => s + p.ca, 0) > 0
+          ? Math.round(
+              (membres.reduce((s, p) => s + p.benefice, 0) / membres.reduce((s, p) => s + p.ca, 0)) * 100
+            )
+          : null,
+    },
+    parMois: mois.map((m) => {
+      const duMois = caMensuel.get(m)!;
+      const classement = [...duMois.entries()].sort((a, b) => b[1] - a[1]);
+      const index = classement.findIndex(([id]) => id === moi.id);
+      return {
+        mois: m,
+        ca: Math.round(duMois.get(moi.id) ?? 0),
+        /* Null quand on n'a rien vendu ce mois-là : se voir « dernier » parce
+           qu'on était en congé n'apprend rien. */
+        rang: index === -1 ? null : index + 1,
+        classes: classement.length,
+      };
+    }),
+  });
+});
+
+/* ==========================================================================
+   Détail du portefeuille
+   ========================================================================== */
+
+/**
+ * Les clients du portefeuille, et ce qu'ils ont rapporté.
+ *
+ * L'intérêt de l'écran n'est pas la liste, qui existe déjà sous l'onglet
+ * Clients, mais la distinction entre ceux qui achètent et ceux qui dorment :
+ * c'est là que se trouve le travail à venir.
+ */
+commercialRouter.get("/portefeuille", async (req, res) => {
+  const moi = req.utilisateur!;
+
+  const [possedes, ouverts, mesVentes] = await Promise.all([
+    prisma.client.findMany({
+      where: { proprietaireId: moi.id },
+      select: { id: true, nom: true, pays: true, secteurActivite: true, createdAt: true },
+    }),
+    prisma.accesClient.findMany({
+      where: { utilisateurId: moi.id },
+      select: {
+        client: { select: { id: true, nom: true, pays: true, secteurActivite: true, createdAt: true } },
+      },
+    }),
+    prisma.vente.findMany({
+      where: { vendeurId: moi.id },
+      select: { clientId: true, clientNom: true, dateVente: true, prixAchat: true, prixVente: true, quantite: true },
+    }),
+  ]);
+
+  type Ligne = {
+    id: string | null;
+    nom: string;
+    pays: string | null;
+    secteurActivite: string | null;
+    origine: "PROPRIETAIRE" | "ACCES" | "VENTE";
+    nbVentes: number;
+    chiffreAffaires: number;
+    benefice: number;
+    derniereVente: Date | null;
+  };
+
+  const lignes = new Map<string, Ligne>();
+  const poser = (c: { id: string; nom: string; pays: string | null; secteurActivite: string | null }, origine: Ligne["origine"]) => {
+    if (lignes.has(c.id)) return;
+    lignes.set(c.id, {
+      id: c.id,
+      nom: c.nom,
+      pays: c.pays,
+      secteurActivite: c.secteurActivite,
+      origine,
+      nbVentes: 0,
+      chiffreAffaires: 0,
+      benefice: 0,
+      derniereVente: null,
+    });
+  };
+
+  for (const c of possedes) poser(c, "PROPRIETAIRE");
+  for (const a of ouverts) if (a.client) poser(a.client, "ACCES");
+
+  for (const v of mesVentes) {
+    /* Une vente sans fiche rattachée garde sa ligne, sous son nom : la retirer
+       ferait disparaître du chiffre d'affaires déjà réalisé. */
+    const cle = v.clientId ?? `nom:${v.clientNom}`;
+    const ligne =
+      lignes.get(cle) ??
+      ({
+        id: v.clientId,
+        nom: v.clientNom,
+        pays: null,
+        secteurActivite: null,
+        origine: "VENTE",
+        nbVentes: 0,
+        chiffreAffaires: 0,
+        benefice: 0,
+        derniereVente: null,
+      } satisfies Ligne);
+    ligne.nbVentes += 1;
+    ligne.chiffreAffaires += nb(v.prixVente) * v.quantite;
+    ligne.benefice += (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    if (!ligne.derniereVente || v.dateVente > ligne.derniereVente) ligne.derniereVente = v.dateVente;
+    lignes.set(cle, ligne);
+  }
+
+  const toutes = [...lignes.values()].map((l) => ({
+    ...l,
+    chiffreAffaires: Math.round(l.chiffreAffaires),
+    benefice: Math.round(l.benefice),
+  }));
+
+  const servis = toutes.filter((l) => l.nbVentes > 0);
+  res.json({
+    total: toutes.length,
+    avecVente: servis.length,
+    couverturePct: toutes.length > 0 ? Math.round((servis.length / toutes.length) * 100) : null,
+    chiffreAffaires: servis.reduce((s, l) => s + l.chiffreAffaires, 0),
+    /* Les clients servis d'abord, du plus gros au plus petit ; les dormants
+       ensuite, par ordre alphabétique faute de montant pour les départager. */
+    clients: [
+      ...servis.sort((a, b) => b.chiffreAffaires - a.chiffreAffaires),
+      ...toutes.filter((l) => l.nbVentes === 0).sort((a, b) => a.nom.localeCompare(b.nom)),
+    ],
   });
 });
 

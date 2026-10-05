@@ -29,6 +29,9 @@ import CommissionsPage from "./pages/CommissionsPage";
 import AgendaPage from "./pages/AgendaPage";
 import FeuilleDeTempsPage from "./pages/FeuilleDeTempsPage";
 import ObjectifsPage from "./pages/ObjectifsPage";
+import DetailObjectifPage from "./pages/DetailObjectifPage";
+import DetailClassementPage from "./pages/DetailClassementPage";
+import DetailPortefeuillePage from "./pages/DetailPortefeuillePage";
 import EnConstruction from "./pages/EnConstruction";
 
 /**
@@ -159,6 +162,31 @@ export default function App() {
               element={
                 <RouteCommerciale>
                   <CommissionsPage />
+                </RouteCommerciale>
+              }
+            />
+            {/* Détail des indicateurs du tableau de bord commercial. */}
+            <Route
+              path="/tableau-de-bord/objectif"
+              element={
+                <RouteCommerciale>
+                  <DetailObjectifPage />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/tableau-de-bord/classement"
+              element={
+                <RouteCommerciale>
+                  <DetailClassementPage />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/tableau-de-bord/portefeuille"
+              element={
+                <RouteCommerciale>
+                  <DetailPortefeuillePage />
                 </RouteCommerciale>
               }
             />

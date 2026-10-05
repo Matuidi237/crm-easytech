@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import { IconArrowDown, IconArrowUp } from "./Icons";
+import { Link } from "react-router-dom";
+import { IconArrowDown, IconArrowUp, IconArrowRight } from "./Icons";
 import { Jauge } from "./Charts";
 
 /**
@@ -22,6 +23,10 @@ export type Carte = {
   variationPct?: number | null;
   /** Jauge circulaire, quand un pourcentage double utilement le chiffre. */
   jauge?: { valeurPct: number; couleur: string };
+  /** Page de détail. Renseignée, la carte devient un lien. */
+  vers?: string;
+  /** Ce qu'on trouvera au bout du lien, annoncé plutôt que deviné. */
+  libelleLien?: string;
 };
 
 /** Puce de variation. La flèche double la couleur, elle ne la remplace pas. */
@@ -57,11 +62,13 @@ export default function CarteIndicateur({
   bg,
   variationPct,
   jauge,
+  vers,
+  libelleLien,
   libelleVariation,
   libelleSansVariation,
 }: Carte & { libelleVariation: string; libelleSansVariation: string }) {
-  return (
-    <div className="stat stat-riche">
+  const corps = (
+    <>
       <div className="stat-riche-haut">
         <div style={{ minWidth: 0 }}>
           <div className="stat-label">{label}</div>
@@ -81,6 +88,24 @@ export default function CarteIndicateur({
         )}
         <span className="stat-note">{note}</span>
       </div>
-    </div>
+      {/* Le lien est annoncé en toutes lettres : une carte entièrement
+          cliquable sans repère visible ne se découvre qu'au hasard du curseur. */}
+      {vers && libelleLien && (
+        <span className="stat-lien">
+          {libelleLien}
+          <IconArrowRight size={14} />
+        </span>
+      )}
+    </>
   );
+
+  if (vers) {
+    return (
+      <Link to={vers} className="stat stat-riche stat-cliquable">
+        {corps}
+      </Link>
+    );
+  }
+
+  return <div className="stat stat-riche">{corps}</div>;
 }

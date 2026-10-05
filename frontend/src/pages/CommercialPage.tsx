@@ -3,7 +3,7 @@ import { TableauCommercial, fetchTableauCommercial } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue } from "../i18n";
 import CarteIndicateur, { type Carte } from "../components/CarteIndicateur";
-import { EvolutionMensuelle } from "../components/Charts";
+import { CourbeEvolution } from "../components/Charts";
 import { IconAlert, IconAward, IconCoins, IconInbox, IconTrend, IconUsers } from "../components/Icons";
 
 /**
@@ -61,7 +61,7 @@ export default function CommercialPage() {
     );
   }
 
-  const { chiffreAffaires: ca, classement, portefeuille, commissions } = donnees;
+  const { chiffreAffaires: ca, classement, portefeuille, commissions, objectifAnnuel } = donnees;
   const rien = t("dg.aucuneDonnee");
   const aVendu = ca.nbVentes > 0;
 
@@ -69,19 +69,35 @@ export default function CommercialPage() {
      la place se joue à deux ventes ou à une année de travail. */
   const ecartPremier = classement.caPremier > 0 ? Math.round((ca.total / classement.caPremier) * 100) : null;
 
+  /* Taux de complétion de l'engagement annuel. Il remplace le chiffre
+     d'affaires brut en tête : savoir qu'on a réalisé 30 M n'apprend rien tant
+     qu'on ignore ce qui était attendu. */
+  const completionPct =
+    objectifAnnuel.cible && objectifAnnuel.cible > 0
+      ? Math.round((objectifAnnuel.realise / objectifAnnuel.cible) * 100)
+      : null;
+
   const cartes: Carte[] = [
     {
-      label: t("co.ca"),
-      valeur: aVendu ? montantCompact(ca.total) : rien,
-      note: aVendu
-        ? ca.partEquipePct !== null
-          ? t("co.caNote", { n: nombre(ca.nbVentes), part: ca.partEquipePct })
-          : t("co.caNoteSansPart", { n: nombre(ca.nbVentes) })
-        : t("co.aucuneVente"),
+      label: t("co.objectifAnnuel", { annee: objectifAnnuel.annee }),
+      valeur: completionPct === null ? rien : `${nombre(completionPct)}%`,
+      note:
+        completionPct === null
+          ? t("co.objectifAbsent")
+          : t("co.objectifNote", {
+              realise: montantCompact(objectifAnnuel.realise),
+              cible: montantCompact(objectifAnnuel.cible ?? 0),
+              ecoule: objectifAnnuel.partEcoulee,
+            }),
       icone: IconTrend,
       fg: "#0c8074",
       bg: "#e2f4f1",
-      variationPct: ca.variationMois,
+      /* La jauge porte le taux lui-même : c'est la seule des quatre cartes
+         dont la valeur EST une fraction, et la dessiner évite de la relire. */
+      jauge:
+        completionPct === null ? undefined : { valeurPct: Math.min(100, completionPct), couleur: "#0c8074" },
+      vers: "/tableau-de-bord/objectif",
+      libelleLien: t("co.voirDetail"),
     },
     {
       label: t("co.classement"),
@@ -102,6 +118,8 @@ export default function CommercialPage() {
       /* Jauge sur l'écart au premier, pas sur le rang : un rang n'a pas de
          fraction, et le dessiner en proportion inventerait une distance. */
       jauge: ecartPremier !== null ? { valeurPct: Math.min(100, ecartPremier), couleur: "#c07a00" } : undefined,
+      vers: "/tableau-de-bord/classement",
+      libelleLien: t("co.voirDetail"),
     },
     {
       label: t("co.portefeuille"),
@@ -120,6 +138,8 @@ export default function CommercialPage() {
         portefeuille.couverturePct !== null
           ? { valeurPct: portefeuille.couverturePct, couleur: "#7c4dcc" }
           : undefined,
+      vers: "/tableau-de-bord/portefeuille",
+      libelleLien: t("co.voirDetail"),
     },
     {
       label: t("co.commissions"),
@@ -142,6 +162,10 @@ export default function CommercialPage() {
       icone: IconCoins,
       fg: "#2a79ae",
       bg: "#e8f3fb",
+      // La page Commissions EST le detail : en creer une seconde donnerait
+      // deux ecrans a maintenir pour la meme question.
+      vers: "/commissions",
+      libelleLien: t("co.voirReleve"),
     },
   ];
 
@@ -170,7 +194,7 @@ export default function CommercialPage() {
               <div className="card-sub">{t("co.evolutionSousTitre")}</div>
             </div>
           </div>
-          <EvolutionMensuelle
+          <CourbeEvolution
             points={donnees.parMois.map((p) => ({
               ...p,
               libelle: new Date(`${p.mois}-01T00:00:00`).toLocaleDateString(locale, { month: "short" }),

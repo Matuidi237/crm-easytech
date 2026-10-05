@@ -659,18 +659,34 @@ async function creer() {
   /* Une commerciale a pris la main sur son calendrier : la bascule entre les
      deux plannings doit être visible dans la démonstration, pas seulement
      possible. */
-  objectifs.push({
-    utilisateurId: ids["demo-nerea"],
-    periode: "MOIS",
-    debut: jourCalendaire(debutMois),
-    cibleCaXAF: 4000000,
-    cibleVentes: 3,
-    cibleRendezVous: 12,
-    fixeParEncadrement: false,
-    definiParNom: "Nerea Vendeuse",
-    note: "Je vise plus haut que l'objectif d'équipe ce mois-ci.",
-    estDemo: true,
-  });
+  objectifs.push(
+    {
+      utilisateurId: ids["demo-nerea"],
+      periode: "MOIS",
+      debut: jourCalendaire(debutMois),
+      cibleCaXAF: 4000000,
+      cibleVentes: 3,
+      cibleRendezVous: 12,
+      fixeParEncadrement: false,
+      definiParNom: "Nerea Vendeuse",
+      note: "Je vise plus haut que l'objectif d'équipe ce mois-ci.",
+      estDemo: true,
+    },
+    /* Son objectif annuel : c'est lui qui alimente l'indicateur de tête du
+       tableau de bord. Sans objectif annuel dans la source retenue, la carte
+       resterait vide pour le compte de démonstration principal. */
+    {
+      utilisateurId: ids["demo-nerea"],
+      periode: "ANNEE",
+      debut: jourCalendaire(debutAnnee),
+      cibleCaXAF: 42000000,
+      cibleVentes: 30,
+      fixeParEncadrement: false,
+      definiParNom: "Nerea Vendeuse",
+      note: "Engagement annuel pris en entretien de début d'exercice.",
+      estDemo: true,
+    }
+  );
   await prisma.objectifCommercial.createMany({ data: objectifs });
   await prisma.utilisateur.update({
     where: { id: ids["demo-nerea"] },

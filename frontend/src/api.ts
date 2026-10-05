@@ -607,6 +607,17 @@ export async function fetchAnalysesDirection() {
  */
 export type TableauCommercial = {
   identite: { nomComplet: string; pays: string | null };
+  objectifAnnuel: {
+    annee: number;
+    /** Null quand aucun objectif n'a été posé : à distinguer d'une cible nulle. */
+    cible: number | null;
+    realise: number;
+    benefice: number;
+    nbVentes: number;
+    partEcoulee: number;
+    source: "PERSONNEL" | "ENCADREMENT";
+    definiParNom: string | null;
+  };
   chiffreAffaires: {
     total: number;
     benefice: number;
@@ -779,6 +790,54 @@ export async function supprimerObjectif(id: string) {
   const res = await authedFetch(`/api/agenda/objectifs/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
   return res.json();
+}
+
+/**
+ * Détail du classement.
+ *
+ * Aucun collègue n'est nommé : un commercial a le droit de savoir où il se
+ * situe, pas de lire le chiffre d'affaires nominatif des autres.
+ */
+export type DetailClassement = {
+  rang: number | null;
+  rangChiffreAffaires: number | null;
+  rangRentabilite: number | null;
+  effectif: number;
+  moi: { chiffreAffaires: number; benefice: number; margePct: number | null; nbVentes: number };
+  equipe: { caPremier: number; caMoyen: number; caMedian: number; margeMoyennePct: number | null };
+  parMois: { mois: string; ca: number; rang: number | null; classes: number }[];
+};
+
+export async function fetchDetailClassement() {
+  const res = await authedFetch("/api/commercial/classement");
+  if (!res.ok) throw new Error("Erreur lors du chargement du classement.");
+  return res.json() as Promise<DetailClassement>;
+}
+
+export type LignePortefeuille = {
+  id: string | null;
+  nom: string;
+  pays: string | null;
+  secteurActivite: string | null;
+  origine: "PROPRIETAIRE" | "ACCES" | "VENTE";
+  nbVentes: number;
+  chiffreAffaires: number;
+  benefice: number;
+  derniereVente: string | null;
+};
+
+export type DetailPortefeuille = {
+  total: number;
+  avecVente: number;
+  couverturePct: number | null;
+  chiffreAffaires: number;
+  clients: LignePortefeuille[];
+};
+
+export async function fetchDetailPortefeuille() {
+  const res = await authedFetch("/api/commercial/portefeuille");
+  if (!res.ok) throw new Error("Erreur lors du chargement du portefeuille.");
+  return res.json() as Promise<DetailPortefeuille>;
 }
 
 /** Relevé de commissions du compte connecté. */
