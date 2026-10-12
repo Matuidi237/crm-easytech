@@ -5820,27 +5820,95 @@ td.col-actions {
 
 /* Feuille de temps en grille -------------------------------------------- */
 
+/* En-tete de semaine : la navigation a gauche, l avancement a droite. Le
+   meme chiffre qu au pied du tableau, mais vu avant de saisir. */
+.fdt-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.fdt-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.fdt-periode {
+  margin-left: 6px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.fdt-avancement {
+  min-width: 240px;
+  flex: 0 1 300px;
+}
+
+.fdt-avancement-chiffres {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.fdt-avancement-chiffres strong {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.fdt-avancement-chiffres span {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.fdt-jauge {
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--viz-track);
+  overflow: hidden;
+}
+
+.fdt-jauge-barre {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.fdt-jauge-barre.pleine {
+  background: #0c8074;
+}
+
+.fdt-avancement-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* Grille ---------------------------------------------------------------- */
+
 .fdt {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r);
   overflow: hidden;
-}
-
-.fdt-barre {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.fdt-periode {
-  margin-left: 6px;
-  font-size: 14.5px;
-  font-weight: 650;
-  color: var(--ink);
 }
 
 /* La grille defile horizontalement plutot que de comprimer ses colonnes :
@@ -5851,7 +5919,7 @@ td.col-actions {
 
 .fdt-table {
   width: 100%;
-  min-width: 720px;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -5861,20 +5929,42 @@ td.col-actions {
   padding: 0;
 }
 
+.fdt-table tbody tr:hover .fdt-col-activite,
+.fdt-table tbody tr:hover .fdt-case {
+  background: var(--surface-2);
+}
+
 .fdt-col-activite {
-  width: 240px;
-  min-width: 200px;
-  padding: 9px 14px;
+  width: 270px;
+  min-width: 220px;
+  padding: 10px 14px;
   text-align: left;
   font-weight: 400;
   border-right: 1px solid var(--border);
   background: var(--surface);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Pastille de couleur : la meme que dans l agenda, pour reconnaitre une
+   activite sans relire son libelle. */
+.fdt-puce {
+  width: 4px;
+  align-self: stretch;
+  min-height: 30px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.fdt-libelle {
+  min-width: 0;
 }
 
 .fdt-activite {
   display: block;
-  font-size: 13px;
-  font-weight: 550;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -5889,36 +5979,45 @@ td.col-actions {
 
 .fdt-table thead th {
   background: var(--surface-2);
-  padding: 8px 6px;
-  font-size: 12px;
+  padding: 9px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fdt-table thead .fdt-col-activite {
+  background: var(--surface-2);
+  display: table-cell;
 }
 
 .fdt-col-jour {
   text-align: center;
-  min-width: 68px;
+  min-width: 74px;
 }
 
 .fdt-jour-nom {
   display: block;
   font-size: 10.5px;
   color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .fdt-jour-num {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
   color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .fdt-col-jour.aujourdhui {
   background: var(--brand-100);
 }
 
-.fdt-col-jour.aujourdhui .fdt-jour-num {
+.fdt-col-jour.aujourdhui .fdt-jour-num,
+.fdt-col-jour.aujourdhui .fdt-jour-nom {
   color: var(--brand-700);
 }
 
@@ -5931,40 +6030,64 @@ td.col-actions {
 
 .fdt-col-total {
   text-align: right;
-  padding-right: 14px;
-  min-width: 96px;
+  padding-right: 16px;
+  min-width: 104px;
   border-left: 1px solid var(--border);
 }
 
+/* Cases ----------------------------------------------------------------- */
+
 .fdt-case {
   text-align: center;
+  position: relative;
 }
 
 .fdt-case.repos {
   background: var(--surface-2);
 }
 
-.fdt-case.en-cours {
+/* La colonne du jour reste teintee sur toute sa hauteur : c est celle qu on
+   remplit le plus souvent. */
+.fdt-case.colonne-active {
+  background: rgba(31, 134, 200, 0.05);
+}
+
+.fdt-case.en-cours::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 6px;
   background: var(--brand-100);
+  opacity: 0.7;
 }
 
 /* La case EST le champ : un clic suffit a corriger, la ou un bouton
    « modifier » demanderait deux gestes par cellule. */
 .fdt-saisie {
   width: 100%;
-  height: 38px;
+  height: 42px;
   border: 0;
   background: none;
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: center;
   color: var(--ink);
+  cursor: text;
 }
 
-.fdt-case.vide .fdt-saisie,
-.fdt-case.vide .fdt-lecture {
+/* Une case vide porte un tiret et non « 0:00 » : une grille de zeros se lit
+   comme un mur, et l oeil ne distingue plus ce qui est rempli. */
+.fdt-saisie::placeholder {
   color: var(--ink-3);
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.fdt-saisie:hover {
+  background: var(--brand-100);
+  border-radius: 6px;
 }
 
 .fdt-saisie:focus {
@@ -5976,10 +6099,15 @@ td.col-actions {
 
 .fdt-lecture {
   display: inline-block;
-  padding: 10px 0;
-  font-size: 13px;
+  padding: 12px 0;
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
+}
+
+.fdt-case.vide .fdt-lecture {
+  color: var(--ink-3);
+  opacity: 0.6;
 }
 
 .fdt-marque {
@@ -5990,110 +6118,71 @@ td.col-actions {
 
 .fdt-total-ligne {
   text-align: right;
-  padding-right: 14px;
-  font-size: 13px;
-  font-weight: 600;
+  padding-right: 16px;
+  font-size: 13.5px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
   border-left: 1px solid var(--border);
 }
 
-.fdt-vide {
-  padding: 22px 14px;
-  text-align: center;
-  font-size: 13px;
+.fdt-total-ligne.vide {
   color: var(--ink-3);
+  font-weight: 400;
 }
 
-.fdt-ajout td {
-  padding: 10px 14px;
-}
+/* Totaux ---------------------------------------------------------------- */
 
-.fdt-ajout-lien {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: none;
-  padding: 0;
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brand-700);
-  cursor: pointer;
-}
-
-.fdt-form {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.fdt-form .field {
-  margin-bottom: 0;
-  min-width: 200px;
-  flex: 1;
-}
-
-.fdt-form-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* Totaux et ecarts, au pied de chaque colonne. */
-.fdt-totaux td,
-.fdt-totaux th {
+.fdt-totaux th,
+.fdt-totaux td {
   padding: 10px 6px;
   text-align: center;
-  font-size: 13.5px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
   background: var(--surface-2);
   border-top: 2px solid var(--border);
+  border-bottom: 0;
 }
 
-.fdt-total-jour.manque {
-  color: #a33d5b;
-}
-
-.fdt-total-jour.surplus {
-  color: #0c7a6f;
-}
-
-.fdt-total-jour.repos {
+.fdt-totaux .fdt-col-activite {
+  display: table-cell;
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+}
+
+.fdt-total-valeur {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.fdt-total-jour.repos .fdt-total-valeur {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.fdt-total-jour.colonne-active {
+  background: var(--brand-100);
 }
 
 .fdt-total-general {
   text-align: right;
-  padding-right: 14px;
+  padding-right: 16px;
   border-left: 1px solid var(--border);
-}
-
-.fdt-total-general.manque {
-  color: #a33d5b;
-}
-
-.fdt-ecarts td {
-  padding: 0 6px 10px;
-  text-align: center;
-  background: var(--surface-2);
-  border-bottom: 0;
-}
-
-.fdt-ecarts th {
-  background: var(--surface-2);
-  border-bottom: 0;
 }
 
 /* L ecart en pastille : il se lit comme un commentaire du total, pas comme
    un second total. */
 .fdt-ecart {
   display: inline-block;
-  padding: 2px 8px;
+  margin-top: 3px;
+  padding: 1px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   background: var(--surface);
@@ -6107,13 +6196,78 @@ td.col-actions {
   color: #0c7a6f;
 }
 
+/* Pied : raccourcis de duree, ou aide a la saisie ------------------------ */
+
+.fdt-pied {
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
 .fdt-aide {
   margin: 0;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border);
   font-size: 12px;
   line-height: 1.6;
   color: var(--ink-3);
+}
+
+/* Une journee se compte en demies et en quarts d heure : six boutons
+   evitent six frappes. */
+.fdt-raccourcis {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.fdt-raccourcis-cible {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-right: 4px;
+}
+
+.fdt-raccourci {
+  padding: 4px 11px;
+  border: 1px solid var(--brand-200);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand-700);
+  cursor: pointer;
+}
+
+.fdt-raccourci:hover {
+  background: var(--brand-100);
+}
+
+.fdt-raccourci.effacer {
+  border-color: var(--border);
+  color: var(--ink-3);
+}
+
+.fdt-raccourci.effacer:hover {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+@media (max-width: 760px) {
+  .fdt-avancement {
+    flex: 1 1 100%;
+  }
+
+  .fdt-col-activite {
+    width: 170px;
+    min-width: 160px;
+    padding: 9px 10px;
+  }
+
+  .fdt-periode {
+    font-size: 13.5px;
+  }
 }
 
 /* Objectifs en tete de l agenda ----------------------------------------- */
