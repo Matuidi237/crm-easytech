@@ -68,12 +68,13 @@ function jourCalendaire(d: Date): Date {
 /**
  * Journée de référence, en minutes.
  *
- * Une seule valeur pour tout le monde faute d'accord individuel. Elle ne sert
- * qu'à situer une charge : « 28 h » ne dit pas si la semaine est pleine, « 28
- * de 35 » si. Aucun seuil n'est imposé, aucune alerte n'en découle. Le jour où
- * les contrats divergeront, ce nombre deviendra un champ du compte.
+ * Huit heures, la durée légale au Cameroun, soit quarante heures sur cinq
+ * jours ouvrés. Elle ne sert qu'à situer une charge : « 32 h » ne dit pas si
+ * la semaine est pleine, « 32 de 40 » si. Aucun seuil n'est imposé, aucune
+ * alerte n'en découle. Le jour où les contrats divergeront d'une personne à
+ * l'autre, ce nombre deviendra un champ du compte.
  */
-const MINUTES_CIBLE_PAR_JOUR = 7 * 60;
+const MINUTES_CIBLE_PAR_JOUR = 8 * 60;
 
 /** Jours ouvrés d'une fenêtre : le samedi et le dimanche ne sont pas attendus. */
 function joursOuvres(debut: Date, fin: Date): number {

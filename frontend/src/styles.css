@@ -6363,3 +6363,18 @@ td.col-actions {
     font-size: 13px;
   }
 }
+
+/* Raccourcis sous le champ de duree du formulaire : les memes valeurs que
+   dans la grille, pour n avoir a retenir qu une seule facon de faire. */
+.fdt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.fdt-raccourci.on {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}

@@ -921,7 +921,6 @@ export const fr = {
   "ag.semaineSuivante": "Semaine suivante",
   "ag.cetteSemaine": "Cette semaine",
   "ag.totalSemaine": "{duree} déclarées",
-  "ag.deLaReference": "d'une semaine de 35 h",
   "ag.saisieSousTitre": "Ajoutez un créneau, il se place à la suite du précédent",
   "ag.jourFutur": "Ce jour n'est pas encore passé. Une feuille de temps constate ce qui a été fait ; pour ce qui doit l'être, voyez vos objectifs.",
   "ag.jourVide": "Aucun créneau déclaré pour cette journée.",
@@ -1211,4 +1210,10 @@ export const fr = {
   "pl.ligneAjoutee": "Ligne « {activite} » ajoutée. Saisissez vos heures dans la grille.",
   "pl.grilleVideTitre": "Votre semaine est vide",
   "pl.effacer": "Effacer",
+  "pl.jour": "Jour",
+  "pl.duree": "Durée",
+  "pl.dureePlaceholder": "3:00",
+  "pl.dureeFacultative": "Facultatif : laissez vide pour seulement préparer la ligne et saisir les heures dans la grille",
+  "pl.enregistrerLigne": "Enregistrer",
+  "pl.heuresAjoutees": "{duree} de {activite} déclarées le {jour}.",
 };

@@ -919,7 +919,6 @@ export const en: Record<keyof typeof fr, string> = {
   "ag.semaineSuivante": "Next week",
   "ag.cetteSemaine": "This week",
   "ag.totalSemaine": "{duree} logged",
-  "ag.deLaReference": "of a 35 h week",
   "ag.saisieSousTitre": "Add a slot, it starts where the last one ended",
   "ag.jourFutur": "This day has not happened yet. A timesheet records what was done; for what should be, see your targets.",
   "ag.jourVide": "No slot logged for this day.",
@@ -1209,4 +1208,10 @@ export const en: Record<keyof typeof fr, string> = {
   "pl.ligneAjoutee": "Line \"{activite}\" added. Enter your hours in the grid.",
   "pl.grilleVideTitre": "Your week is empty",
   "pl.effacer": "Clear",
+  "pl.jour": "Day",
+  "pl.duree": "Duration",
+  "pl.dureePlaceholder": "3:00",
+  "pl.dureeFacultative": "Optional: leave empty to just prepare the line and enter hours in the grid",
+  "pl.enregistrerLigne": "Save",
+  "pl.heuresAjoutees": "{duree} of {activite} logged on {jour}.",
 };

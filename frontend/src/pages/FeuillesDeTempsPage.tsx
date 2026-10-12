@@ -94,6 +94,8 @@ const NOUVELLE_LIGNE = {
   activite: "PROSPECTION" as TypeActivite,
   clientId: null as string | null,
   clientNom: "",
+  jour: "",
+  duree: "",
 };
 
 /**
@@ -116,6 +118,7 @@ export default function FeuillesDeTempsPage() {
   const [succes, setSucces] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<string | null>(null);
   const [ajout, setAjout] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
   const [nouvelle, setNouvelle] = useState(NOUVELLE_LIGNE);
   /* Case active : elle reçoit les raccourcis de durée, qui autrement ne
      sauraient pas où écrire. */
@@ -141,6 +144,17 @@ export default function FeuillesDeTempsPage() {
 
   const aujourdhui = cleJour(new Date());
   const libelleActivite = (a: TypeActivite) => t(`activite.${a}` as CleTraduction);
+
+  /* On ne pointe pas un jour à venir : la liste s'arrête à aujourd'hui, et
+     propose le jour courant quand la semaine affichée est celle en cours. */
+  const joursSaisissables = useMemo(
+    () => (feuille?.jours ?? []).filter((j) => j.jour <= aujourdhui),
+    [feuille, aujourdhui]
+  );
+  const jourParDefaut = useMemo(() => {
+    if (joursSaisissables.some((j) => j.jour === aujourdhui)) return aujourdhui;
+    return joursSaisissables[joursSaisissables.length - 1]?.jour ?? aujourdhui;
+  }, [joursSaisissables, aujourdhui]);
 
   const lignes = useMemo(() => {
     if (!feuille) return [];
@@ -171,13 +185,57 @@ export default function FeuillesDeTempsPage() {
     }
   }
 
-  function ajouterLigne(e: FormEvent) {
+  /**
+   * Ajoute une ligne, et ses heures dans la foulée si elles sont données.
+   *
+   * Partir d'une semaine vide demandait trois gestes : ouvrir le formulaire,
+   * poser une ligne nue, puis retrouver la bonne case dans la grille. La
+   * durée et le jour figurent donc ici, et un seul envoi suffit à déclarer
+   * « trois heures de prospection mardi ».
+   */
+  async function ajouterLigne(e: FormEvent) {
     e.preventDefault();
     const cle = `${nouvelle.activite}::${nouvelle.clientId ?? ""}`;
-    if (lignes.some((l) => l.cle === cle)) {
+    const dejaLa = lignes.find((l) => l.cle === cle);
+    const minutes = nouvelle.duree.trim() === "" ? 0 : enMinutes(nouvelle.duree);
+
+    if (minutes === null) {
+      setErreur(t("pl.dureeIllisible", { valeur: nouvelle.duree }));
+      return;
+    }
+    if (dejaLa && minutes === 0) {
       setErreur(t("pl.ligneExistante"));
       return;
     }
+
+    setErreur(null);
+    setSucces(null);
+
+    if (minutes > 0) {
+      const jour = nouvelle.jour || jourParDefaut;
+      setEnvoi(true);
+      try {
+        await poserCellule({ jour, activite: nouvelle.activite, clientId: nouvelle.clientId, minutes });
+        setSucces(
+          t("pl.heuresAjoutees", {
+            duree: dureeLongue(minutes),
+            activite: libelleActivite(nouvelle.activite),
+            jour: new Date(`${jour}T00:00:00`).toLocaleDateString(locale, { weekday: "long", day: "numeric" }),
+          })
+        );
+        setNouvelle({ ...NOUVELLE_LIGNE, jour });
+        setAjout(false);
+        recharger();
+      } catch (err) {
+        setErreur((err as Error).message);
+      } finally {
+        setEnvoi(false);
+      }
+      return;
+    }
+
+    /* Sans durée, la ligne est simplement préparée dans la grille : elle
+       n'existe que dans l'écran tant qu'elle n'a pas reçu d'heures. */
     setLignesVides((v) => [
       ...v,
       {
@@ -189,7 +247,6 @@ export default function FeuillesDeTempsPage() {
         total: 0,
       },
     ]);
-    setErreur(null);
     setSucces(t("pl.ligneAjoutee", { activite: libelleActivite(nouvelle.activite) }));
     setNouvelle(NOUVELLE_LIGNE);
     setAjout(false);
@@ -352,14 +409,62 @@ export default function FeuillesDeTempsPage() {
             </div>
           </div>
 
+          {/* Le jour et la durée ici : sans eux, déclarer trois heures de
+              prospection mardi demandait d'ouvrir ce formulaire, de poser une
+              ligne nue, puis de retrouver la bonne case dans la grille. */}
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="fdt-jour">{t("pl.jour")}</label>
+              <select
+                id="fdt-jour"
+                value={nouvelle.jour || jourParDefaut}
+                onChange={(e) => setNouvelle((n) => ({ ...n, jour: e.target.value }))}
+              >
+                {joursSaisissables.map((j) => (
+                  <option key={j.jour} value={j.jour}>
+                    {new Date(`${j.jour}T00:00:00`).toLocaleDateString(locale, {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                    {j.jour === aujourdhui ? ` · ${t("cal.aujourdhui")}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="fdt-duree">{t("pl.duree")}</label>
+              <input
+                id="fdt-duree"
+                value={nouvelle.duree}
+                onChange={(e) => setNouvelle((n) => ({ ...n, duree: e.target.value }))}
+                placeholder={t("pl.dureePlaceholder")}
+                inputMode="text"
+              />
+              <div className="fdt-chips">
+                {RACCOURCIS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={`fdt-raccourci${enMinutes(nouvelle.duree) === m ? " on" : ""}`}
+                    onClick={() => setNouvelle((n) => ({ ...n, duree: enDuree(m) }))}
+                  >
+                    {enDuree(m)}
+                  </button>
+                ))}
+              </div>
+              <div className="field-hint">{t("pl.dureeFacultative")}</div>
+            </div>
+          </div>
+
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={() => setAjout(false)}>
               <IconClose size={15} />
               {t("commun.annuler")}
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button type="submit" className="btn btn-primary" disabled={envoi}>
               <IconPlus size={15} />
-              {t("pl.ajouterLigne")}
+              {envoi ? t("ag.ajoutEnCours") : t("pl.enregistrerLigne")}
             </button>
           </div>
         </form>
