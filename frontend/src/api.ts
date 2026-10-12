@@ -724,6 +724,21 @@ export type FeuilleDeTemps = {
   parActivite: { activite: TypeActivite; minutes: number }[];
 };
 
+/** Créneaux d'une plage libre, pour la grille du calendrier. */
+export type PlageCalendrier = {
+  debut: string;
+  fin: string;
+  saisies: SaisieTemps[];
+  parJour: Record<string, number>;
+  cibleParJourMinutes: number;
+};
+
+export async function fetchCalendrier(debut: string, fin: string) {
+  const res = await authedFetch(`/api/planning/calendrier?debut=${debut}&fin=${fin}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement du calendrier.");
+  return res.json() as Promise<PlageCalendrier>;
+}
+
 export async function fetchFeuilleDeTemps(periode: PeriodeObjectif, date: string) {
   const res = await authedFetch(`/api/planning/temps?periode=${periode}&date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");

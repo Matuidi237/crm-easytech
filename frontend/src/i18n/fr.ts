@@ -1171,4 +1171,17 @@ export const fr = {
   "clients.doublonAilleurs": "Une fiche porte ce nom ailleurs dans le système. Demandez à votre responsable de vous en ouvrir l'accès plutôt que d'en créer une seconde.",
   "clients.doublonChezVous": "Cette fiche est déjà dans votre portefeuille.",
   "clients.doublonVoir": "Voir la fiche",
+
+  /* ------------------------------------------------------------ Calendrier */
+  "cal.sousTitre": "Votre agenda et la fiche de chaque journée",
+  "cal.aujourdhui": "Aujourd'hui",
+  "cal.choisirVue": "Choisir la vue",
+  "cal.vue.JOUR": "Jour",
+  "cal.vue.SEMAINE": "Semaine",
+  "cal.vue.MOIS": "Mois",
+  "cal.etNAutres": "+ {n} autres",
+  "cal.ajouterA": "Déclarer un créneau à {heure}",
+  "cal.ficheSousTitre": "Cliquez un créneau de la grille pour le reprendre, ou une plage vide pour en poser un",
+  "cal.jourVide": "Aucun créneau déclaré pour cette journée. Cliquez une plage horaire dans la grille, ou remplissez le formulaire ci-dessus.",
+  "cal.etUnAutre": "+ 1 autre",
 };

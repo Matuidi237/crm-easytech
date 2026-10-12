@@ -1169,4 +1169,17 @@ export const en: Record<keyof typeof fr, string> = {
   "clients.doublonAilleurs": "A record with this name exists elsewhere in the system. Ask your manager to open access rather than creating a second one.",
   "clients.doublonChezVous": "This record is already in your portfolio.",
   "clients.doublonVoir": "See the record",
+
+  /* ------------------------------------------------------------- Calendar */
+  "cal.sousTitre": "Your agenda and each day's sheet",
+  "cal.aujourdhui": "Today",
+  "cal.choisirVue": "Choose the view",
+  "cal.vue.JOUR": "Day",
+  "cal.vue.SEMAINE": "Week",
+  "cal.vue.MOIS": "Month",
+  "cal.etNAutres": "+ {n} more",
+  "cal.ajouterA": "Log a slot at {heure}",
+  "cal.ficheSousTitre": "Click a slot in the grid to edit it, or an empty stretch to add one",
+  "cal.jourVide": "No slot logged for this day. Click a time range in the grid, or fill in the form above.",
+  "cal.etUnAutre": "+ 1 more",
 };

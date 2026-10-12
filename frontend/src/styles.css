@@ -5432,3 +5432,388 @@ td.col-actions {
 .head-perimetre {
   flex-basis: 100%;
 }
+
+/* Calendrier ------------------------------------------------------------ */
+
+.cal-barre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cal-titre {
+  margin-left: 6px;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+/* Vue mensuelle --------------------------------------------------------- */
+
+.cal-mois {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.cal-mois-entete {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.cal-mois-entete span {
+  padding: 9px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-mois-grille {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cal-case {
+  min-height: 104px;
+  padding: 6px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cal-case:nth-child(7n) {
+  border-right: 0;
+}
+
+/* Les jours des mois voisins restent lisibles mais en retrait : les masquer
+   ferait une grille trouee, les afficher pleins ferait croire au mois. */
+.cal-case.hors-mois {
+  background: var(--surface-2);
+}
+
+.cal-case.hors-mois .cal-case-num {
+  color: var(--ink-3);
+}
+
+.cal-case.actif {
+  box-shadow: inset 0 0 0 2px var(--brand);
+}
+
+.cal-case-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cal-case-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* La pastille du jour : un disque plein, comme dans les agendas que tout le
+   monde connait deja. */
+.cal-case.aujourdhui .cal-case-num {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  margin: -3px 0;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+}
+
+.cal-case-total {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.cal-pastille {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  width: 100%;
+  padding: 2px 5px;
+  border: 0;
+  border-left: 3px solid var(--brand);
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-family: var(--font);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cal-pastille:hover {
+  background: var(--brand-100);
+}
+
+.cal-pastille-heure {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.cal-pastille-nom {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-reste {
+  border: 0;
+  background: none;
+  padding: 1px 5px;
+  font-family: var(--font);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--brand-700);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Grille horaire -------------------------------------------------------- */
+
+.cal-temps {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.cal-temps-entete {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.cal-gouttiere {
+  width: 54px;
+  flex-shrink: 0;
+}
+
+.cal-jour-tete {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 4px;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: none;
+  font-family: var(--font);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cal-jour-tete.actif {
+  background: var(--brand-100);
+}
+
+.cal-jour-nom {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-jour-num {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.cal-jour-tete.aujourdhui .cal-jour-num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: #fff;
+}
+
+.cal-jour-total {
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+/* Hauteur bornee : la grille defile, la page ne s allonge pas de quinze
+   heures a chaque ouverture. */
+.cal-temps-corps {
+  display: flex;
+  max-height: 560px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.cal-heures {
+  width: 54px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* Posee en absolu a la hauteur exacte de son heure : empilees en flux, la
+   derniere etiquette ajoutait une bande et decalait toute la colonne. */
+.cal-heure {
+  position: absolute;
+  right: 0;
+  width: 100%;
+  padding: 0 8px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  text-align: right;
+  transform: translateY(-6px);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-colonne {
+  flex: 1;
+  position: relative;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+/* Chaque bande d une heure est un bouton : cliquer une plage vide ouvre la
+   saisie a cette heure-la, comme dans un agenda. */
+.cal-creneau-vide {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cal-creneau-vide:hover {
+  background: var(--brand-100);
+}
+
+.cal-event {
+  position: absolute;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  /* Anneau de surface : deux creneaux mitoyens se distinguent sans qu on ait
+     a tracer de bordure coloree. */
+  box-shadow: 0 0 0 2px var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cal-event.en-edition {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
+}
+
+.cal-event-titre {
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-event-detail {
+  font-size: 10px;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trait de l heure courante : le repere qu on cherche en ouvrant un agenda,
+   avant meme de lire les rendez-vous. */
+.cal-maintenant {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #d14343;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.cal-maintenant::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d14343;
+}
+
+@media (max-width: 760px) {
+  .cal-barre {
+    align-items: stretch;
+  }
+
+  .cal-titre {
+    font-size: 14px;
+  }
+
+  .cal-case {
+    min-height: 76px;
+    padding: 4px;
+  }
+
+  /* Sous 760 px une pastille ne tient plus son texte : la case garde le
+     numero et le total, le detail se lit en ouvrant le jour. */
+  .cal-pastille-nom {
+    display: none;
+  }
+
+  .cal-gouttiere,
+  .cal-heures {
+    width: 40px;
+  }
+
+  .cal-heure {
+    font-size: 9.5px;
+    padding: 0 4px;
+  }
+
+  .cal-event-detail {
+    display: none;
+  }
+}

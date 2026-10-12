@@ -178,6 +178,53 @@ planningRouter.get("/temps", async (req, res) => {
   });
 });
 
+/**
+ * Créneaux d'une plage libre, pour la grille du calendrier.
+ *
+ * Une vue mensuelle affiche six semaines pleines, donc des jours des mois
+ * voisins : la fenêtre ne coïncide avec aucune période du modèle, et c'est
+ * l'appelant qui la donne. Plafonnée à 62 jours, de quoi couvrir la plus
+ * large grille mensuelle sans ouvrir la porte à un export déguisé.
+ */
+planningRouter.get("/calendrier", async (req, res) => {
+  const moi = req.utilisateur!;
+  const debut = dateDeRequete(req.query.debut);
+  const finDemandee = dateDeRequete(req.query.fin);
+
+  const maxFin = new Date(debut);
+  maxFin.setDate(maxFin.getDate() + 62);
+  const fin = finDemandee > maxFin ? maxFin : finDemandee <= debut ? maxFin : finDemandee;
+
+  const saisies = await prisma.saisieTemps.findMany({
+    where: { utilisateurId: moi.id, jour: { gte: jourCalendaire(debut), lt: jourCalendaire(fin) } },
+    orderBy: [{ jour: "asc" }, { debutMinutes: "asc" }],
+    select: {
+      id: true,
+      jour: true,
+      debutMinutes: true,
+      finMinutes: true,
+      activite: true,
+      description: true,
+      clientId: true,
+      clientNom: true,
+    },
+  });
+
+  const parJour = new Map<string, number>();
+  for (const s of saisies) {
+    const cle = s.jour.toISOString().slice(0, 10);
+    parJour.set(cle, (parJour.get(cle) ?? 0) + (s.finMinutes - s.debutMinutes));
+  }
+
+  res.json({
+    debut,
+    fin,
+    saisies,
+    parJour: Object.fromEntries(parJour),
+    cibleParJourMinutes: MINUTES_CIBLE_PAR_JOUR,
+  });
+});
+
 planningRouter.post("/temps", async (req, res) => {
   const moi = req.utilisateur!;
   const corps = req.body as {
