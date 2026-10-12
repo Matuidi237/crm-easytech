@@ -80,13 +80,16 @@ export default function CommercialPage() {
   const cartes: Carte[] = [
     {
       label: t("co.objectifAnnuel", { annee: objectifAnnuel.annee }),
-      valeur: completionPct === null ? rien : `${nombre(completionPct)}%`,
+      /* En gros, le montant à réaliser : c'est l'engagement, et c'est lui
+         qu'on retient. Le taux de complétion tient dans la jauge et la note,
+         où il complète le montant sans lui disputer la place. */
+      valeur: objectifAnnuel.cible === null ? rien : montantCompact(objectifAnnuel.cible),
       note:
         completionPct === null
           ? t("co.objectifAbsent")
           : t("co.objectifNote", {
+              pct: nombre(completionPct),
               realise: montantCompact(objectifAnnuel.realise),
-              cible: montantCompact(objectifAnnuel.cible ?? 0),
               ecoule: objectifAnnuel.partEcoulee,
             }),
       icone: IconTrend,

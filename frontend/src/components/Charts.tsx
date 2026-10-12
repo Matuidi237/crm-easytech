@@ -73,8 +73,63 @@ export function CourbeEvolution({ points }: { points: PointCourbe[] }) {
   const x = (i: number) => G.gaucheMarge + i * pasX;
   const y = (v: number) => G.hautMarge + utileH - (v / max) * utileH;
 
-  const chemin = (cle: "ca" | "benefice") =>
-    points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p[cle]).toFixed(1)}`).join(" ");
+  /**
+   * Tracé lissé en cubiques monotones (Fritsch-Carlson).
+   *
+   * Une ligne brisée donne des angles là où l'activité est continue. Mais une
+   * spline ordinaire dépasse : entre un mois à zéro et un mois à cinq
+   * millions, elle passe sous zéro, et une courbe qui descend sous l'axe
+   * raconte un chiffre d'affaires négatif qui n'a jamais existé. La contrainte
+   * de monotonie l'interdit : la courbe ne peut pas sortir de l'intervalle de
+   * ses deux points voisins.
+   */
+  const chemin = (cle: "ca" | "benefice") => {
+    const n = points.length;
+    if (n === 0) return "";
+    const px = points.map((_, i) => x(i));
+    const py = points.map((p) => y(p[cle]));
+    if (n === 1) return `M${px[0].toFixed(1)},${py[0].toFixed(1)}`;
+
+    // Pentes des segments, puis tangentes à chaque point.
+    const pentes: number[] = [];
+    for (let i = 0; i < n - 1; i++) pentes.push((py[i + 1] - py[i]) / (px[i + 1] - px[i]));
+
+    const tangentes: number[] = new Array(n);
+    tangentes[0] = pentes[0];
+    tangentes[n - 1] = pentes[n - 2];
+    for (let i = 1; i < n - 1; i++) {
+      /* Un extremum local garde une tangente nulle : c'est ce qui empêche la
+         courbe de déborder au-delà du creux ou du sommet. */
+      tangentes[i] = pentes[i - 1] * pentes[i] <= 0 ? 0 : (pentes[i - 1] + pentes[i]) / 2;
+    }
+
+    // Puis on borne les tangentes pour rester dans l'intervalle des voisins.
+    for (let i = 0; i < n - 1; i++) {
+      if (pentes[i] === 0) {
+        tangentes[i] = 0;
+        tangentes[i + 1] = 0;
+        continue;
+      }
+      const a = tangentes[i] / pentes[i];
+      const b = tangentes[i + 1] / pentes[i];
+      const h = Math.hypot(a, b);
+      if (h > 3) {
+        tangentes[i] = ((3 / h) * a) * pentes[i];
+        tangentes[i + 1] = ((3 / h) * b) * pentes[i];
+      }
+    }
+
+    let d = `M${px[0].toFixed(1)},${py[0].toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const dx = px[i + 1] - px[i];
+      const c1x = px[i] + dx / 3;
+      const c1y = py[i] + (tangentes[i] * dx) / 3;
+      const c2x = px[i + 1] - dx / 3;
+      const c2y = py[i + 1] - (tangentes[i + 1] * dx) / 3;
+      d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${px[i + 1].toFixed(1)},${py[i + 1].toFixed(1)}`;
+    }
+    return d;
+  };
 
   // Quatre lignes de repère : assez pour situer, assez peu pour rester discret.
   const paliers = [0, 0.25, 0.5, 0.75, 1].map((f) => ({ f, valeur: max * f }));

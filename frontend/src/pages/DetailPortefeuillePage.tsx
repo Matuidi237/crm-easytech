@@ -96,6 +96,77 @@ export default function DetailPortefeuillePage() {
         </div>
       </div>
 
+      {/* Où se trouve le portefeuille : deux répartitions qui disent, mieux
+          qu'une liste de trente noms, sur quel terrain on travaille. */}
+      {donnees.clients.length > 0 && (
+        <div className="deux-colonnes">
+          {(
+            [
+              { cle: "pays" as const, titre: t("co.detailParPays") },
+              { cle: "secteurActivite" as const, titre: t("co.detailParSecteur") },
+            ]
+          ).map(({ cle, titre }) => {
+            const groupes = new Map<string, { n: number; ca: number }>();
+            for (const c of donnees.clients) {
+              const k = c[cle] ?? t("co.detailNonRenseigne");
+              const g = groupes.get(k) ?? { n: 0, ca: 0 };
+              g.n += 1;
+              g.ca += c.chiffreAffaires;
+              groupes.set(k, g);
+            }
+            const lignes = [...groupes.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+            const max = Math.max(...lignes.map(([, g]) => g.n), 1);
+            return (
+              <div className="card" key={cle}>
+                <div className="card-head">
+                  <div>
+                    <div className="card-title">{titre}</div>
+                    <div className="card-sub">{t("co.detailRepartitionTitre")}</div>
+                  </div>
+                </div>
+                <ul className="repartition">
+                  {lignes.map(([nom, g]) => (
+                    <li key={nom} className="repartition-ligne">
+                      <span className="repartition-nom" title={nom}>
+                        {nom}
+                      </span>
+                      <span className="repartition-rail">
+                        <span className="repartition-barre" style={{ width: `${(g.n / max) * 100}%` }} />
+                      </span>
+                      <span className="repartition-valeur" title={montant(g.ca)}>
+                        {nombre(g.n)}
+                        {g.ca > 0 && <span className="repartition-part">{montantCompact(g.ca)}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Concentration : un portefeuille porté par trois clients est fragile,
+          et la liste triée ne le dit pas d'elle-même. */}
+      {donnees.avecVente >= 3 && donnees.chiffreAffaires > 0 && (
+        <div className="card">
+          <p className="objectif-note" style={{ margin: 0 }}>
+            {t("co.detailConcentrationPortefeuille", {
+              pct: nombre(
+                Math.round(
+                  (donnees.clients
+                    .filter((c) => c.nbVentes > 0)
+                    .slice(0, 3)
+                    .reduce((s, c) => s + c.chiffreAffaires, 0) /
+                    donnees.chiffreAffaires) *
+                    100
+                )
+              ),
+            })}
+          </p>
+        </div>
+      )}
+
       <div className="table-card">
         <div className="card-head">
           <div>

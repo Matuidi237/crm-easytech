@@ -894,6 +894,44 @@ export async function supprimerObjectif(id: string) {
   return res.json();
 }
 
+export const PERIODES_ACTIVITE = ["MOIS", "TRIMESTRE", "SEMESTRE", "ANNEE"] as const;
+export type PeriodeActivite = (typeof PERIODES_ACTIVITE)[number];
+
+type CumulActivite = { ca: number; benefice: number; nbVentes: number; quantite: number };
+
+/** Activité commerciale d'une période, avec de quoi l'expliquer. */
+export type Activite = {
+  periode: PeriodeActivite;
+  debut: string;
+  fin: string;
+  partEcoulee: number;
+  objectif: {
+    titre: string | null;
+    definiParNom: string;
+    source: "PERSONNEL" | "ENCADREMENT";
+    cibleCaXAF: number | null;
+    cibleVentes: number | null;
+  } | null;
+  courant: CumulActivite & {
+    margePct: number | null;
+    panierMoyen: number;
+    nbClients: number;
+    commissions: number;
+  };
+  /** Même durée que la période courante, pour une comparaison honnête. */
+  precedent: CumulActivite & { margePct: number | null; panierMoyen: number };
+  parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[];
+  parProduit: ({ produit: string } & CumulActivite)[];
+  parClient: ({ nom: string } & CumulActivite)[];
+  dernieresVentes: VenteCommercial[];
+};
+
+export async function fetchActivite(periode: PeriodeActivite) {
+  const res = await authedFetch(`/api/commercial/activite?periode=${periode}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de votre activité.");
+  return res.json() as Promise<Activite>;
+}
+
 /**
  * Détail du classement.
  *

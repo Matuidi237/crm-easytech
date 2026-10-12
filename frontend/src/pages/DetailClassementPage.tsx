@@ -134,6 +134,44 @@ export default function DetailClassementPage() {
         </p>
       </div>
 
+      {/* La trajectoire en image : un tableau de douze lignes se lit, une
+          courbe se voit. Les deux se complètent, le tableau donnant les
+          montants exacts que la courbe ne porte pas. */}
+      {moisClasses.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">{t("co.detailEvolutionCaTitre")}</div>
+              <div className="card-sub">{t("co.detailEvolutionCaSousTitre")}</div>
+            </div>
+          </div>
+          <ul className="repartition">
+            {donnees.parMois.map((m) => {
+              const max = Math.max(...donnees.parMois.map((x) => x.ca), 1);
+              return (
+                <li key={m.mois} className="repartition-ligne">
+                  <span className="repartition-nom">
+                    {new Date(`${m.mois}-01T00:00:00`).toLocaleDateString(locale, {
+                      month: "short",
+                      year: "2-digit",
+                    })}
+                  </span>
+                  <span className="repartition-rail">
+                    <span className="repartition-barre" style={{ width: `${(m.ca / max) * 100}%` }} />
+                  </span>
+                  <span className="repartition-valeur" title={montant(m.ca)}>
+                    {m.ca > 0 ? montantCompact(m.ca) : "-"}
+                    {m.rang !== null && (
+                      <span className="repartition-part">{rang(m.rang)}</span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* Tendance : une place isolée ne dit pas si l'on monte ou si l'on
           décroche, et c'est la trajectoire qui se discute en revue. */}
       <div className="table-card">

@@ -42,19 +42,21 @@ const NAV_DG: EntreeNav[] = [
 ];
 
 /**
- * Vue du commercial : son activité à lui.
+ * Vue du commercial : trois onglets, pas davantage.
+ *
+ * Ses chiffres, ses clients, son temps. Ventes et commissions restent des
+ * écrans à part entière, atteints depuis les indicateurs du tableau de bord
+ * plutôt que depuis le menu : une barre latérale qui liste tout ce que
+ * l'application sait faire cesse d'indiquer par où commencer.
  *
  * Aucune entrée n'est conditionnée par une permission. Ce sont ses propres
- * chiffres, son portefeuille, ses commissions : le droit de les consulter ne
- * se discute pas, et les routes correspondantes ne lisent que le compte
- * connecté.
+ * chiffres et son propre portefeuille : le droit de les consulter ne se
+ * discute pas, et les routes correspondantes ne lisent que le compte connecté.
  */
 const NAV_COMMERCIAL: EntreeNav[] = [
   { to: "/", cle: "nav.dashboard", icone: "dashboard", end: true },
-  { to: "/ventes", cle: "nav.ventes", icone: "tag" },
-  { to: "/clients", cle: "nav.clients", icone: "users" },
-  { to: "/commissions", cle: "nav.commissions", icone: "coins" },
-  { to: "/planning", cle: "nav.planning", icone: "calendar" },
+  { to: "/clients", cle: "nav.portefeuille", icone: "users" },
+  { to: "/planning", cle: "nav.calendrier", icone: "calendar" },
 ];
 
 export function navDe(role: Role | undefined): EntreeNav[] {

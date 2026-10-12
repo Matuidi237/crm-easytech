@@ -1005,7 +1005,7 @@ export const en: Record<keyof typeof fr, string> = {
 
   /* ------------------------------------- Annual target and detail pages */
   "co.objectifAnnuel": "{annee} target",
-  "co.objectifNote": "{realise} of {cible}, at {ecoule}% of the year",
+  "co.objectifNote": "{pct}% reached, {realise} booked, at {ecoule}% of the year",
   "co.objectifAbsent": "No annual target has been set yet",
   "co.voirDetail": "See the detail",
   "co.voirReleve": "See the statement",
@@ -1132,4 +1132,35 @@ export const en: Record<keyof typeof fr, string> = {
   "ag.rappelPersonnel": "For reference, your own targets",
   "ag.rappelNote": "Kept even when they are not the ones driving your tracking",
   "ag.sansCibleChiffre": "No revenue target",
+
+  /* -------------------------------------------- Rework: detailed views */
+  "nav.portefeuille": "Client portfolio",
+  "nav.calendrier": "Calendar",
+
+  "co.detailObjectifSousTitre2": "What makes your revenue, and what is left to do",
+  "co.objectifIntitule": "{titre}, set by {auteur}",
+  "co.detailMontantAReal": "Amount to achieve",
+  "co.vsPeriodePrecedente": "vs previous period",
+  "co.detailChiffresTitre": "The figures for the period",
+  "co.detailChiffresSousTitre": "Compared with the equivalent previous period, never with nothing",
+  "co.detailPanier": "Average deal",
+  "co.detailClientsServis": "Clients served",
+  "co.detailEffort": "Effort required",
+  "co.detailEffortValeur": "{x} times the current pace",
+  "co.detailProduitsTitre": "What makes the revenue",
+  "co.detailProduitsSousTitre": "By product or service, largest first",
+  "co.detailClientsTitre": "Who buys",
+  "co.detailClientsSousTitre": "By client, largest first",
+  "co.detailConcentration": "Your top three clients make up {pct}% of your revenue. Past half, losing one shows immediately.",
+  "co.detailDernieresTitre": "Your latest sales",
+  "co.detailDernieresSousTitre": "The ten most recent of the period",
+  "co.detailToutesVentes": "Record a sale",
+
+  "co.detailRepartitionTitre": "Your portfolio at a glance",
+  "co.detailParPays": "By country",
+  "co.detailParSecteur": "By sector",
+  "co.detailNonRenseigne": "Not filled in",
+  "co.detailConcentrationPortefeuille": "Your top three clients make up {pct}% of your portfolio's revenue.",
+  "co.detailEvolutionCaTitre": "Your revenue month by month",
+  "co.detailEvolutionCaSousTitre": "And the place you held each month",
 };

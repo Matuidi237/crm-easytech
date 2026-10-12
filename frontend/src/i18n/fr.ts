@@ -1007,7 +1007,7 @@ export const fr = {
 
   /* --------------------------------- Objectif annuel et pages de detail */
   "co.objectifAnnuel": "Objectif {annee}",
-  "co.objectifNote": "{realise} sur {cible}, à {ecoule}% de l'année",
+  "co.objectifNote": "{pct}% atteint, {realise} réalisés, à {ecoule}% de l'année",
   "co.objectifAbsent": "Aucun objectif annuel n'a encore été fixé",
   "co.voirDetail": "Voir le détail",
   "co.voirReleve": "Voir le relevé",
@@ -1134,4 +1134,35 @@ export const fr = {
   "ag.rappelPersonnel": "Pour mémoire, vos objectifs personnels",
   "ag.rappelNote": "Conservés même lorsqu'ils ne pilotent pas votre suivi",
   "ag.sansCibleChiffre": "Pas de cible chiffrée",
+
+  /* ---------------------------------------- Refonte : vues detaillees */
+  "nav.portefeuille": "Portefeuille clients",
+  "nav.calendrier": "Calendrier",
+
+  "co.detailObjectifSousTitre2": "Ce qui fait votre chiffre, et ce qu'il reste à faire",
+  "co.objectifIntitule": "{titre}, fixé par {auteur}",
+  "co.detailMontantAReal": "Montant à réaliser",
+  "co.vsPeriodePrecedente": "vs période précédente",
+  "co.detailChiffresTitre": "Les chiffres de la période",
+  "co.detailChiffresSousTitre": "Comparés à la période équivalente précédente, jamais à rien",
+  "co.detailPanier": "Panier moyen",
+  "co.detailClientsServis": "Clients servis",
+  "co.detailEffort": "Effort à fournir",
+  "co.detailEffortValeur": "{x} fois le rythme actuel",
+  "co.detailProduitsTitre": "Ce qui fait le chiffre",
+  "co.detailProduitsSousTitre": "Par produit ou service, du plus gros au plus petit",
+  "co.detailClientsTitre": "Qui achète",
+  "co.detailClientsSousTitre": "Par client, du plus gros au plus petit",
+  "co.detailConcentration": "Vos trois premiers clients pèsent {pct}% de votre chiffre. Au-delà de la moitié, la perte d'un seul se voit immédiatement.",
+  "co.detailDernieresTitre": "Vos dernières ventes",
+  "co.detailDernieresSousTitre": "Les dix plus récentes de la période",
+  "co.detailToutesVentes": "Saisir une vente",
+
+  "co.detailRepartitionTitre": "Votre portefeuille en un regard",
+  "co.detailParPays": "Par pays",
+  "co.detailParSecteur": "Par secteur",
+  "co.detailNonRenseigne": "Non renseigné",
+  "co.detailConcentrationPortefeuille": "Vos trois premiers clients pèsent {pct}% du chiffre de votre portefeuille.",
+  "co.detailEvolutionCaTitre": "Votre chiffre mois par mois",
+  "co.detailEvolutionCaSousTitre": "Et la place que vous teniez chaque mois",
 };

@@ -308,6 +308,205 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
 });
 
 /* ==========================================================================
+   Activité commerciale détaillée
+   ========================================================================== */
+
+const PERIODES_ACTIVITE = ["MOIS", "TRIMESTRE", "SEMESTRE", "ANNEE"] as const;
+type PeriodeActivite = (typeof PERIODES_ACTIVITE)[number];
+
+/**
+ * Tout ce qu'il y a à dire de l'activité d'une période.
+ *
+ * Un taux de complétion seul ne se discute pas : on veut savoir ce qui l'a
+ * produit, ce qui manque, et si la période précédente faisait mieux. Cette
+ * route répond en une fois, parce que ces chiffres se lisent ensemble et que
+ * les répartir sur quatre appels ferait clignoter la page à chaque filtre.
+ */
+commercialRouter.get("/activite", async (req, res) => {
+  const moi = req.utilisateur!;
+  const periode = (PERIODES_ACTIVITE as readonly string[]).includes(String(req.query.periode))
+    ? (req.query.periode as PeriodeActivite)
+    : "ANNEE";
+
+  const reference = new Date();
+  const courante = fenetreDe(periode, reference);
+  /* Période précédente de même longueur : comparer un trimestre à l'année
+     entière ne dirait rien, et c'est pourtant l'erreur facile. */
+  const precedenteRef = new Date(courante.debut);
+  precedenteRef.setDate(precedenteRef.getDate() - 1);
+  const precedente = fenetreDe(periode, precedenteRef);
+
+  const compte = await prisma.utilisateur.findUnique({
+    where: { id: moi.id },
+    select: { tauxCommissionPct: true, objectifsPersonnels: true },
+  });
+  if (!compte) return res.status(404).json({ error: "Compte introuvable." });
+
+  const [ventes, objectifs] = await Promise.all([
+    prisma.vente.findMany({
+      where: { vendeurId: moi.id, dateVente: { gte: precedente.debut, lt: courante.fin } },
+      orderBy: { dateVente: "desc" },
+      select: {
+        id: true,
+        dateVente: true,
+        clientId: true,
+        clientNom: true,
+        produit: true,
+        quantite: true,
+        prixAchat: true,
+        prixVente: true,
+        commissionVerseeLe: true,
+      },
+    }),
+    prisma.objectifCommercial.findMany({
+      where: {
+        utilisateurId: moi.id,
+        periode,
+        debut: new Date(
+          Date.UTC(courante.debut.getFullYear(), courante.debut.getMonth(), courante.debut.getDate())
+        ),
+      },
+      select: { cibleCaXAF: true, cibleVentes: true, fixeParEncadrement: true, titre: true, definiParNom: true },
+    }),
+  ]);
+
+  const sourceEncadrement = !compte.objectifsPersonnels;
+  const objectif = objectifs.find((o) => o.fixeParEncadrement === sourceEncadrement) ?? null;
+
+  type Cumul = { ca: number; benefice: number; nbVentes: number; quantite: number };
+  const vide = (): Cumul => ({ ca: 0, benefice: 0, nbVentes: 0, quantite: 0 });
+
+  const courant = vide();
+  const avant = vide();
+  const parProduit = new Map<string, Cumul>();
+  const parClient = new Map<string, Cumul & { nom: string }>();
+  const parMois = new Map<string, { ca: number; benefice: number; nbVentes: number }>();
+  const clients = new Set<string>();
+  let commissions = 0;
+
+  /* Les mois de la période sont créés vides avant d'être remplis : partir des
+     ventes laisserait les mois creux hors du graphique, et une courbe qui
+     saute les creux raconte une progression qui n'a pas eu lieu. */
+  for (const d = new Date(courante.debut); d < courante.fin; d.setMonth(d.getMonth() + 1)) {
+    parMois.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, {
+      ca: 0,
+      benefice: 0,
+      nbVentes: 0,
+    });
+  }
+
+  const dernieres: {
+    id: string;
+    dateVente: Date;
+    clientNom: string;
+    produit: string;
+    quantite: number;
+    montant: number;
+    benefice: number;
+    commission: number;
+    commissionVerseeLe: Date | null;
+  }[] = [];
+
+  for (const v of ventes) {
+    const montant = nb(v.prixVente) * v.quantite;
+    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const dansLaPeriode = v.dateVente >= courante.debut;
+
+    const cible = dansLaPeriode ? courant : avant;
+    cible.ca += montant;
+    cible.benefice += marge;
+    cible.nbVentes += 1;
+    cible.quantite += v.quantite;
+
+    if (!dansLaPeriode) continue;
+
+    commissions += commissionDe(marge, compte.tauxCommissionPct);
+    if (v.clientId) clients.add(v.clientId);
+
+    const p = parProduit.get(v.produit) ?? vide();
+    p.ca += montant;
+    p.benefice += marge;
+    p.nbVentes += 1;
+    p.quantite += v.quantite;
+    parProduit.set(v.produit, p);
+
+    const cleClient = v.clientId ?? `nom:${v.clientNom}`;
+    const c = parClient.get(cleClient) ?? { ...vide(), nom: v.clientNom };
+    c.ca += montant;
+    c.benefice += marge;
+    c.nbVentes += 1;
+    c.quantite += v.quantite;
+    parClient.set(cleClient, c);
+
+    const mois = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const m = parMois.get(mois);
+    if (m) {
+      m.ca += montant;
+      m.benefice += marge;
+      m.nbVentes += 1;
+    }
+
+    dernieres.push({
+      id: v.id,
+      dateVente: v.dateVente,
+      clientNom: v.clientNom,
+      produit: v.produit,
+      quantite: v.quantite,
+      montant: Math.round(montant),
+      benefice: Math.round(marge),
+      commission: commissionDe(marge, compte.tauxCommissionPct),
+      commissionVerseeLe: v.commissionVerseeLe,
+    });
+  }
+
+  const arrondir = (c: Cumul) => ({
+    ...c,
+    ca: Math.round(c.ca),
+    benefice: Math.round(c.benefice),
+  });
+
+  res.json({
+    periode,
+    debut: courante.debut,
+    fin: courante.fin,
+    partEcoulee: Math.round(partEcoulee(courante) * 100),
+    objectif: objectif
+      ? {
+          titre: objectif.titre,
+          definiParNom: objectif.definiParNom,
+          source: sourceEncadrement ? "ENCADREMENT" : "PERSONNEL",
+          cibleCaXAF: objectif.cibleCaXAF === null ? null : Math.round(Number(objectif.cibleCaXAF)),
+          cibleVentes: objectif.cibleVentes,
+        }
+      : null,
+    courant: {
+      ...arrondir(courant),
+      margePct: courant.ca > 0 ? Math.round((courant.benefice / courant.ca) * 100) : null,
+      /* Panier moyen : deux commerciaux au même chiffre n'ont pas le même
+         métier selon qu'ils signent trois contrats ou trente. */
+      panierMoyen: courant.nbVentes > 0 ? Math.round(courant.ca / courant.nbVentes) : 0,
+      nbClients: clients.size,
+      commissions: Math.round(commissions),
+    },
+    precedent: {
+      ...arrondir(avant),
+      margePct: avant.ca > 0 ? Math.round((avant.benefice / avant.ca) * 100) : null,
+      panierMoyen: avant.nbVentes > 0 ? Math.round(avant.ca / avant.nbVentes) : 0,
+    },
+    parMois: [...parMois.entries()]
+      .map(([mois, m]) => ({ mois, ...m, ca: Math.round(m.ca), benefice: Math.round(m.benefice) }))
+      .sort((a, b) => a.mois.localeCompare(b.mois)),
+    parProduit: [...parProduit.entries()]
+      .map(([produit, c]) => ({ produit, ...arrondir(c) }))
+      .sort((a, b) => b.ca - a.ca),
+    parClient: [...parClient.values()]
+      .map((c) => ({ nom: c.nom, ...arrondir(c) }))
+      .sort((a, b) => b.ca - a.ca),
+    dernieresVentes: dernieres.slice(0, 10),
+  });
+});
+
+/* ==========================================================================
    Détail du classement
    ========================================================================== */
 

@@ -5307,3 +5307,46 @@ td.col-actions {
     font-size: 17px;
   }
 }
+
+/* Deux encarts cote a cote quand la place le permet : deux repartitions se
+   comparent mal l une sous l autre. */
+.deux-colonnes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Un chiffre, son libelle, et son evolution. La variation sous le nombre
+   plutot qu a cote : collee au chiffre, elle se lit comme une unite. */
+.chiffre-cle {
+  min-width: 0;
+}
+
+.chiffre-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chiffre-delta.hausse {
+  color: #0c7a6f;
+}
+
+.chiffre-delta.baisse {
+  color: #a33d5b;
+}
+
+.chiffre-delta.neutre {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .deux-colonnes {
+    grid-template-columns: 1fr;
+  }
+}
