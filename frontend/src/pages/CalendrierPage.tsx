@@ -4,10 +4,13 @@ import {
   ACTIVITES,
   PlageCalendrier,
   SaisieTemps,
+  PeriodeObjectif,
   SuggestionClient,
+  SuiviObjectifs,
   TypeActivite,
   creerSaisieTemps,
   fetchCalendrier,
+  fetchObjectifs,
   modifierSaisieTemps,
   supprimerSaisieTemps,
 } from "../api";
@@ -148,7 +151,7 @@ const VIDE = {
  * précisément ce qu'on vérifie.
  */
 export default function CalendrierPage() {
-  const { t, nombre, locale } = useLangue();
+  const { t, nombre, montantCompact, locale } = useLangue();
   const [vue, setVue] = useState<Vue>("SEMAINE");
   const [ancre, setAncre] = useState(() => new Date());
   const [jourActif, setJourActif] = useState(() => cleJour(new Date()));
@@ -157,6 +160,10 @@ export default function CalendrierPage() {
   const [edition, setEdition] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  /* Les trois horizons chargés d'un coup : la semaine dit quoi faire
+     aujourd'hui, l'année dit si l'on tient le cap. Séparément, ils ne
+     racontent que la moitié de l'histoire. */
+  const [objectifs, setObjectifs] = useState<Partial<Record<PeriodeObjectif, SuiviObjectifs>>>({});
   const grille = useRef<HTMLDivElement>(null);
 
   /* Fenêtre à charger : la vue mensuelle couvre six semaines pleines, donc
@@ -188,6 +195,15 @@ export default function CalendrierPage() {
   }
 
   useEffect(recharger, [fenetre.debut.getTime(), fenetre.fin.getTime()]);
+
+  useEffect(() => {
+    const jour = cleJour(new Date());
+    for (const p of ["SEMAINE", "MOIS", "ANNEE"] as const) {
+      fetchObjectifs(p, jour)
+        .then((o) => setObjectifs((prec) => ({ ...prec, [p]: o })))
+        .catch(() => undefined);
+    }
+  }, []);
 
   /* La grille s'ouvre sur le début de matinée plutôt qu'à 6 h : personne ne
      commence sa lecture par une bande vide. */
@@ -322,7 +338,7 @@ export default function CalendrierPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>{t("nav.calendrier")}</h1>
+          <h1>{t("pl.agendaTitre")}</h1>
           <div className="page-sub">{t("cal.sousTitre")}</div>
         </div>
         <div className="head-actions">
@@ -331,6 +347,55 @@ export default function CalendrierPage() {
             <IconArrowRight size={14} />
           </Link>
         </div>
+      </div>
+
+      {/* Les objectifs en tête de l'agenda : on ouvre un calendrier pour
+          décider de son temps, et cette décision se prend au regard de ce
+          qu'on s'est engagé à faire. */}
+      <div className="cal-objectifs">
+        {(["SEMAINE", "MOIS", "ANNEE"] as const).map((p) => {
+          const o = objectifs[p];
+          /* Celui qui pilote le suivi, pas les deux : afficher l'objectif
+             du responsable à quelqu'un qui suit le sien brouillerait la
+             lecture au lieu de l'éclairer. */
+          const pilote = o ? (o.source === "PERSONNEL" ? o.objectifPersonnel : o.objectifEncadrement) : null;
+          const cible = pilote?.cibleCaXAF ?? null;
+          const realise = o?.realise.chiffreAffaires ?? 0;
+          const pct = cible && cible > 0 ? Math.round((realise / cible) * 100) : null;
+          const ecoule = o?.partEcoulee ?? 0;
+          return (
+            <Link to="/planning/objectifs" key={p} className="cal-objectif">
+              <div className="cal-objectif-tete">
+                <span className="cal-objectif-periode">{t(`periode.${p}` as CleTraduction)}</span>
+                {pct !== null && (
+                  <span className={`pill ${pct + 5 >= ecoule ? "pill-success" : "pill-warn"}`}>
+                    {t(pct + 5 >= ecoule ? "ag.etat.en-ligne" : "ag.etat.en-retard")}
+                  </span>
+                )}
+              </div>
+              {cible === null ? (
+                <div className="cal-objectif-absent">{t("pl.sansObjectif")}</div>
+              ) : (
+                <>
+                  <div className="cal-objectif-chiffre">
+                    <strong>{montantCompact(realise)}</strong>
+                    <span>{t("ag.surCible", { cible: montantCompact(cible) })}</span>
+                  </div>
+                  <div className="cible-rail">
+                    <span className="cible-barre" style={{ width: `${Math.min(100, pct ?? 0)}%` }} />
+                    {/* Repère du temps consommé : sans lui, un taux ne dit ni
+                        bien ni mal. */}
+                    <span className="cible-repere" style={{ left: `${ecoule}%` }} />
+                  </div>
+                  <div className="cal-objectif-pied">
+                    <span>{nombre(pct ?? 0)}%</span>
+                    <span className="muted-3">{t("ag.tempsEcoule", { pct: ecoule })}</span>
+                  </div>
+                </>
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       {erreur && (

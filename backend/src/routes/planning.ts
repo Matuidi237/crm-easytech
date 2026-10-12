@@ -225,6 +225,220 @@ planningRouter.get("/calendrier", async (req, res) => {
   });
 });
 
+/* ==========================================================================
+   Feuille hebdomadaire en grille
+   ========================================================================== */
+
+/** Une ligne de la grille : une activité, éventuellement pour un client. */
+function cleLigne(activite: TypeActivite, clientId: string | null) {
+  return `${activite}::${clientId ?? ""}`;
+}
+
+/**
+ * La semaine en tableau : une ligne par activité, une colonne par jour.
+ *
+ * C'est la même matière que le calendrier, lue autrement. La grille répond à
+ * « combien de temps sur quoi », l'agenda à « quand ». Vouloir une seule vue
+ * pour les deux questions donne un écran qui n'en traite bien aucune.
+ *
+ * Les écarts à la cible sont calculés ici et non dans l'interface : deux
+ * additions concurrentes finissent par diverger, et c'est celle qui est
+ * fausse qu'on finit par croire.
+ */
+planningRouter.get("/feuilles", async (req, res) => {
+  const moi = req.utilisateur!;
+  const reference = dateDeRequete(req.query.semaine);
+  const { debut, fin } = fenetreDe("SEMAINE", reference);
+
+  const saisies = await prisma.saisieTemps.findMany({
+    where: { utilisateurId: moi.id, jour: { gte: jourCalendaire(debut), lt: jourCalendaire(fin) } },
+    orderBy: [{ jour: "asc" }, { debutMinutes: "asc" }],
+    select: {
+      id: true,
+      jour: true,
+      debutMinutes: true,
+      finMinutes: true,
+      activite: true,
+      clientId: true,
+      clientNom: true,
+      description: true,
+    },
+  });
+
+  type Ligne = {
+    cle: string;
+    activite: TypeActivite;
+    clientId: string | null;
+    clientNom: string | null;
+    /** Minutes par jour, et combien de créneaux les composent. */
+    parJour: Record<string, { minutes: number; nbSaisies: number }>;
+    total: number;
+  };
+
+  const lignes = new Map<string, Ligne>();
+  const totauxJour = new Map<string, number>();
+
+  for (const s of saisies) {
+    const cle = cleLigne(s.activite, s.clientId);
+    const jour = s.jour.toISOString().slice(0, 10);
+    const minutes = s.finMinutes - s.debutMinutes;
+
+    const ligne =
+      lignes.get(cle) ??
+      ({ cle, activite: s.activite, clientId: s.clientId, clientNom: s.clientNom, parJour: {}, total: 0 } satisfies Ligne);
+    const case_ = ligne.parJour[jour] ?? { minutes: 0, nbSaisies: 0 };
+    case_.minutes += minutes;
+    case_.nbSaisies += 1;
+    ligne.parJour[jour] = case_;
+    ligne.total += minutes;
+    lignes.set(cle, ligne);
+
+    totauxJour.set(jour, (totauxJour.get(jour) ?? 0) + minutes);
+  }
+
+  /* Un jour ouvré porte une cible, un week-end non : réclamer sept heures un
+     dimanche transformerait le repos en dette. */
+  const jours: { jour: string; minutes: number; cible: number; ecart: number; ouvre: boolean }[] = [];
+  for (const d = new Date(debut); d < fin; d.setDate(d.getDate() + 1)) {
+    const cle = jourCalendaire(d).toISOString().slice(0, 10);
+    const ouvre = d.getDay() !== 0 && d.getDay() !== 6;
+    const minutes = totauxJour.get(cle) ?? 0;
+    const cible = ouvre ? MINUTES_CIBLE_PAR_JOUR : 0;
+    jours.push({ jour: cle, minutes, cible, ecart: minutes - cible, ouvre });
+  }
+
+  const total = jours.reduce((s, j) => s + j.minutes, 0);
+  const cible = jours.reduce((s, j) => s + j.cible, 0);
+
+  res.json({
+    debut,
+    fin,
+    jours,
+    lignes: [...lignes.values()].sort(
+      (a, b) => b.total - a.total || a.activite.localeCompare(b.activite)
+    ),
+    total,
+    cible,
+    ecart: total - cible,
+    cibleParJourMinutes: MINUTES_CIBLE_PAR_JOUR,
+  });
+});
+
+/**
+ * Pose une durée dans une case de la grille.
+ *
+ * La grille parle en durées, le modèle en créneaux horaires. La traduction
+ * n'est pas toujours possible : quand plusieurs créneaux composent la case,
+ * répartir la nouvelle durée entre eux demanderait de choisir lequel écourter,
+ * et ce choix n'appartient pas à la machine. On renvoie alors vers l'agenda,
+ * où les créneaux se modifient un par un.
+ */
+planningRouter.put("/feuilles/cellule", async (req, res) => {
+  const moi = req.utilisateur!;
+  const corps = req.body as {
+    jour?: string;
+    activite?: TypeActivite;
+    clientId?: string | null;
+    minutes?: number;
+  };
+
+  if (!corps.jour) return res.status(400).json({ error: "La date est invalide." });
+  const jourLocal = dateDeRequete(corps.jour);
+  if (jourLocal > minuit(new Date())) {
+    return res.status(400).json({ error: "On ne déclare pas du temps sur un jour à venir." });
+  }
+  const jour = jourCalendaire(jourLocal);
+
+  const activite = corps.activite;
+  if (!activite || !ACTIVITES.includes(activite)) {
+    return res.status(400).json({ error: "L'activité est obligatoire." });
+  }
+
+  const minutes = Number(corps.minutes);
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 24 * 60) {
+    return res.status(400).json({ error: "La durée est invalide." });
+  }
+
+  const clientId = corps.clientId ?? null;
+  const existants = await prisma.saisieTemps.findMany({
+    where: { utilisateurId: moi.id, jour, activite, clientId },
+    orderBy: { debutMinutes: "asc" },
+    select: { id: true, debutMinutes: true, finMinutes: true },
+  });
+
+  // Durée mise à zéro : la case se vide, les créneaux avec elle.
+  if (minutes === 0) {
+    if (existants.length > 0) {
+      await prisma.saisieTemps.deleteMany({ where: { id: { in: existants.map((e) => e.id) } } });
+    }
+    return res.json({ ok: true, action: "SUPPRIME" });
+  }
+
+  if (existants.length > 1) {
+    return res.status(409).json({
+      error:
+        "Cette case regroupe plusieurs créneaux. Modifiez-les un par un dans l'agenda, pour que les horaires restent justes.",
+      nbSaisies: existants.length,
+    });
+  }
+
+  const autres = await prisma.saisieTemps.findMany({
+    where: { utilisateurId: moi.id, jour, id: { notIn: existants.map((e) => e.id) } },
+    select: { debutMinutes: true, finMinutes: true },
+  });
+
+  if (existants.length === 1) {
+    const seul = existants[0];
+    const fin = seul.debutMinutes + minutes;
+    if (fin > 24 * 60) {
+      return res.status(400).json({ error: "Cette durée dépasserait la fin de la journée." });
+    }
+    const conflit = autres.some((a) => a.debutMinutes < fin && a.finMinutes > seul.debutMinutes);
+    if (conflit) {
+      return res.status(409).json({
+        error: "Allonger ce créneau recouvrirait un autre créneau du même jour. Ajustez les horaires dans l'agenda.",
+      });
+    }
+    await prisma.saisieTemps.update({ where: { id: seul.id }, data: { finMinutes: fin } });
+    return res.json({ ok: true, action: "AJUSTE" });
+  }
+
+  /* Case vide : le créneau se pose à la suite du dernier de la journée, ou à
+     8 h si la journée est vierge. Ajouter à la suite évite tout chevauchement
+     sans avoir à demander un horaire que la grille ne porte pas. */
+  const finDerniere = autres.reduce((max, a) => Math.max(max, a.finMinutes), 0);
+  const debutMinutes = finDerniere > 0 ? finDerniere : 8 * 60;
+  if (debutMinutes + minutes > 24 * 60) {
+    return res.status(400).json({ error: "Cette durée dépasserait la fin de la journée." });
+  }
+
+  let clientNom: string | null = null;
+  if (clientId) {
+    const perimetre = perimetreClients(moi);
+    const client = await prisma.client.findFirst({
+      where: perimetre ? { AND: [{ id: clientId }, perimetre] } : { id: clientId },
+      select: { nom: true },
+    });
+    if (!client) return res.status(404).json({ error: "Client introuvable dans votre périmètre." });
+    clientNom = client.nom;
+  }
+
+  const creee = await prisma.saisieTemps.create({
+    data: {
+      utilisateurId: moi.id,
+      jour,
+      debutMinutes,
+      finMinutes: debutMinutes + minutes,
+      activite,
+      clientId,
+      clientNom,
+    },
+    select: { id: true, debutMinutes: true, finMinutes: true },
+  });
+
+  res.status(201).json({ ok: true, action: "CREE", saisie: creee });
+});
+
 planningRouter.post("/temps", async (req, res) => {
   const moi = req.utilisateur!;
   const corps = req.body as {

@@ -1,18 +1,37 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FeuilleHebdo, fetchFeuilleHebdo } from "../api";
 import { useLangue } from "../i18n";
-import { IconArrowRight, IconCalendar, IconTrend } from "../components/Icons";
+import { IconArrowRight, IconCalendar, IconTag } from "../components/Icons";
+
+function cleJour(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function duree(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, "0")}`;
+}
 
 /**
- * « Agenda » : deux encarts, sur le modèle de « Nos équipes ».
+ * « Planning » : deux encarts, comme « Nos équipes ».
  *
- * Les deux faces du temps d'un commercial, et elles ne se mélangent pas : la
- * feuille de temps constate ce qui a été fait, les objectifs annoncent ce qui
- * doit l'être. Les réunir sur un écran unique ferait d'un engagement et d'un
- * relevé la même chose.
+ * La feuille de temps répond à « combien de temps sur quoi », l'agenda à
+ * « quand ». Ce sont deux lectures de la même matière, et vouloir une seule
+ * vue pour les deux questions donne un écran qui n'en traite bien aucune.
  */
 export default function PlanningPage() {
-  const { t } = useLangue();
+  const { t, nombre } = useLangue();
   const navigate = useNavigate();
+  const [semaine, setSemaine] = useState<FeuilleHebdo | null>(null);
+
+  useEffect(() => {
+    fetchFeuilleHebdo(cleJour(new Date()))
+      .then(setSemaine)
+      .catch(() => setSemaine(null));
+  }, []);
 
   function Encart({
     vers,
@@ -34,12 +53,10 @@ export default function PlanningPage() {
         <div className="equipe-haut">
           <div className={`equipe-icone ${classeIcone}`}>{icone}</div>
         </div>
-
         <div className="equipe-corps">
           <div className="equipe-titre">{titre}</div>
           <p className="equipe-libelle">{libelle}</p>
         </div>
-
         <div className="equipe-pied">
           <span className="equipe-portee">{portee}</span>
           <span className="equipe-lien">
@@ -51,30 +68,41 @@ export default function PlanningPage() {
     );
   }
 
+  /* L'état de la semaine en cours sur les deux encarts : ouvrir une page pour
+     découvrir qu'il reste trois heures à pointer est une perte de temps que
+     ce rappel évite. */
+  const portee = semaine
+    ? t("pl.semaineEnCours", {
+        declare: duree(semaine.total),
+        cible: duree(semaine.cible),
+        pct: nombre(semaine.cible > 0 ? Math.round((semaine.total / semaine.cible) * 100) : 0),
+      })
+    : t("commun.chargement");
+
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>{t("nav.planning")}</h1>
-          <div className="page-sub">{t("ag.sousTitre")}</div>
+          <h1>{t("nav.calendrier")}</h1>
+          <div className="page-sub">{t("pl.sousTitre")}</div>
         </div>
       </div>
 
       <div className="equipes-grille">
         <Encart
-          vers="/planning/feuille-de-temps"
-          titre={t("ag.feuilleTitre")}
-          libelle={t("ag.feuilleLibelle")}
-          portee={t("ag.feuillePortee")}
-          icone={<IconCalendar size={22} />}
+          vers="/planning/feuilles-de-temps"
+          titre={t("pl.feuillesTitre")}
+          libelle={t("pl.feuillesLibelle")}
+          portee={portee}
+          icone={<IconTag size={22} />}
           classeIcone="equipe-icone-vente"
         />
         <Encart
-          vers="/planning/objectifs"
-          titre={t("ag.objectifsTitre")}
-          libelle={t("ag.objectifsLibelle")}
-          portee={t("ag.objectifsPortee")}
-          icone={<IconTrend size={22} />}
+          vers="/planning/agenda"
+          titre={t("pl.agendaTitre")}
+          libelle={t("pl.agendaLibelle")}
+          portee={t("pl.agendaPortee")}
+          icone={<IconCalendar size={22} />}
           classeIcone="equipe-icone-projet"
         />
       </div>

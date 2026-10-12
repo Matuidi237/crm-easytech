@@ -26,8 +26,9 @@ import PartenairesPage from "./pages/PartenairesPage";
 import CommercialPage from "./pages/CommercialPage";
 import VentesPage from "./pages/VentesPage";
 import CommissionsPage from "./pages/CommissionsPage";
+import PlanningPage from "./pages/PlanningPage";
 import CalendrierPage from "./pages/CalendrierPage";
-import FeuilleDeTempsPage from "./pages/FeuilleDeTempsPage";
+import FeuillesDeTempsPage from "./pages/FeuillesDeTempsPage";
 import ObjectifsPage from "./pages/ObjectifsPage";
 import DetailObjectifPage from "./pages/DetailObjectifPage";
 import DetailClassementPage from "./pages/DetailClassementPage";
@@ -194,15 +195,23 @@ export default function App() {
               path="/planning"
               element={
                 <RouteCommerciale>
+                  <PlanningPage />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/planning/agenda"
+              element={
+                <RouteCommerciale>
                   <CalendrierPage />
                 </RouteCommerciale>
               }
             />
             <Route
-              path="/planning/feuille-de-temps"
+              path="/planning/feuilles-de-temps"
               element={
                 <RouteCommerciale>
-                  <FeuilleDeTempsPage />
+                  <FeuillesDeTempsPage />
                 </RouteCommerciale>
               }
             />

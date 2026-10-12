@@ -1182,4 +1182,22 @@ export const en: Record<keyof typeof fr, string> = {
   "cal.ficheSousTitre": "Click a slot in the grid to edit it, or an empty stretch to add one",
   "cal.jourVide": "No slot logged for this day. Click a time range in the grid, or fill in the form above.",
   "cal.etUnAutre": "+ 1 more",
+
+  /* --------------------------------------- Planning: timesheets and agenda */
+  "pl.sousTitre": "Your logged time and your agenda",
+  "pl.feuillesTitre": "Timesheets",
+  "pl.feuillesLibelle": "Fill your week as a grid, one row per activity and one column per day.",
+  "pl.feuillesSousTitre": "One row per activity, one column per day",
+  "pl.agendaTitre": "Agenda",
+  "pl.agendaLibelle": "Your calendar by day, week or month, with your targets on top.",
+  "pl.agendaPortee": "Day, week, month",
+  "pl.semaineEnCours": "{declare} of {cible} this week ({pct}%)",
+
+  "pl.tempsPasse": "Time spent",
+  "pl.ajouterLigne": "Add a line",
+  "pl.grilleVide": "No activity logged this week. Add a line to get started.",
+  "pl.dureeIllisible": "\"{valeur}\" does not read as a duration. Write 2:30, 2h30 or 2.5 for instance.",
+  "pl.caseMultiple": "This cell covers {n} slots: edit them in the agenda so the times stay right.",
+  "pl.aideSaisie": "Enter a duration as 2:30, 2h30, 2.5 or 150m. An empty cell clears the matching slots. Cells marked with an asterisk cover several slots and are edited in the agenda.",
+  "pl.sansObjectif": "No target set for this period",
 };

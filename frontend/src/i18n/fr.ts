@@ -1184,4 +1184,22 @@ export const fr = {
   "cal.ficheSousTitre": "Cliquez un créneau de la grille pour le reprendre, ou une plage vide pour en poser un",
   "cal.jourVide": "Aucun créneau déclaré pour cette journée. Cliquez une plage horaire dans la grille, ou remplissez le formulaire ci-dessus.",
   "cal.etUnAutre": "+ 1 autre",
+
+  /* --------------------------------------- Planning : feuilles et agenda */
+  "pl.sousTitre": "Votre temps déclaré et votre agenda",
+  "pl.feuillesTitre": "Feuilles de temps",
+  "pl.feuillesLibelle": "Remplissez votre semaine en grille, une ligne par activité et une colonne par jour.",
+  "pl.feuillesSousTitre": "Une ligne par activité, une colonne par jour",
+  "pl.agendaTitre": "Agenda",
+  "pl.agendaLibelle": "Votre calendrier au jour, à la semaine ou au mois, avec vos objectifs en tête.",
+  "pl.agendaPortee": "Jour, semaine, mois",
+  "pl.semaineEnCours": "{declare} sur {cible} cette semaine ({pct}%)",
+
+  "pl.tempsPasse": "Temps passé",
+  "pl.ajouterLigne": "Ajouter une ligne",
+  "pl.grilleVide": "Aucune activité déclarée cette semaine. Ajoutez une ligne pour commencer.",
+  "pl.dureeIllisible": "« {valeur} » ne se lit pas comme une durée. Écrivez par exemple 2:30, 2h30 ou 2,5.",
+  "pl.caseMultiple": "Cette case regroupe {n} créneaux : modifiez-les dans l'agenda pour que les horaires restent justes.",
+  "pl.aideSaisie": "Saisissez une durée au format 2:30, 2h30, 2,5 ou 150m. Une case vide efface les créneaux correspondants. Les cases marquées d'une astérisque regroupent plusieurs créneaux et se modifient dans l'agenda.",
+  "pl.sansObjectif": "Aucun objectif fixé pour cette période",
 };

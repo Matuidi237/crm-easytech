@@ -739,6 +739,49 @@ export async function fetchCalendrier(debut: string, fin: string) {
   return res.json() as Promise<PlageCalendrier>;
 }
 
+/** La semaine en tableau : une ligne par activité, une colonne par jour. */
+export type LigneFeuille = {
+  cle: string;
+  activite: TypeActivite;
+  clientId: string | null;
+  clientNom: string | null;
+  /** Minutes par jour, et combien de créneaux les composent. */
+  parJour: Record<string, { minutes: number; nbSaisies: number }>;
+  total: number;
+};
+
+export type FeuilleHebdo = {
+  debut: string;
+  fin: string;
+  jours: { jour: string; minutes: number; cible: number; ecart: number; ouvre: boolean }[];
+  lignes: LigneFeuille[];
+  total: number;
+  cible: number;
+  ecart: number;
+  cibleParJourMinutes: number;
+};
+
+export async function fetchFeuilleHebdo(semaine: string) {
+  const res = await authedFetch(`/api/planning/feuilles?semaine=${semaine}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
+  return res.json() as Promise<FeuilleHebdo>;
+}
+
+export async function poserCellule(cellule: {
+  jour: string;
+  activite: TypeActivite;
+  clientId: string | null;
+  minutes: number;
+}) {
+  const res = await authedFetch("/api/planning/feuilles/cellule", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cellule),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la saisie.");
+  return res.json();
+}
+
 export async function fetchFeuilleDeTemps(periode: PeriodeObjectif, date: string) {
   const res = await authedFetch(`/api/planning/temps?periode=${periode}&date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
