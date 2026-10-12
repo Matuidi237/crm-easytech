@@ -1163,4 +1163,10 @@ export const en: Record<keyof typeof fr, string> = {
   "co.detailConcentrationPortefeuille": "Your top three clients make up {pct}% of your portfolio's revenue.",
   "co.detailEvolutionCaTitre": "Your revenue month by month",
   "co.detailEvolutionCaSousTitre": "And the place you held each month",
+  "clients.perimetreNote": "Your portfolio: the records assigned to you and those you bring in",
+  "clients.retirerFiltre": "Remove the {filtre} filter",
+  "clients.doublonTitre": "This client already exists",
+  "clients.doublonAilleurs": "A record with this name exists elsewhere in the system. Ask your manager to open access rather than creating a second one.",
+  "clients.doublonChezVous": "This record is already in your portfolio.",
+  "clients.doublonVoir": "See the record",
 };

@@ -399,11 +399,24 @@ export async function createClient(data: Partial<Client>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  /* Le message du serveur est repris tel quel : il distingue le nom manquant
-     du doublon, et « Erreur lors de la création » ne dirait pas quoi faire. */
-  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la création du client.");
+  if (!res.ok) {
+    const corps = await res.json();
+    /* Le message du serveur est repris tel quel : il distingue le nom
+       manquant du doublon, et « Erreur lors de la création » ne dirait pas
+       quoi faire. Le doublon porte en plus de quoi l'afficher à part. */
+    const erreur = new Error(corps.error ?? "Erreur lors de la création du client.") as ErreurDoublon;
+    if (res.status === 409) {
+      erreur.doublon = { nomExistant: corps.nomExistant, motif: corps.motif, id: corps.id ?? null };
+    }
+    throw erreur;
+  }
   return res.json() as Promise<Client>;
 }
+
+/** Une fiche correspondante existe déjà dans le système. */
+export type ErreurDoublon = Error & {
+  doublon?: { nomExistant: string; motif: "NOM" | "EMAIL"; id: string | null };
+};
 
 export type PreviewResponse = {
   token: string;

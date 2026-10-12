@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { commissionDe, tauxEffectif } from "../lib/commissions.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
+import { chercherDoublon } from "./clients.js";
 import { fenetreDe, partEcoulee } from "../lib/periodes.js";
 
 export const commercialRouter = Router();
@@ -989,6 +990,20 @@ commercialRouter.post("/ventes", async (req, res) => {
   } else if (corps.nouveauClient) {
     if (!peut(moi.role, "clients.creer")) {
       return res.status(403).json({ error: "Votre rôle ne permet pas de créer une fiche client." });
+    }
+    /* Même garde qu'à la création directe : une fiche déjà présente dans le
+       système, fût-ce chez un collègue, ne doit pas en recevoir une seconde.
+       La saisie de la vente s'arrête ici, le temps qu'un responsable rattache
+       la fiche. C'est une gêne assumée : deux fiches jumelles coûtent plus
+       cher à réconcilier plus tard qu'une vente saisie demain. */
+    const doublon = await chercherDoublon(clientNom, null, moi);
+    if (doublon) {
+      return res.status(409).json({
+        error: doublon.visible
+          ? "Un client portant ce nom existe déjà dans votre portefeuille : choisissez-le dans la liste des suggestions."
+          : "Un client portant ce nom existe déjà dans le système, hors de votre portefeuille. Demandez à votre responsable de vous en ouvrir l'accès.",
+        nomExistant: doublon.nom,
+      });
     }
     const cree = await prisma.client.create({
       data: {

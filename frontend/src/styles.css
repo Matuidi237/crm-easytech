@@ -5350,3 +5350,85 @@ td.col-actions {
     grid-template-columns: 1fr;
   }
 }
+
+/* Filtres poses : rappeles et retirables un par un. Sans eux, il faut
+   retrouver le bon menu deroulant pour en annuler un seul, et la liste
+   reduite finit par passer pour la liste entiere. */
+.filtres-poses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+
+.filtre-pose {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px 5px 11px;
+  border: 1px solid var(--brand-200);
+  border-radius: 999px;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.filtre-pose:hover {
+  background: var(--brand-200);
+}
+
+.filtre-pose-cle {
+  color: var(--ink-2);
+}
+
+.filtre-pose-valeur {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+/* La regle d acces, dite dans l entete : sans cette phrase, un commercial
+   croit la base vide et redemande un import. */
+.head-perimetre {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+/* Entete de tableau collante : sur une liste longue, les colonnes sortent de
+   l ecran et chaque chiffre devient une devinette. */
+.table-scroll table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+@media (max-width: 760px) {
+  /* En affichage empile il n y a plus de colonnes a coiffer. */
+  .table-scroll table thead th {
+    position: static;
+  }
+}
+
+/* La note de perimetre prend sa propre ligne : collee au total, elle le
+   repoussait et les deux se lisaient comme une seule phrase. */
+.head-meta {
+  flex-wrap: wrap;
+}
+
+.head-perimetre {
+  flex-basis: 100%;
+}

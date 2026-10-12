@@ -21,6 +21,7 @@ import {
   IconChevronRight,
   IconChevronsLeft,
   IconChevronsRight,
+  IconClose,
   IconCopy,
   IconDownload,
   IconExternal,
@@ -265,6 +266,10 @@ export default function ClientsPage() {
     }
   }
 
+  /* Le compte ne voit que son portefeuille : c'est la règle d'accès, et
+     l'écran doit la dire plutôt que de laisser croire à une base vide. */
+  const perimetreRestreint = !peut("clients.voirTous");
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const filtresActifs = useMemo(
     () => Object.entries(filters).filter(([, v]) => v !== undefined && v !== "").length,
@@ -292,7 +297,7 @@ export default function ClientsPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>{t("clients.titre")}</h1>
+          <h1>{perimetreRestreint ? t("nav.portefeuille") : t("clients.titre")}</h1>
           <div className="head-meta">
             <IconUsers size={15} />
             {loading ? (
@@ -302,6 +307,9 @@ export default function ClientsPage() {
                 {t("commun.total")} <b>{nombre(total)}</b>
               </span>
             )}
+            {/* Dire d'emblée pourquoi la liste est courte : sans cette phrase,
+                un commercial croit la base vide et redemande un import. */}
+            {perimetreRestreint && <span className="head-perimetre">{t("clients.perimetreNote")}</span>}
           </div>
         </div>
         <div className="head-actions">
@@ -395,6 +403,39 @@ export default function ClientsPage() {
             </button>
           )}
         </div>
+
+        {/* Les filtres posés, rappelés et retirables un par un. Sans eux, il
+            faut retrouver le bon menu déroulant pour en annuler un seul, et
+            la liste réduite finit par passer pour la liste entière. */}
+        {filtresActifs > 0 && (
+          <div className="filtres-poses">
+            {(
+              [
+                ["recherche", t("clients.rechercher")],
+                ["pays", t("clients.filtrePays")],
+                ["ville", t("clients.filtreVille")],
+                ["secteurActivite", t("clients.filtreSecteur")],
+                ["commercialEnCharge", t("clients.filtreCommercial")],
+                ["caMin", t("clients.caMin")],
+                ["caMax", t("clients.caMax")],
+              ] as const
+            )
+              .filter(([cle]) => filters[cle] !== undefined && filters[cle] !== "")
+              .map(([cle, libelle]) => (
+                <button
+                  key={cle}
+                  type="button"
+                  className="filtre-pose"
+                  onClick={() => updateFilter(cle, "")}
+                  aria-label={t("clients.retirerFiltre", { filtre: libelle })}
+                >
+                  <span className="filtre-pose-cle">{libelle}</span>
+                  <span className="filtre-pose-valeur">{String(filters[cle])}</span>
+                  <IconClose size={13} />
+                </button>
+              ))}
+          </div>
+        )}
 
         {avances && (
           <div className="filters-advanced">
@@ -591,9 +632,25 @@ export default function ClientsPage() {
                           {t("clients.reinitialiserFiltres")}
                         </button>
                       ) : (
-                        <Link to="/import" className="btn btn-primary btn-sm" style={{ marginTop: 6 }}>
-                          {t("clients.importerFichier")}
-                        </Link>
+                        /* Ajouter avant importer : un portefeuille vide se
+                           remplit presque toujours par la première rencontre,
+                           pas par un fichier déjà constitué. */
+                        <div className="empty-actions">
+                          {peut("clients.creer") && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => setNouveauOuvert(true)}
+                            >
+                              <IconPlus size={15} />
+                              {t("clients.nouveau")}
+                            </button>
+                          )}
+                          {peut("clients.importer") && (
+                            <Link to="/import" className="btn btn-ghost btn-sm">
+                              {t("clients.importerFichier")}
+                            </Link>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>

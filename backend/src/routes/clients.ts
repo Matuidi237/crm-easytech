@@ -181,6 +181,93 @@ const CHAMPS_SAISIS = [
   "notes",
 ] as const;
 
+/**
+ * Forme comparable d'un nom d'entreprise.
+ *
+ * Minuscules, accents retirés, ponctuation et espaces écrasés. « ABIDJAN
+ * CIV », « Abidjan-CIV » et « abidjan civ » désignent la même société et ne
+ * doivent pas faire trois fiches.
+ *
+ * La forme juridique n'est PAS retirée : « Orange SA » et « Orange SARL »
+ * sont deux personnes morales distinctes, et les confondre ferait refuser la
+ * création d'un client légitime, ce qui est plus grave qu'un doublon.
+ */
+function formeComparable(nom: string): string {
+  return nom
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+type Doublon = { id: string; nom: string; motif: "NOM" | "EMAIL"; visible: boolean };
+
+/** Le compte peut-il déjà voir cette fiche, ou appartient-elle à un collègue ? */
+async function ficheVisible(clientId: string, utilisateur: { id: string; role: RoleUtilisateur }) {
+  const perimetre = perimetreClients(utilisateur);
+  if (!perimetre) return true; // le compte voit toute la base
+  const vue = await prisma.client.findFirst({
+    where: { AND: [{ id: clientId }, perimetre] },
+    select: { id: true },
+  });
+  return vue !== null;
+}
+
+/**
+ * Cherche une fiche correspondante dans toute la base.
+ *
+ * Deux passes plutôt qu'un chargement complet de la table : l'égalité
+ * insensible à la casse se règle en SQL, et seules les fiches partageant le
+ * mot le plus significatif du nom sont rapprochées en mémoire. Charger les
+ * milliers de noms à chaque création tiendrait aujourd'hui et plus demain.
+ */
+export async function chercherDoublon(
+  nom: string,
+  email: string | null,
+  utilisateur: { id: string; role: RoleUtilisateur }
+): Promise<Doublon | null> {
+  const retenir = async (c: { id: string; nom: string }, motif: Doublon["motif"]): Promise<Doublon> => ({
+    id: c.id,
+    nom: c.nom,
+    motif,
+    visible: await ficheVisible(c.id, utilisateur),
+  });
+
+  // 1. Le même nom, à la casse près.
+  const exact = await prisma.client.findFirst({
+    where: { nom: { equals: nom, mode: "insensitive" } },
+    select: { id: true, nom: true },
+  });
+  if (exact) return retenir(exact, "NOM");
+
+  // 2. La même adresse de contact, qui identifie mieux qu'un nom approchant.
+  if (email) {
+    const parEmail = await prisma.client.findFirst({
+      where: { emailContact: { equals: email, mode: "insensitive" } },
+      select: { id: true, nom: true },
+    });
+    if (parEmail) return retenir(parEmail, "EMAIL");
+  }
+
+  /* 3. Rapprochement sur la forme comparable. On ne compare qu'aux fiches
+     contenant le mot le plus long du nom : « Abidjanaise Assurance » ne se
+     compare pas aux 1 600 autres, seulement à celles qui parlent
+     d'« abidjanaise ». */
+  const cible = formeComparable(nom);
+  if (!cible) return null;
+  const motPivot = cible.split(" ").sort((a, b) => b.length - a.length)[0];
+  if (!motPivot || motPivot.length < 4) return null;
+
+  const candidats = await prisma.client.findMany({
+    where: { nom: { contains: motPivot, mode: "insensitive" } },
+    take: 200,
+    select: { id: true, nom: true },
+  });
+  const correspondance = candidats.find((c) => formeComparable(c.nom) === cible);
+  return correspondance ? retenir(correspondance, "NOM") : null;
+}
+
 clientsRouter.post("/", requirePermission("clients.creer"), async (req, res) => {
   const corps = (req.body ?? {}) as Record<string, unknown>;
 
@@ -196,15 +283,27 @@ clientsRouter.post("/", requirePermission("clients.creer"), async (req, res) => 
     donnees[champ] = typeof valeur === "string" && valeur.trim() ? valeur.trim() : null;
   }
 
-  /* Un même nom deux fois dans le périmètre est presque toujours une double
-     saisie. On refuse plutôt que de laisser deux fiches se partager un
-     historique de ventes que personne ne saura ensuite réunir. */
-  const doublon = await prisma.client.findFirst({
-    where: avecPerimetre({ nom: { equals: nom, mode: "insensitive" } }, req.utilisateur!),
-    select: { id: true },
-  });
-  if (doublon) {
-    return res.status(409).json({ error: "Une fiche porte déjà ce nom dans votre périmètre.", id: doublon.id });
+  /* Doublon cherché dans TOUTE la base, pas seulement dans le périmètre du
+     compte. Un client déjà suivi par un collègue ne doit pas recevoir une
+     seconde fiche : deux fiches jumelles se partagent un historique de ventes
+     que personne ne saura ensuite réunir, et le jour où l'on veut le chiffre
+     d'affaires total du client, il manque la moitié. */
+  const existant = await chercherDoublon(nom, donnees.emailContact, req.utilisateur!);
+  if (existant) {
+    /* Le propriétaire n'est pas nommé : savoir qu'une fiche existe suffit à
+       ne pas la dupliquer, connaître le commercial qui la détient relève de
+       l'encadrement. Un responsable rattachera la fiche s'il y a lieu. */
+    return res.status(409).json({
+      error:
+        existant.motif === "EMAIL"
+          ? "Cette adresse de contact est déjà rattachée à une fiche existante."
+          : "Un client portant ce nom existe déjà dans le système.",
+      motif: existant.motif,
+      nomExistant: existant.nom,
+      /* L'identifiant n'est renvoyé que si le compte peut voir la fiche :
+         sinon il servirait à la lire par un autre appel. */
+      id: existant.visible ? existant.id : null,
+    });
   }
 
   try {

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Client, Facets, createClient } from "../api";
+import { Link } from "react-router-dom";
+import { Client, ErreurDoublon, Facets, createClient } from "../api";
 import { useLangue } from "../i18n";
 import { IconAlert } from "../components/Icons";
 
@@ -41,6 +42,7 @@ export default function DialogueClient({
   const [form, setForm] = useState(VIDE);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [doublon, setDoublon] = useState<NonNullable<ErreurDoublon["doublon"]> | null>(null);
 
   useEffect(() => {
     function auClavier(e: KeyboardEvent) {
@@ -55,11 +57,17 @@ export default function DialogueClient({
   async function envoyer(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
+    setDoublon(null);
     setEnvoi(true);
     try {
       onCree(await createClient(form));
     } catch (err) {
-      setErreur((err as Error).message);
+      /* Le doublon n'est pas une erreur de saisie mais un fait à constater :
+         il mérite son propre encart, avec le nom trouvé et, si la fiche est
+         visible, le moyen d'y aller. */
+      const d = (err as ErreurDoublon).doublon;
+      if (d) setDoublon(d);
+      else setErreur((err as Error).message);
     } finally {
       setEnvoi(false);
     }
@@ -75,6 +83,24 @@ export default function DialogueClient({
           <div className="alert alert-error">
             <IconAlert />
             {erreur}
+          </div>
+        )}
+
+        {doublon && (
+          <div className="alert alert-warn">
+            <IconAlert />
+            <div>
+              <strong>{t("clients.doublonTitre")}</strong>
+              <div style={{ marginTop: 3 }}>
+                {doublon.nomExistant} {" · "}
+                {doublon.id ? t("clients.doublonChezVous") : t("clients.doublonAilleurs")}
+              </div>
+              {doublon.id && (
+                <Link to={`/clients?recherche=${encodeURIComponent(doublon.nomExistant)}`} className="link-action">
+                  {t("clients.doublonVoir")}
+                </Link>
+              )}
+            </div>
           </div>
         )}
 

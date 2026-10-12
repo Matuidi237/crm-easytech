@@ -1165,4 +1165,10 @@ export const fr = {
   "co.detailConcentrationPortefeuille": "Vos trois premiers clients pèsent {pct}% du chiffre de votre portefeuille.",
   "co.detailEvolutionCaTitre": "Votre chiffre mois par mois",
   "co.detailEvolutionCaSousTitre": "Et la place que vous teniez chaque mois",
+  "clients.perimetreNote": "Votre portefeuille : les fiches qui vous sont attribuées et celles que vous apportez",
+  "clients.retirerFiltre": "Retirer le filtre {filtre}",
+  "clients.doublonTitre": "Ce client existe déjà",
+  "clients.doublonAilleurs": "Une fiche porte ce nom ailleurs dans le système. Demandez à votre responsable de vous en ouvrir l'accès plutôt que d'en créer une seconde.",
+  "clients.doublonChezVous": "Cette fiche est déjà dans votre portefeuille.",
+  "clients.doublonVoir": "Voir la fiche",
 };
