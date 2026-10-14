@@ -1230,4 +1230,5 @@ export const en: Record<keyof typeof fr, string> = {
   "liste.filtrer": "Filter…",
   "liste.aucuneOption": "No value matches",
   "liste.valeurLibre": "No known value: yours will be saved as typed",
+  "clients.modifierFicheDe": "Edit the record for {nom}",
 };

@@ -550,7 +550,16 @@ export default function ClientsPage() {
                           {initialesDe(c.nom)}
                         </span>
                         <div style={{ minWidth: 0 }}>
-                          <div className="cc-name">{c.nom}</div>
+                          {/* Cliquer le nom ouvre la fiche : c'est le geste
+                              qu'on tente d'instinct dans une liste, et il ne
+                              faisait rien. */}
+                          {peut("clients.modifier") ? (
+                            <button type="button" className="cc-name cc-name-lien" onClick={() => setFicheAModifier(c)}>
+                              {c.nom}
+                            </button>
+                          ) : (
+                            <div className="cc-name">{c.nom}</div>
+                          )}
                           {c.siteWeb && <div className="cc-sub">{c.siteWeb.replace(/^https?:\/\//, "")}</div>}
                         </div>
                       </div>
@@ -577,6 +586,18 @@ export default function ClientsPage() {
                     </td>
                     <td className="col-actions">
                       <div className="row-actions">
+                        {/* Le crayon en clair sur la ligne : enfoui dans le
+                            menu « … », personne ne le trouvait. */}
+                        {peut("clients.modifier") && (
+                          <button
+                            className="icon-btn-xs"
+                            title={t("clients.modifierFicheDe", { nom: c.nom })}
+                            aria-label={t("clients.modifierFicheDe", { nom: c.nom })}
+                            onClick={() => setFicheAModifier(c)}
+                          >
+                            <IconEdit size={15} />
+                          </button>
+                        )}
                         {contacts.length > 0 && (
                           <a
                             className="icon-btn-xs"

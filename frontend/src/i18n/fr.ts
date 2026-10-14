@@ -1232,4 +1232,5 @@ export const fr = {
   "liste.filtrer": "Filtrer…",
   "liste.aucuneOption": "Aucune valeur ne correspond",
   "liste.valeurLibre": "Aucune valeur connue : la vôtre sera enregistrée telle quelle",
+  "clients.modifierFicheDe": "Modifier la fiche de {nom}",
 };
