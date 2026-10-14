@@ -413,6 +413,29 @@ export async function createClient(data: Partial<Client>) {
   return res.json() as Promise<Client>;
 }
 
+/**
+ * Modifie une fiche du périmètre du compte.
+ *
+ * Le propriétaire ne se réattribue pas par ce biais : le serveur écarte le
+ * champ, sans quoi une fiche changerait de main par une simple modification.
+ */
+export async function updateClient(id: string, data: Partial<Client>) {
+  const res = await authedFetch(`/api/clients/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const corps = await res.json();
+    const erreur = new Error(corps.error ?? "Erreur lors de la modification du client.") as ErreurDoublon;
+    if (res.status === 409) {
+      erreur.doublon = { nomExistant: corps.nomExistant, motif: corps.motif, id: corps.id ?? null };
+    }
+    throw erreur;
+  }
+  return res.json() as Promise<Client>;
+}
+
 /** Une fiche correspondante existe déjà dans le système. */
 export type ErreurDoublon = Error & {
   doublon?: { nomExistant: string; motif: "NOM" | "EMAIL"; id: string | null };

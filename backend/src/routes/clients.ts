@@ -225,8 +225,13 @@ async function ficheVisible(clientId: string, utilisateur: { id: string; role: R
 export async function chercherDoublon(
   nom: string,
   email: string | null,
-  utilisateur: { id: string; role: RoleUtilisateur }
+  utilisateur: { id: string; role: RoleUtilisateur },
+  /* Fiche à ignorer : en modification, une fiche est toujours son propre
+     homonyme, et sans cette exclusion plus aucune ne pourrait être
+     enregistrée sans changer de nom. */
+  saufId?: string
 ): Promise<Doublon | null> {
+  const horsSoi = saufId ? { id: { not: saufId } } : {};
   const retenir = async (c: { id: string; nom: string }, motif: Doublon["motif"]): Promise<Doublon> => ({
     id: c.id,
     nom: c.nom,
@@ -236,7 +241,7 @@ export async function chercherDoublon(
 
   // 1. Le même nom, à la casse près.
   const exact = await prisma.client.findFirst({
-    where: { nom: { equals: nom, mode: "insensitive" } },
+    where: { ...horsSoi, nom: { equals: nom, mode: "insensitive" } },
     select: { id: true, nom: true },
   });
   if (exact) return retenir(exact, "NOM");
@@ -244,7 +249,7 @@ export async function chercherDoublon(
   // 2. La même adresse de contact, qui identifie mieux qu'un nom approchant.
   if (email) {
     const parEmail = await prisma.client.findFirst({
-      where: { emailContact: { equals: email, mode: "insensitive" } },
+      where: { ...horsSoi, emailContact: { equals: email, mode: "insensitive" } },
       select: { id: true, nom: true },
     });
     if (parEmail) return retenir(parEmail, "EMAIL");
@@ -260,7 +265,7 @@ export async function chercherDoublon(
   if (!motPivot || motPivot.length < 4) return null;
 
   const candidats = await prisma.client.findMany({
-    where: { nom: { contains: motPivot, mode: "insensitive" } },
+    where: { ...horsSoi, nom: { contains: motPivot, mode: "insensitive" } },
     take: 200,
     select: { id: true, nom: true },
   });
@@ -325,9 +330,36 @@ clientsRouter.put("/:id", requirePermission("clients.modifier"), async (req, res
   });
   if (!autorise) return res.status(404).json({ error: "Client introuvable." });
 
+  /* Mêmes règles qu'à la création : liste de champs explicite, chaînes vides
+     ramenées à l'absence, et refus du doublon. Une fiche qu'on renomme pour
+     lui donner le nom d'une autre crée exactement le doublon que la création
+     refuse, et il serait absurde de l'interdire d'un côté seulement. */
+  const corps = (req.body ?? {}) as Record<string, unknown>;
+
+  const nom = typeof corps.nom === "string" ? corps.nom.trim() : "";
+  if (!nom) return res.status(400).json({ error: "Le nom du client est obligatoire." });
+
+  const donnees: Record<string, string | null> = { nom };
+  for (const champ of CHAMPS_SAISIS) {
+    if (champ === "nom") continue;
+    const valeur = corps[champ];
+    donnees[champ] = typeof valeur === "string" && valeur.trim() ? valeur.trim() : null;
+  }
+
+  const existant = await chercherDoublon(nom, donnees.emailContact, req.utilisateur!, req.params.id);
+  if (existant) {
+    return res.status(409).json({
+      error:
+        existant.motif === "EMAIL"
+          ? "Cette adresse de contact est déjà rattachée à une fiche existante."
+          : "Un client portant ce nom existe déjà dans le système.",
+      motif: existant.motif,
+      nomExistant: existant.nom,
+      id: existant.visible ? existant.id : null,
+    });
+  }
+
   try {
-    // Le propriétaire ne se réattribue pas via une simple modification de fiche.
-    const { proprietaireId, acces, ...donnees } = req.body ?? {};
     const client = await prisma.client.update({ where: { id: req.params.id }, data: donnees });
     res.json(client);
   } catch (err) {

@@ -1214,4 +1214,20 @@ export const en: Record<keyof typeof fr, string> = {
   "pl.dureeFacultative": "Optional: leave empty to just prepare the line and enter hours in the grid",
   "pl.enregistrerLigne": "Save",
   "pl.heuresAjoutees": "{duree} of {activite} logged on {jour}.",
+
+  /* --------------------------------- Client record: creating and editing */
+  "clients.modifierTitre": "Edit the record",
+  "clients.modifierSousTitre": "Correct what changed, the rest stays as it is",
+  "clients.modifierClient": "Edit the record",
+  "clients.ficheModifiee": "The record for {nom} has been updated.",
+  "clients.nomAide": "The only required field: everything else fills in as you go",
+  "clients.paysPlaceholder": "Cameroon",
+  "clients.villePlaceholder": "Douala",
+  "clients.secteurPlaceholder": "Banking, telecoms…",
+  "clients.plusDeDetails": "More details",
+  "clients.moinsDeDetails": "Fewer details",
+
+  "liste.filtrer": "Filter…",
+  "liste.aucuneOption": "No value matches",
+  "liste.valeurLibre": "No known value: yours will be saved as typed",
 };

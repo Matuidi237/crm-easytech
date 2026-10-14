@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../AuthContext";
 import { useLangue, useLibelles } from "../i18n";
 import DialogueClient from "../components/DialogueClient";
+import ListeDeroulante from "../components/ListeDeroulante";
 import {
   IconAlert,
   IconChevronDown,
@@ -24,6 +25,7 @@ import {
   IconClose,
   IconCopy,
   IconDownload,
+  IconEdit,
   IconExternal,
   IconFilter,
   IconInbox,
@@ -95,6 +97,7 @@ export default function ClientsPage() {
   const [octroiEnCours, setOctroiEnCours] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
   const [nouveauOuvert, setNouveauOuvert] = useState(false);
+  const [ficheAModifier, setFicheAModifier] = useState<Client | null>(null);
   /* Incrémenté après une création : il force le rechargement de la liste sans
      dupliquer la requête, et sans deviner où la nouvelle fiche se range dans
      le tri et la pagination en cours. */
@@ -348,48 +351,35 @@ export default function ClientsPage() {
             />
           </div>
 
-          <div className={`select-pill${filters.pays ? " on" : ""}`}>
-            <select value={filters.pays ?? ""} onChange={(e) => updateFilter("pays", e.target.value)}>
-              <option value="">{t("clients.filtrePays")}</option>
-              {facets.pays.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-            <IconChevronDown size={14} />
-          </div>
+          <ListeDeroulante
+            id="filtre-pays"
+            valeur={filters.pays ?? ""}
+            options={facets.pays}
+            onChange={(v) => updateFilter("pays", v)}
+            placeholder={t("clients.filtrePays")}
+            videLibelle={t("clients.filtrePays")}
+          />
 
-          <div className={`select-pill${filters.secteurActivite ? " on" : ""}`}>
-            <select
-              value={filters.secteurActivite ?? ""}
-              onChange={(e) => updateFilter("secteurActivite", e.target.value)}
-            >
-              <option value="">{t("clients.filtreSecteur")}</option>
-              {facets.secteurs.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <IconChevronDown size={14} />
-          </div>
+          <ListeDeroulante
+            id="filtre-secteurActivite"
+            valeur={filters.secteurActivite ?? ""}
+            options={facets.secteurs}
+            onChange={(v) => updateFilter("secteurActivite", v)}
+            placeholder={t("clients.filtreSecteur")}
+            videLibelle={t("clients.filtreSecteur")}
+            recherche
+          />
 
           {facets.commerciaux.length > 0 && (
-            <div className={`select-pill${filters.commercialEnCharge ? " on" : ""}`}>
-              <select
-                value={filters.commercialEnCharge ?? ""}
-                onChange={(e) => updateFilter("commercialEnCharge", e.target.value)}
-              >
-                <option value="">{t("clients.filtreCommercial")}</option>
-                {facets.commerciaux.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              <IconChevronDown size={14} />
-            </div>
+          <ListeDeroulante
+            id="filtre-commercialEnCharge"
+            valeur={filters.commercialEnCharge ?? ""}
+            options={facets.commerciaux}
+            onChange={(v) => updateFilter("commercialEnCharge", v)}
+            placeholder={t("clients.filtreCommercial")}
+            videLibelle={t("clients.filtreCommercial")}
+            recherche
+          />
           )}
 
           <button className={`btn-filters${avances ? " on" : ""}`} onClick={() => setAvances((a) => !a)}>
@@ -440,17 +430,15 @@ export default function ClientsPage() {
         {avances && (
           <div className="filters-advanced">
             {facets.villes.length > 0 && (
-              <div className={`select-pill${filters.ville ? " on" : ""}`}>
-                <select value={filters.ville ?? ""} onChange={(e) => updateFilter("ville", e.target.value)}>
-                  <option value="">{t("clients.filtreVille")}</option>
-                  {facets.villes.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-                <IconChevronDown size={14} />
-              </div>
+          <ListeDeroulante
+            id="filtre-ville"
+            valeur={filters.ville ?? ""}
+            options={facets.villes}
+            onChange={(v) => updateFilter("ville", v)}
+            placeholder={t("clients.filtreVille")}
+            videLibelle={t("clients.filtreVille")}
+            recherche
+          />
             )}
             <input
               className="input"
@@ -682,15 +670,24 @@ export default function ClientsPage() {
         )}
       </div>
 
-      {nouveauOuvert && (
+      {(nouveauOuvert || ficheAModifier) && (
         <DialogueClient
           facets={facets}
-          onFermer={() => setNouveauOuvert(false)}
-          onCree={(client) => {
+          client={ficheAModifier}
+          onFermer={() => {
             setNouveauOuvert(false);
-            setSucces(t("clients.nouveauCree", { nom: client.nom }));
+            setFicheAModifier(null);
+          }}
+          onEnregistre={(client, creation) => {
+            setNouveauOuvert(false);
+            setFicheAModifier(null);
+            setSucces(
+              creation
+                ? t("clients.nouveauCree", { nom: client.nom })
+                : t("clients.ficheModifiee", { nom: client.nom })
+            );
             setVersion((v) => v + 1);
-            // Les listes de pays, villes et secteurs viennent de s'enrichir.
+            // Les listes de pays, villes et secteurs viennent de changer.
             fetchFacets().then(setFacets).catch(() => {});
           }}
         />
@@ -748,6 +745,21 @@ export default function ClientsPage() {
           style={{ left: menu.x - 186, top: menu.y + 6 }}
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {/* La modification en tête du menu : c'est l'action qu'on vient
+              chercher le plus souvent sur une fiche, avant de copier une
+              adresse ou d'ouvrir un site. */}
+          {peut("clients.modifier") && (
+            <button
+              className="menu-item"
+              onClick={() => {
+                setFicheAModifier(menu.client);
+                setMenu(null);
+              }}
+            >
+              <IconEdit />
+              {t("clients.modifierClient")}
+            </button>
+          )}
           {contactsDe(menu.client).length > 0 && (
             <button
               className="menu-item"

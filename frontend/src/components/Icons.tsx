@@ -381,6 +381,16 @@ export function IconCoins({ size = 19, strokeWidth = 1.7, className }: IconProps
 
 
 
+/** Modification : le crayon. */
+export function IconEdit({ size = 17, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M11.5 4.5H5a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h12.5a2 2 0 0 0 2-2v-6.5" />
+      <path d="M17.6 3.3a1.9 1.9 0 0 1 2.7 2.7L12.6 13.7l-3.5.8.8-3.5Z" />
+    </svg>
+  );
+}
+
 /** Ventes : l'étiquette de prix. */
 export function IconTag({ size = 19, strokeWidth = 1.7, className }: IconProps) {
   return (

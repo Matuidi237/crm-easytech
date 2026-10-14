@@ -1216,4 +1216,20 @@ export const fr = {
   "pl.dureeFacultative": "Facultatif : laissez vide pour seulement préparer la ligne et saisir les heures dans la grille",
   "pl.enregistrerLigne": "Enregistrer",
   "pl.heuresAjoutees": "{duree} de {activite} déclarées le {jour}.",
+
+  /* ------------------------------- Fiche client : creation et modification */
+  "clients.modifierTitre": "Modifier la fiche",
+  "clients.modifierSousTitre": "Corrigez ce qui a changé, le reste est conservé tel quel",
+  "clients.modifierClient": "Modifier la fiche",
+  "clients.ficheModifiee": "La fiche de {nom} a été mise à jour.",
+  "clients.nomAide": "Le seul champ obligatoire : tout le reste se complète au fil des échanges",
+  "clients.paysPlaceholder": "Cameroun",
+  "clients.villePlaceholder": "Douala",
+  "clients.secteurPlaceholder": "Banque, télécoms…",
+  "clients.plusDeDetails": "Plus de détails",
+  "clients.moinsDeDetails": "Moins de détails",
+
+  "liste.filtrer": "Filtrer…",
+  "liste.aucuneOption": "Aucune valeur ne correspond",
+  "liste.valeurLibre": "Aucune valeur connue : la vôtre sera enregistrée telle quelle",
 };
