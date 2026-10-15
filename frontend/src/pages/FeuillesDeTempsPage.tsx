@@ -368,6 +368,13 @@ export default function FeuillesDeTempsPage() {
               {reste > 0 ? t("pl.resteAPointer", { duree: dureeLongue(reste) }) : t("pl.semaineComplete")}
             </span>
           </div>
+          {/* Les heures planifiées sont dites, mais hors du total : les y
+              ajouter déclarerait du travail qui n'a pas encore eu lieu. */}
+          {feuille.prevuMinutes > 0 && (
+            <Link to="/planning/agenda" className="fdt-prevu">
+              {t("pl.prevuSemaine", { duree: dureeLongue(feuille.prevuMinutes) })}
+            </Link>
+          )}
         </div>
       </div>
 

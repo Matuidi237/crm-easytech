@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { PeriodeObjectif, TypeActivite } from "@prisma/client";
+import type { PeriodeObjectif, StatutCreneau, TypeActivite } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { debutDe, fenetreDe, minuit, partEcoulee } from "../lib/periodes.js";
@@ -119,6 +119,7 @@ planningRouter.get("/temps", async (req, res) => {
       finMinutes: true,
       activite: true,
       description: true,
+      statut: true,
       clientId: true,
       clientNom: true,
     },
@@ -129,9 +130,16 @@ planningRouter.get("/temps", async (req, res) => {
   const parMois = new Map<string, number>();
   const clientsTouches = new Set<string>();
   let total = 0;
+  /* Le prévu se compte à part : l'additionner au réalisé ferait déclarer du
+     travail qui n'a pas encore eu lieu. */
+  let totalPrevu = 0;
 
   for (const s of saisies) {
     const minutes = s.finMinutes - s.debutMinutes;
+    if (s.statut === "PREVU") {
+      totalPrevu += minutes;
+      continue;
+    }
     total += minutes;
     const cle = s.jour.toISOString().slice(0, 10);
     parJour.set(cle, (parJour.get(cle) ?? 0) + minutes);
@@ -160,6 +168,7 @@ planningRouter.get("/temps", async (req, res) => {
     saisies: detaille ? saisies : [],
     detaille,
     totalMinutes: total,
+    totalPrevuMinutes: totalPrevu,
     cibleMinutes: ouvres * MINUTES_CIBLE_PAR_JOUR,
     cibleParJourMinutes: MINUTES_CIBLE_PAR_JOUR,
     joursOuvres: ouvres,
@@ -206,6 +215,7 @@ planningRouter.get("/calendrier", async (req, res) => {
       finMinutes: true,
       activite: true,
       description: true,
+      statut: true,
       clientId: true,
       clientNom: true,
     },
@@ -260,6 +270,7 @@ planningRouter.get("/feuilles", async (req, res) => {
       debutMinutes: true,
       finMinutes: true,
       activite: true,
+      statut: true,
       clientId: true,
       clientNom: true,
       description: true,
@@ -279,7 +290,15 @@ planningRouter.get("/feuilles", async (req, res) => {
   const lignes = new Map<string, Ligne>();
   const totauxJour = new Map<string, number>();
 
+  let prevuMinutes = 0;
+
   for (const s of saisies) {
+    /* La grille est une feuille de temps : elle ne porte que ce qui a eu
+       lieu. Le prévu vit dans l'agenda, et son total est rappelé à part. */
+    if (s.statut === "PREVU") {
+      prevuMinutes += s.finMinutes - s.debutMinutes;
+      continue;
+    }
     const cle = cleLigne(s.activite, s.clientId);
     const jour = s.jour.toISOString().slice(0, 10);
     const minutes = s.finMinutes - s.debutMinutes;
@@ -321,6 +340,7 @@ planningRouter.get("/feuilles", async (req, res) => {
     total,
     cible,
     ecart: total - cible,
+    prevuMinutes,
     cibleParJourMinutes: MINUTES_CIBLE_PAR_JOUR,
   });
 });
@@ -362,7 +382,9 @@ planningRouter.put("/feuilles/cellule", async (req, res) => {
 
   const clientId = corps.clientId ?? null;
   const existants = await prisma.saisieTemps.findMany({
-    where: { utilisateurId: moi.id, jour, activite, clientId },
+    // Le prévu reste hors de portée de la grille : il se confirme dans
+    // l'agenda, où l'on voit l'horaire qu'on valide.
+    where: { utilisateurId: moi.id, jour, activite, clientId, statut: "REALISE" },
     orderBy: { debutMinutes: "asc" },
     select: { id: true, debutMinutes: true, finMinutes: true },
   });
@@ -449,6 +471,7 @@ planningRouter.post("/temps", async (req, res) => {
     activite?: TypeActivite;
     description?: string;
     clientId?: string | null;
+    statut?: StatutCreneau;
   };
 
   if (!corps.jour) return res.status(400).json({ error: "La date est invalide." });
@@ -456,12 +479,18 @@ planningRouter.post("/temps", async (req, res) => {
   if (Number.isNaN(jourLocal.getTime())) {
     return res.status(400).json({ error: "La date est invalide." });
   }
-  /* Pointer un jour à venir n'a pas de sens : une feuille de temps constate
-     ce qui a été fait. Un planning prévisionnel, c'est l'autre onglet. */
-  if (jourLocal > minuit(new Date())) {
-    return res.status(400).json({ error: "On ne déclare pas du temps sur un jour à venir." });
-  }
   const jour = jourCalendaire(jourLocal);
+
+  /* Un jour à venir donne un créneau PRÉVU, un jour passé un créneau
+     RÉALISÉ. L'appelant peut demander PRÉVU sur une date passée, pour poser
+     un rendez-vous d'hier qui n'a pas encore été confirmé ; l'inverse est
+     refusé, car déclarer comme fait ce qui n'a pas eu lieu est précisément
+     ce que la feuille de temps ne doit pas permettre. */
+  const futur = jourLocal > minuit(new Date());
+  const statut: StatutCreneau = futur ? "PREVU" : corps.statut === "PREVU" ? "PREVU" : "REALISE";
+  if (futur && corps.statut === "REALISE") {
+    return res.status(400).json({ error: "Un créneau à venir ne peut pas être déclaré comme réalisé." });
+  }
 
   const debutMinutes = Number(corps.debutMinutes);
   const finMinutes = Number(corps.finMinutes);
@@ -519,6 +548,7 @@ planningRouter.post("/temps", async (req, res) => {
       finMinutes,
       activite,
       description: corps.description?.trim() || null,
+      statut,
       clientId,
       clientNom,
     },
@@ -606,6 +636,40 @@ planningRouter.patch("/temps/:id", async (req, res) => {
   });
 
   res.json(saisie);
+});
+
+/**
+ * Bascule un créneau entre prévu et réalisé.
+ *
+ * Le passage est un geste explicite et non une conséquence de la date : un
+ * rendez-vous dont l'heure est passée n'a pas forcément eu lieu, et le
+ * compter d'office gonflerait la feuille de temps de réunions annulées.
+ */
+planningRouter.patch("/temps/:id/statut", async (req, res) => {
+  const moi = req.utilisateur!;
+  const saisie = await prisma.saisieTemps.findFirst({
+    where: { id: req.params.id, utilisateurId: moi.id },
+    select: { id: true, jour: true, statut: true },
+  });
+  if (!saisie) return res.status(404).json({ error: "Créneau introuvable." });
+
+  const voulu = (req.body as { statut?: StatutCreneau }).statut;
+  if (voulu !== "PREVU" && voulu !== "REALISE") {
+    return res.status(400).json({ error: "Statut invalide." });
+  }
+
+  /* On ne constate pas un jour qui n'est pas arrivé. La comparaison porte sur
+     le jour et non sur l'heure : un rendez-vous de 17 h se confirme dès qu'il
+     a eu lieu, sans attendre minuit. */
+  if (voulu === "REALISE" && saisie.jour > jourCalendaire(new Date())) {
+    return res.status(400).json({ error: "Ce créneau n'a pas encore eu lieu." });
+  }
+
+  const maj = await prisma.saisieTemps.update({
+    where: { id: saisie.id },
+    data: { statut: voulu },
+  });
+  res.json(maj);
 });
 
 planningRouter.delete("/temps/:id", async (req, res) => {

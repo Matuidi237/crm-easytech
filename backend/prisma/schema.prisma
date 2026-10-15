@@ -361,6 +361,17 @@ enum TypeActivite {
   AUTRE
 }
 
+/// Un créneau est-il prévu, ou constaté ?
+///
+/// La distinction porte tout l'agenda : un rendez-vous de mardi prochain et
+/// une heure de prospection d'hier ne disent pas la même chose, et les
+/// additionner donnerait une feuille de temps qui déclare du travail non
+/// encore fait. Seuls les créneaux RÉALISÉ comptent dans les totaux.
+enum StatutCreneau {
+  PREVU
+  REALISE
+}
+
 /// Un créneau de travail déclaré par un commercial.
 ///
 /// Les heures sont stockées en minutes depuis minuit plutôt qu'en DateTime :
@@ -382,6 +393,13 @@ model SaisieTemps {
 
   activite    TypeActivite
   description String?
+
+  /// Prévu tant qu'il n'a pas eu lieu, réalisé une fois constaté. Un créneau
+  /// posé sur un jour à venir naît PREVU ; celui qu'on déclare après coup
+  /// naît REALISE. Le passage de l'un à l'autre est un geste explicite :
+  /// basculer automatiquement à la date dirait que le rendez-vous a eu lieu
+  /// alors qu'il a pu être annulé.
+  statut StatutCreneau @default(REALISE)
 
   /// Client concerné, quand l'activité en vise un. Le nom double la relation
   /// pour que la feuille reste lisible après suppression d'une fiche.

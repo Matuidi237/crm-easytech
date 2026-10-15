@@ -8,6 +8,7 @@ import {
   SuggestionClient,
   SuiviObjectifs,
   TypeActivite,
+  changerStatutCreneau,
   creerSaisieTemps,
   fetchCalendrier,
   fetchObjectifs,
@@ -255,7 +256,6 @@ export default function CalendrierPage() {
   /** Ouvre la fiche du jour sur un créneau vide, à l'heure visée. */
   function poserCreneau(jour: Date, heure: number) {
     const cle = cleJour(jour);
-    if (cle > aujourdhui) return;
     setJourActif(cle);
     setEdition(null);
     setForm({ ...VIDE, debut: enHeure(heure * 60), fin: enHeure(Math.min((heure + 1) * 60, 24 * 60)) });
@@ -308,6 +308,16 @@ export default function CalendrierPage() {
       setErreur((err as Error).message);
     } finally {
       setEnvoi(false);
+    }
+  }
+
+  async function confirmer(s: SaisieTemps, statut: "PREVU" | "REALISE") {
+    setErreur(null);
+    try {
+      await changerStatutCreneau(s.id, statut);
+      recharger();
+    } catch (err) {
+      setErreur((err as Error).message);
     }
   }
 
@@ -481,7 +491,7 @@ export default function CalendrierPage() {
                     <button
                       key={s.id}
                       type="button"
-                      className="cal-pastille"
+                      className={`cal-pastille${s.statut === "PREVU" ? " prevu" : ""}`}
                       style={{ borderLeftColor: TEINTES[s.activite] }}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -577,7 +587,7 @@ export default function CalendrierPage() {
                       <button
                         key={s.id}
                         type="button"
-                        className={`cal-event${edition === s.id ? " en-edition" : ""}`}
+                        className={`cal-event${edition === s.id ? " en-edition" : ""}${s.statut === "PREVU" ? " prevu" : ""}`}
                         style={{
                           top: `${Math.max(0, haut)}%`,
                           height: `${Math.max(2.2, hauteur)}%`,
@@ -619,12 +629,13 @@ export default function CalendrierPage() {
           {saisiesDuJour.length > 0 && <span className="tag">{duree(plage?.parJour[jourActif] ?? 0)}</span>}
         </div>
 
-        {futur ? (
+        {futur && (
           <div className="alert alert-info" style={{ marginTop: 14 }}>
             <IconAlert />
-            {t("ag.jourFutur")}
+            {t("cal.jourPlanifie")}
           </div>
-        ) : (
+        )}
+        {
           <>
             <div className="form-grid form-grid-creneau" style={{ marginTop: 14 }}>
               <div className="field">
@@ -702,11 +713,17 @@ export default function CalendrierPage() {
               )}
               <button className="btn btn-primary" type="submit" disabled={envoi}>
                 {!edition && <IconPlus size={16} />}
-                {envoi ? t("ag.ajoutEnCours") : edition ? t("commun.enregistrer") : t("ag.ajouter")}
+                {envoi
+                  ? t("ag.ajoutEnCours")
+                  : edition
+                    ? t("commun.enregistrer")
+                    : futur
+                      ? t("cal.planifier")
+                      : t("ag.ajouter")}
               </button>
             </div>
           </>
-        )}
+        }
 
         {saisiesDuJour.length > 0 && (
           <ul className="creneaux">
@@ -714,7 +731,11 @@ export default function CalendrierPage() {
               .sort((a, b) => a.debutMinutes - b.debutMinutes)
               .map((s) => (
                 <li key={s.id} className={`creneau${edition === s.id ? " en-edition" : ""}`}>
-                  <span className="creneau-barre" style={{ background: TEINTES[s.activite] }} aria-hidden />
+                  <span
+                    className={`creneau-barre${s.statut === "PREVU" ? " prevu" : ""}`}
+                    style={{ background: TEINTES[s.activite] }}
+                    aria-hidden
+                  />
                   <span className="creneau-heures">
                     {enHeure(s.debutMinutes)} - {enHeure(s.finMinutes)}
                   </span>
@@ -727,6 +748,19 @@ export default function CalendrierPage() {
                     )}
                   </span>
                   <span className="creneau-duree">{duree(s.finMinutes - s.debutMinutes)}</span>
+                  {s.statut === "PREVU" && <span className="pill pill-brand">{t("cal.prevu")}</span>}
+                  {/* La confirmation est un geste explicite : un rendez-vous
+                      dont l'heure est passée n'a pas forcement eu lieu. */}
+                  {s.statut === "PREVU" && s.jour.slice(0, 10) <= aujourdhui && (
+                    <button type="button" className="link-action" onClick={() => confirmer(s, "REALISE")}>
+                      {t("cal.confirmer")}
+                    </button>
+                  )}
+                  {s.statut === "REALISE" && s.jour.slice(0, 10) >= aujourdhui && (
+                    <button type="button" className="link-action" onClick={() => confirmer(s, "PREVU")}>
+                      {t("cal.remettreEnPrevu")}
+                    </button>
+                  )}
                   <button type="button" className="link-action" onClick={() => ouvrirCreneau(s)}>
                     {t("ag.modifier")}
                   </button>

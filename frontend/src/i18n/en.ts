@@ -1231,4 +1231,13 @@ export const en: Record<keyof typeof fr, string> = {
   "liste.aucuneOption": "No value matches",
   "liste.valeurLibre": "No known value: yours will be saved as typed",
   "clients.modifierFicheDe": "Edit the record for {nom}",
+
+  /* ----------------------------------------------- Agenda: planned and done */
+  "cal.jourPlanifie": "This day has not happened yet: the slot will be saved as planned, and you will confirm it once it has taken place.",
+  "cal.planifier": "Schedule the slot",
+  "cal.prevu": "Planned",
+  "cal.confirmer": "Confirm",
+  "cal.remettreEnPrevu": "Back to planned",
+  "pl.prevuSemaine": "{duree} already scheduled",
+  "pl.aConfirmer": "{n} past slots still to confirm",
 };

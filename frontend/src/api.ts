@@ -713,6 +713,9 @@ export type TypeActivite = (typeof ACTIVITES)[number];
 export const PERIODES = ["JOUR", "SEMAINE", "MOIS", "TRIMESTRE", "SEMESTRE", "ANNEE"] as const;
 export type PeriodeObjectif = (typeof PERIODES)[number];
 
+/** Prévu tant qu'il n'a pas eu lieu, réalisé une fois constaté. */
+export type StatutCreneau = "PREVU" | "REALISE";
+
 export type SaisieTemps = {
   id: string;
   jour: string;
@@ -721,6 +724,7 @@ export type SaisieTemps = {
   finMinutes: number;
   activite: TypeActivite;
   description: string | null;
+  statut: StatutCreneau;
   clientId: string | null;
   clientNom: string | null;
 };
@@ -733,6 +737,8 @@ export type FeuilleDeTemps = {
   saisies: SaisieTemps[];
   detaille: boolean;
   totalMinutes: number;
+  /** Compté à part : le prévu n'est pas du temps déclaré. */
+  totalPrevuMinutes: number;
   cibleMinutes: number;
   cibleParJourMinutes: number;
   joursOuvres: number;
@@ -781,6 +787,8 @@ export type FeuilleHebdo = {
   total: number;
   cible: number;
   ecart: number;
+  /** Heures déjà planifiées sur la semaine, hors feuille de temps. */
+  prevuMinutes: number;
   cibleParJourMinutes: number;
 };
 
@@ -837,6 +845,8 @@ export async function creerSaisieTemps(saisie: {
   activite: TypeActivite;
   description: string;
   clientId: string | null;
+  /** Omis, le serveur déduit du jour : à venir donne un créneau prévu. */
+  statut?: StatutCreneau;
 }) {
   const res = await authedFetch("/api/planning/temps", {
     method: "POST",
@@ -844,6 +854,17 @@ export async function creerSaisieTemps(saisie: {
     body: JSON.stringify(saisie),
   });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement du créneau.");
+  return res.json() as Promise<SaisieTemps>;
+}
+
+/** Confirme un créneau prévu, ou remet un créneau constaté au rang de prévu. */
+export async function changerStatutCreneau(id: string, statut: StatutCreneau) {
+  const res = await authedFetch(`/api/planning/temps/${id}/statut`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ statut }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors du changement de statut.");
   return res.json() as Promise<SaisieTemps>;
 }
 

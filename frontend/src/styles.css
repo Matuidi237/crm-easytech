@@ -6679,3 +6679,55 @@ td.col-actions {
   color: var(--brand-700);
   text-decoration: underline;
 }
+
+/* Creneau prevu : hachure et contour, jamais aplat. Un rendez-vous a venir et
+   une heure deja travaillee ne doivent pas se ressembler, sinon l agenda
+   affirme un travail qui n a pas eu lieu. */
+.cal-event.prevu {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.28) 0 5px,
+    transparent 5px 10px
+  );
+  opacity: 0.88;
+}
+
+.cal-event.prevu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(255, 255, 255, 0.75);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.cal-pastille.prevu {
+  border-left-style: dashed;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.creneau-barre.prevu {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.6) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* Les heures planifiees, rappelees sous la jauge mais hors du total. */
+.fdt-prevu {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 3px 9px;
+  border: 1px dashed var(--brand-200);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-700);
+  text-decoration: none;
+}
+
+.fdt-prevu:hover {
+  background: var(--brand-100);
+}

@@ -1233,4 +1233,13 @@ export const fr = {
   "liste.aucuneOption": "Aucune valeur ne correspond",
   "liste.valeurLibre": "Aucune valeur connue : la vôtre sera enregistrée telle quelle",
   "clients.modifierFicheDe": "Modifier la fiche de {nom}",
+
+  /* ------------------------------------------------- Agenda : prevu et realise */
+  "cal.jourPlanifie": "Ce jour n'est pas encore passé : le créneau sera enregistré comme prévu, et vous le confirmerez une fois qu'il aura eu lieu.",
+  "cal.planifier": "Planifier le créneau",
+  "cal.prevu": "Prévu",
+  "cal.confirmer": "Confirmer",
+  "cal.remettreEnPrevu": "Remettre en prévu",
+  "pl.prevuSemaine": "{duree} déjà planifiées",
+  "pl.aConfirmer": "{n} créneaux passés restent à confirmer",
 };
