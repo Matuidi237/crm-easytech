@@ -298,7 +298,7 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs] = await Promise.all([
+  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes] = await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
     prisma.partenaire.count({ where: { estDemo: true } }),
@@ -309,21 +309,30 @@ async function compter() {
     prisma.client.count({ where: { proprietaire: { identifiant: { startsWith: PREFIXE } } } }),
     prisma.saisieTemps.count({ where: { estDemo: true } }),
     prisma.objectifCommercial.count({ where: { estDemo: true } }),
+    prisma.note.count({ where: { estDemo: true } }),
   ]);
-  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs };
+  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs } = await compter();
+  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes } = await compter();
   const totalVentes = await prisma.vente.count();
-  if (ventes === 0 && projets === 0 && partenaires === 0 && comptes === 0 && temps === 0 && objectifs === 0) {
+  if (
+    ventes === 0 &&
+    projets === 0 &&
+    partenaires === 0 &&
+    comptes === 0 &&
+    temps === 0 &&
+    objectifs === 0 &&
+    notes === 0
+  ) {
     console.log("Aucune donnée de démonstration en base.");
   } else {
     console.log(
       `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s), ${projets} projet(s) et ${partenaires} partenaire(s) de démonstration.`
     );
     console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
-    console.log(`  ${temps} créneau(x) de feuille de temps et ${objectifs} objectif(s).`);
+    console.log(`  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s) et ${notes} note(s).`);
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
 }
@@ -340,6 +349,7 @@ async function supprimer({ silencieux = false } = {}) {
   const temps = await prisma.saisieTemps.deleteMany({ where: { estDemo: true } });
   const jalons = await prisma.jalonObjectif.deleteMany({ where: { estDemo: true } });
   const objectifs = await prisma.objectifCommercial.deleteMany({ where: { estDemo: true } });
+  const notes = await prisma.note.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
@@ -354,7 +364,9 @@ async function supprimer({ silencieux = false } = {}) {
     console.log(
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
-    console.log(`  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s) et ${jalons.count} jalon(s).`);
+    console.log(
+      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s) et ${notes.count} note(s).`
+    );
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
     const restant = c.ventes + c.projets + c.partenaires + c.clientsRattaches + c.temps + c.objectifs;
@@ -608,6 +620,42 @@ async function creer() {
   }
   await prisma.saisieTemps.createMany({ data: saisies });
 
+  /* --- Notes -------------------------------------------------------------
+     Quelques pense-bêtes, dont deux épinglés : sans eux la rubrique s'ouvre
+     vide et personne ne devine à quoi elle sert. Ils disent ce qu'une feuille
+     de temps ne dit pas, le point ouvert qui décide d'une vente. */
+  const MODELES_NOTES = [
+    { texte: "Le DAF veut une remise de 5 % avant de signer. Voir avec la direction avant de répondre.", couleur: "ROSE", epinglee: true },
+    { texte: "Rappeler après leur conseil d'administration, ils tranchent le budget à ce moment-là.", couleur: "JAUNE", epinglee: true },
+    { texte: "Concurrent déjà en place, contrat qui s'arrête en fin d'année. Se repositionner avant.", couleur: "BLEU", epinglee: false },
+    { texte: "Préparer la démo avec les données de leur secteur, la version générique ne les a pas convaincus.", couleur: "VERT", epinglee: false },
+    { texte: "Interlocuteur a changé : repasser par l'accueil pour avoir le nouveau responsable achats.", couleur: "VIOLET", epinglee: false },
+  ];
+
+  const notes = [];
+  for (const vendeur of VENDEURS) {
+    const vivier = portefeuilles.get(vendeur) ?? [];
+    /* Trois notes par commercial, posées dans les jours écoulés : assez pour
+       remplir la rubrique, trop peu pour encombrer la journée. */
+    for (let i = 0; i < 3; i++) {
+      const modele = MODELES_NOTES[(VENDEURS.indexOf(vendeur) + i) % MODELES_NOTES.length];
+      const recul = Math.floor(alea() * 10);
+      const jour = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - recul);
+      const client = vivier.length > 0 ? piocher(vivier) : null;
+      notes.push({
+        utilisateurId: ids[vendeur],
+        jour: jourCalendaire(jour),
+        texte: modele.texte,
+        couleur: modele.couleur,
+        epinglee: modele.epinglee,
+        clientId: client?.id ?? null,
+        clientNom: client?.nom ?? null,
+        estDemo: true,
+      });
+    }
+  }
+  await prisma.note.createMany({ data: notes });
+
   /* --- Objectifs ---------------------------------------------------------
      Le responsable fixe le mois, le trimestre et l'année de chacun. Les
      cibles sont calées sur ce que la personne réalise déjà, majoré de 15 % :
@@ -792,6 +840,9 @@ async function creer() {
   console.log(`  Connexion commercial : demo-nerea / ${MOT_DE_PASSE}`);
   console.log(
     `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
+    );
+    console.log(
+      `  ${notes.length} note(s) posées sur les feuilles de temps.`
   );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`

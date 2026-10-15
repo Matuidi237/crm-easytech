@@ -38,6 +38,8 @@ model Client {
   ventes         Vente[]
   projets        Projet[]
   saisiesTemps   SaisieTemps[]
+  /// « notes » est déjà pris par le champ texte libre de la fiche, plus haut.
+  pensesBetes    Note[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -124,6 +126,7 @@ model Utilisateur {
   objectifsPersonnels Boolean @default(false)
 
   saisiesTemps    SaisieTemps[]        @relation("Temps")
+  notesPosees     Note[]               @relation("Notes")
   objectifs       ObjectifCommercial[] @relation("Objectifs")
 
   clientsPossedes Client[]      @relation("Proprietaire")
@@ -428,6 +431,56 @@ model SaisieTemps {
   updatedAt DateTime @updatedAt
 
   @@index([utilisateurId, jour])
+  @@index([estDemo])
+}
+
+/// Note libre posée sur une journée, façon pense-bête.
+///
+/// Elle ne mesure rien et n'entre dans aucun total : c'est ce qu'un
+/// commercial griffonne en marge de sa feuille de temps et qui décide d'une
+/// vente trois semaines plus tard. « Le DAF veut une remise avant de
+/// signer », « rappeler après le conseil d'administration du 12 » : rien de
+/// tout cela n'a sa place dans un créneau horaire, et tout se perd si l'outil
+/// n'offre pas où l'écrire.
+///
+/// Distincte de « SaisieTemps.description », qui précise une activité
+/// déclarée : une note n'a ni horaire ni durée, et survit à la journée où
+/// elle a été posée quand elle est épinglée.
+model Note {
+  id String @id @default(uuid())
+
+  utilisateur   Utilisateur @relation("Notes", fields: [utilisateurId], references: [id], onDelete: Cascade)
+  utilisateurId String
+
+  /// Jour où la note a été posée, à minuit UTC comme les créneaux.
+  jour DateTime @db.Date
+
+  texte String
+
+  /// Teinte du papier, choisie par l'auteur. Elle ne code rien : chacun range
+  /// ses notes comme il l'entend, et imposer une signification aux couleurs
+  /// reviendrait à recréer la nomenclature dont on vient de se défaire.
+  couleur String @default("JAUNE")
+
+  /// Épinglée, la note reste visible sur toutes les journées jusqu'à ce qu'on
+  /// la décroche. C'est ce qui permet de suivre un point ouvert tout au long
+  /// d'un cycle de vente, au lieu de le retrouver au jour où on l'a écrit.
+  epinglee Boolean @default(false)
+
+  /// Client concerné, quand la note en vise un. Le nom double la relation
+  /// pour que la note reste lisible après suppression d'une fiche.
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([utilisateurId, jour])
+  @@index([utilisateurId, epinglee])
+  @@index([clientId])
   @@index([estDemo])
 }
 

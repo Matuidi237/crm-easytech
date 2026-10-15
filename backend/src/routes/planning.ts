@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { PeriodeObjectif, StatutCreneau } from "@prisma/client";
+import type { PeriodeObjectif, RoleUtilisateur, StatutCreneau } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { debutDe, fenetreDe, minuit, partEcoulee } from "../lib/periodes.js";
@@ -479,6 +479,173 @@ planningRouter.delete("/temps/:id", async (req, res) => {
   if (!saisie) return res.status(404).json({ error: "Créneau introuvable." });
 
   await prisma.saisieTemps.delete({ where: { id: saisie.id } });
+  res.json({ ok: true });
+});
+
+/* ==========================================================================
+   Notes
+   ========================================================================== */
+
+/**
+ * Couleurs de papier.
+ *
+ * Elles ne codent rien et ne sont pas traduites : ce sont des teintes de
+ * pense-bête, que chacun emploie comme il veut. Leur rendu est décidé par
+ * l'interface ; le serveur ne retient que le nom, et refuse ce qu'il ne
+ * connaît pas pour qu'une couleur inventée ne donne pas une note invisible.
+ */
+const COULEURS_NOTE = ["JAUNE", "ROSE", "BLEU", "VERT", "VIOLET"];
+
+const SELECT_NOTE = {
+  id: true,
+  jour: true,
+  texte: true,
+  couleur: true,
+  epinglee: true,
+  clientId: true,
+  clientNom: true,
+  updatedAt: true,
+} as const;
+
+/** Longueur d'un pense-bête. Au-delà, c'est un compte rendu, pas une note. */
+const LONGUEUR_MAX_NOTE = 800;
+
+/**
+ * Notes visibles depuis une journée.
+ *
+ * Celles du jour, plus toutes les notes épinglées quelle que soit leur date :
+ * un point laissé ouvert dans un cycle de vente doit rester sous les yeux
+ * jusqu'à ce qu'il soit réglé, et non attendre qu'on retrouve le jour où on
+ * l'a écrit.
+ */
+planningRouter.get("/notes", async (req, res) => {
+  const moi = req.utilisateur!;
+  const jour = jourCalendaire(dateDeRequete(req.query.jour));
+
+  const notes = await prisma.note.findMany({
+    where: { utilisateurId: moi.id, OR: [{ jour }, { epinglee: true }] },
+    /* Les épinglées d'abord, puis la plus récemment touchée : on relit en
+       priorité ce qu'on vient d'écrire ou de corriger. */
+    orderBy: [{ epinglee: "desc" }, { updatedAt: "desc" }],
+    select: SELECT_NOTE,
+  });
+
+  res.json({ notes });
+});
+
+/** Lit le corps commun à la création et à la correction d'une note. */
+type DonneesNote = {
+  texte: string;
+  couleur: string;
+  epinglee: boolean;
+  clientId: string | null;
+  clientNom: string | null;
+};
+
+async function lireCorpsNote(
+  corps: { texte?: string; couleur?: string; epinglee?: boolean; clientId?: string | null },
+  moi: { id: string; role: RoleUtilisateur }
+): Promise<{ erreur: string; code: number } | { donnees: DonneesNote }> {
+  const texte = (corps.texte ?? "").trim();
+  if (!texte) return { erreur: "Une note vide n'a rien à retenir.", code: 400 };
+  if (texte.length > LONGUEUR_MAX_NOTE) {
+    return { erreur: "Cette note est trop longue pour un pense-bête.", code: 400 };
+  }
+
+  const couleur = COULEURS_NOTE.includes(corps.couleur ?? "") ? corps.couleur! : "JAUNE";
+
+  let clientId: string | null = null;
+  let clientNom: string | null = null;
+  if (corps.clientId) {
+    const perimetre = perimetreClients(moi);
+    const client = await prisma.client.findFirst({
+      where: perimetre ? { AND: [{ id: corps.clientId }, perimetre] } : { id: corps.clientId },
+      select: { id: true, nom: true },
+    });
+    if (!client) return { erreur: "Client introuvable dans votre périmètre.", code: 404 };
+    clientId = client.id;
+    clientNom = client.nom;
+  }
+
+  return { donnees: { texte, couleur, epinglee: corps.epinglee === true, clientId, clientNom } };
+}
+
+planningRouter.post("/notes", async (req, res) => {
+  const moi = req.utilisateur!;
+  const corps = req.body as {
+    jour?: string;
+    texte?: string;
+    couleur?: string;
+    epinglee?: boolean;
+    clientId?: string | null;
+  };
+
+  const lu = await lireCorpsNote(corps, moi);
+  if ("erreur" in lu) return res.status(lu.code).json({ error: lu.erreur });
+
+  /* Aucune borne sur la date, contrairement aux créneaux : on note aussi bien
+     un point d'hier qu'une chose à préparer pour la semaine prochaine, et une
+     note ne déclare aucun travail. */
+  const note = await prisma.note.create({
+    data: { utilisateurId: moi.id, jour: jourCalendaire(dateDeRequete(corps.jour)), ...lu.donnees },
+    select: SELECT_NOTE,
+  });
+
+  res.status(201).json(note);
+});
+
+planningRouter.patch("/notes/:id", async (req, res) => {
+  const moi = req.utilisateur!;
+  const existante = await prisma.note.findFirst({
+    where: { id: req.params.id, utilisateurId: moi.id },
+    select: { id: true },
+  });
+  // 404 et non 403 : on ne confirme pas l'existence de la note d'un autre.
+  if (!existante) return res.status(404).json({ error: "Note introuvable." });
+
+  const lu = await lireCorpsNote(req.body, moi);
+  if ("erreur" in lu) return res.status(lu.code).json({ error: lu.erreur });
+
+  const note = await prisma.note.update({
+    where: { id: existante.id },
+    data: lu.donnees,
+    select: SELECT_NOTE,
+  });
+  res.json(note);
+});
+
+/**
+ * Épingle ou décroche, sans toucher au reste.
+ *
+ * Geste à part parce qu'il se fait d'un clic sur la note elle-même : passer
+ * par la correction complète obligerait à renvoyer un texte qu'on ne modifie
+ * pas, et toute erreur de l'appelant l'écraserait.
+ */
+planningRouter.patch("/notes/:id/epingle", async (req, res) => {
+  const moi = req.utilisateur!;
+  const existante = await prisma.note.findFirst({
+    where: { id: req.params.id, utilisateurId: moi.id },
+    select: { id: true },
+  });
+  if (!existante) return res.status(404).json({ error: "Note introuvable." });
+
+  const note = await prisma.note.update({
+    where: { id: existante.id },
+    data: { epinglee: (req.body as { epinglee?: boolean }).epinglee === true },
+    select: SELECT_NOTE,
+  });
+  res.json(note);
+});
+
+planningRouter.delete("/notes/:id", async (req, res) => {
+  const moi = req.utilisateur!;
+  const note = await prisma.note.findFirst({
+    where: { id: req.params.id, utilisateurId: moi.id },
+    select: { id: true },
+  });
+  if (!note) return res.status(404).json({ error: "Note introuvable." });
+
+  await prisma.note.delete({ where: { id: note.id } });
   res.json({ ok: true });
 });
 

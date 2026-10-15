@@ -7280,3 +7280,247 @@ td.col-actions {
   gap: 2px;
   flex-shrink: 0;
 }
+
+/* =======================================================================
+   Notes de la feuille de temps
+   Des pense-betes, et ils en ont l air : un papier teinte, un texte, rien
+   d autre tant qu on ne survole pas. La couleur ne code rien, chacun range
+   ses notes comme il veut, et le texte reste en encre sombre sur toutes les
+   teintes pour qu aucune note ne devienne illisible.
+   ======================================================================= */
+
+.notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 12px;
+}
+
+.note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 132px;
+  padding: 12px 13px 10px;
+  border-radius: 4px 4px 4px 14px;
+  border: 1px solid rgba(32, 28, 27, 0.08);
+  /* L ombre portee courte donne le papier pose, sans relief appuye. */
+  box-shadow: 0 1px 2px rgba(32, 28, 27, 0.1), 0 4px 10px rgba(32, 28, 27, 0.05);
+}
+
+/* Une note epinglee se detache de la pile : elle vient d un autre jour et ne
+   doit pas se confondre avec celles d aujourd hui. */
+.note.epinglee {
+  border-color: rgba(32, 28, 27, 0.18);
+  box-shadow: 0 1px 2px rgba(32, 28, 27, 0.14), 0 6px 14px rgba(32, 28, 27, 0.08);
+}
+
+.note-corps {
+  flex: 1;
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  cursor: text;
+}
+
+.note-contenu {
+  display: block;
+  padding-right: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(32, 28, 27, 0.08);
+  min-height: 24px;
+}
+
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(32, 28, 27, 0.62);
+  min-width: 0;
+}
+
+.note-client-nom {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+/* Supprimer n apparait qu au survol : une note se lit bien plus souvent
+   qu elle ne se jette, et une corbeille sur chaque papier fait du bruit. */
+.note-supprimer,
+.note-epingle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: rgba(32, 28, 27, 0.45);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.note-supprimer {
+  opacity: 0;
+}
+
+.note:hover .note-supprimer,
+.note-supprimer:focus-visible {
+  opacity: 1;
+}
+
+.note-supprimer:hover,
+.note-epingle:hover {
+  background: rgba(32, 28, 27, 0.08);
+  color: var(--ink);
+}
+
+.note-epingle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+}
+
+.note:hover .note-epingle,
+.note-epingle:focus-visible,
+.note-epingle.on {
+  opacity: 1;
+}
+
+.note-epingle.on {
+  color: var(--ink);
+}
+
+/* Saisie : le meme papier, en plus grand, pour qu on voie ce qu on ecrit tel
+   qu il sera relu. */
+.note-saisie {
+  margin-bottom: 14px;
+  padding: 12px 13px;
+  border-radius: 4px 4px 4px 14px;
+  border: 1px solid rgba(32, 28, 27, 0.12);
+  box-shadow: 0 1px 2px rgba(32, 28, 27, 0.1), 0 4px 10px rgba(32, 28, 27, 0.05);
+}
+
+.note-texte {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  resize: vertical;
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.note-texte:focus {
+  outline: none;
+}
+
+.note-texte::placeholder {
+  color: rgba(32, 28, 27, 0.4);
+}
+
+.note-reglages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(32, 28, 27, 0.1);
+}
+
+.note-couleurs {
+  display: flex;
+  gap: 6px;
+}
+
+.note-pastille {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(32, 28, 27, 0.18);
+  cursor: pointer;
+}
+
+/* La teinte choisie porte une bague et non une coche : la pastille est trop
+   petite pour une coche lisible, et le libelle est dans l infobulle. */
+.note-pastille.on {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink);
+}
+
+.note-epingle-choix {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: rgba(32, 28, 27, 0.75);
+  cursor: pointer;
+}
+
+.note-client {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+/* Teintes de papier. Claires a dessein : l encre du texte reste la meme sur
+   toutes, et une note ne doit jamais devenir penible a lire. */
+.couleur-jaune {
+  background: #fdf3cd;
+}
+
+.couleur-rose {
+  background: #fbe0e4;
+}
+
+.couleur-bleu {
+  background: #dceefb;
+}
+
+.couleur-vert {
+  background: #ddf1e4;
+}
+
+.couleur-violet {
+  background: #eae2fa;
+}
+
+@media (max-width: 760px) {
+  .notes {
+    grid-template-columns: 1fr;
+  }
+
+  .note-supprimer,
+  .note-epingle {
+    opacity: 1;
+  }
+}

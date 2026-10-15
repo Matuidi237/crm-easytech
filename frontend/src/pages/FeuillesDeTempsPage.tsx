@@ -13,6 +13,7 @@ import {
 import { useLangue } from "../i18n";
 import { useFilAriane } from "../ContexteEntete";
 import ChampClient from "../components/ChampClient";
+import NotesDuJour from "../components/NotesDuJour";
 import ListeDeroulante from "../components/ListeDeroulante";
 import { cleJour, depuisHeure, dureeLongue, enHeure, teinteActivite } from "../lib/activites";
 import {
@@ -482,6 +483,10 @@ export default function FeuillesDeTempsPage() {
           </ul>
         )}
       </section>
+
+      {/* Les notes après la journée : on les écrit en relisant ce qu'on a
+          fait, et ce qu'on retient d'une vente naît souvent là. */}
+      <NotesDuJour jour={jour} />
     </>
   );
 }

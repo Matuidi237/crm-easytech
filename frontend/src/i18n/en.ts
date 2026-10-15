@@ -1272,4 +1272,18 @@ export const en: Record<keyof typeof fr, string> = {
   "pl.confirmerSuppressionCreneau": "Remove “{activite}” from this day?",
   "commun.modifier": "Edit",
   "pl.creneauPrevu": "Planned",
+  /* ------------------------------------------------- Timesheet notes */
+  "pl.notesTitre": "Notes",
+  "pl.ajouterNote": "New note",
+  "pl.notePlaceholder": "What must not be forgotten next time...",
+  "pl.aucuneNote": "Nothing noted for this day.",
+  "pl.epinglerNote": "Keep in sight",
+  "pl.decrocherNote": "Unpin",
+  "pl.couleurNote": "Paper colour",
+  "pl.confirmerSuppressionNote": "Delete this note?",
+  "couleur.JAUNE": "Yellow",
+  "couleur.ROSE": "Pink",
+  "couleur.BLEU": "Blue",
+  "couleur.VERT": "Green",
+  "couleur.VIOLET": "Purple",
 };

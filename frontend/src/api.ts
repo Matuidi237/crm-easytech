@@ -809,6 +809,79 @@ export async function creerSaisieTemps(saisie: {
   return res.json() as Promise<SaisieTemps>;
 }
 
+/* --------------------------------------------------------------- Notes */
+
+/** Teintes de papier. Elles ne codent rien, chacun range ses notes ainsi. */
+export const COULEURS_NOTE = ["JAUNE", "ROSE", "BLEU", "VERT", "VIOLET"] as const;
+export type CouleurNote = (typeof COULEURS_NOTE)[number];
+
+/**
+ * Pense-bête posé sur une journée.
+ *
+ * Épinglé, il reste visible sur toutes les journées : c'est ce qui permet de
+ * suivre un point ouvert d'un bout à l'autre d'un cycle de vente.
+ */
+export type Note = {
+  id: string;
+  jour: string;
+  texte: string;
+  couleur: CouleurNote;
+  epinglee: boolean;
+  clientId: string | null;
+  clientNom: string | null;
+  updatedAt: string;
+};
+
+export async function fetchNotes(jour: string) {
+  const res = await authedFetch(`/api/planning/notes?jour=${encodeURIComponent(jour)}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement de vos notes.");
+  return (await res.json()).notes as Note[];
+}
+
+type CorpsNote = {
+  texte: string;
+  couleur: CouleurNote;
+  epinglee: boolean;
+  clientId: string | null;
+};
+
+export async function creerNote(note: CorpsNote & { jour: string }) {
+  const res = await authedFetch("/api/planning/notes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de la note.");
+  return res.json() as Promise<Note>;
+}
+
+export async function modifierNote(id: string, note: CorpsNote) {
+  const res = await authedFetch(`/api/planning/notes/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(note),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la modification de la note.");
+  return res.json() as Promise<Note>;
+}
+
+/** Épingle ou décroche, sans toucher au texte. */
+export async function epinglerNote(id: string, epinglee: boolean) {
+  const res = await authedFetch(`/api/planning/notes/${id}/epingle`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ epinglee }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'épinglage.");
+  return res.json() as Promise<Note>;
+}
+
+export async function supprimerNote(id: string) {
+  const res = await authedFetch(`/api/planning/notes/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression de la note.");
+  return res.json();
+}
+
 /** Confirme un créneau prévu, ou remet un créneau constaté au rang de prévu. */
 export async function changerStatutCreneau(id: string, statut: StatutCreneau) {
   const res = await authedFetch(`/api/planning/temps/${id}/statut`, {

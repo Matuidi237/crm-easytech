@@ -1274,4 +1274,18 @@ export const fr = {
   "pl.confirmerSuppressionCreneau": "Supprimer « {activite} » de cette journée ?",
   "commun.modifier": "Modifier",
   "pl.creneauPrevu": "Prévu",
+  /* ----------------------------------------- Notes de la feuille de temps */
+  "pl.notesTitre": "Notes",
+  "pl.ajouterNote": "Nouvelle note",
+  "pl.notePlaceholder": "Ce qu'il ne faut pas oublier pour la suite...",
+  "pl.aucuneNote": "Rien de noté pour cette journée.",
+  "pl.epinglerNote": "Garder sous les yeux",
+  "pl.decrocherNote": "Décrocher",
+  "pl.couleurNote": "Couleur du papier",
+  "pl.confirmerSuppressionNote": "Supprimer cette note ?",
+  "couleur.JAUNE": "Jaune",
+  "couleur.ROSE": "Rose",
+  "couleur.BLEU": "Bleu",
+  "couleur.VERT": "Vert",
+  "couleur.VIOLET": "Violet",
 };
