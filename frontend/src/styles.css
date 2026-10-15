@@ -6731,3 +6731,469 @@ td.col-actions {
 .fdt-prevu:hover {
   background: var(--brand-100);
 }
+
+/* =======================================================================
+   Pages d analyse
+   Une grammaire commune : un panneau, un chiffre heros par vue, des tuiles
+   sans glose, et des tableaux classes. Les intitules ne sont pas commentes :
+   un tableau nomme « Clients » n a pas besoin qu on ecrive en dessous qu il
+   classe les clients.
+   ======================================================================= */
+
+.panneau {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 22px 24px;
+}
+
+.panneau-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.panneau-tete h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.panneau-note {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.panneau-lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-700);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.panneau-lien:hover {
+  text-decoration: underline;
+}
+
+.panneau-vide {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* Selecteur de periode : un segmente, pas une rangee de boutons. */
+.segmente {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.segmente button {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-family: var(--font);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmente button:hover {
+  color: var(--ink);
+}
+
+.segmente button.on {
+  background: var(--surface);
+  color: var(--brand-700);
+  box-shadow: 0 1px 3px rgba(32, 28, 27, 0.12);
+}
+
+/* Heros ---------------------------------------------------------------
+   Exactement un par vue. Le chiffre est grand, en chiffres proportionnels :
+   une mesure isolee se lit, elle ne s aligne pas en colonne. */
+
+.heros-haut {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.heros-contexte {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+
+.heros-chiffre {
+  display: block;
+  margin: 2px 0 4px;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.heros-appui {
+  display: block;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+/* Etat : un mot et une teinte de statut, jamais la teinte seule. */
+.etat {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.etat-bon {
+  background: #e2f4f1;
+  color: #0c6b61;
+}
+
+.etat-alerte {
+  background: #fcf2e0;
+  color: #8a5f05;
+}
+
+/* Jauge : la piste est un pas clair de la meme teinte, pas un gris neutre,
+   de sorte que l etat se lise sur toute la barre. */
+/* Prefixe « mesure- » et non « jauge- » : ce dernier designe deja la jauge
+   circulaire des cartes d indicateur, dont la regle « display: grid » centrait
+   le remplissage au lieu de l ancrer a gauche. */
+.mesure {
+  position: relative;
+  display: block;
+  height: 10px;
+  margin-top: 22px;
+  border-radius: 999px;
+  background: var(--brand-100);
+  overflow: visible;
+}
+
+.mesure-remplie {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.mesure-remplie.alerte {
+  background: #c07a00;
+}
+
+/* Le repere du temps ecoule est un seuil, pas une grille : un trait plein. */
+.mesure-seuil {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.mesure-pied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.heros-rythme {
+  display: flex;
+  gap: 36px;
+  flex-wrap: wrap;
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.heros-rythme dt {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+}
+
+.heros-rythme dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.heros-rythme dd.en-deca {
+  color: #a33d5b;
+}
+
+/* Tuiles ---------------------------------------------------------------
+   Separees par un filet plutot que posees en cartes : elles forment une
+   rangee de mesures, pas une collection d objets. */
+
+/* Les filets sont portes par les tuiles elles-memes et non par un fond qui
+   transparait : la derniere rangee est rarement pleine, et un fond laisserait
+   un rectangle gris a la place des cases manquantes. */
+.tuiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tuile {
+  padding: 14px 16px;
+  background: var(--surface);
+  min-width: 0;
+  outline: 1px solid var(--border);
+}
+
+.tuile-libelle {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-bottom: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tuile-valeur {
+  display: block;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.tuile-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tuile-delta.hausse {
+  color: #0c7a6f;
+}
+
+.tuile-delta.baisse {
+  color: #a33d5b;
+}
+
+.tuile-delta.neutre {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+/* Tableaux classes ------------------------------------------------------
+   La part est peinte en fond de ligne : la longueur se compare d un regard,
+   et la ligne reste une ligne de tableau. Les chiffres sont tabulaires et
+   alignes a droite, seule facon de les comparer en colonne. */
+
+.rangs {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rangs td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.rangs tr:last-child td {
+  border-bottom: 0;
+}
+
+.rang-num {
+  width: 26px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.rang-nom {
+  position: relative;
+  padding-right: 14px !important;
+  min-width: 0;
+}
+
+.rang-fond {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  background: var(--brand-100);
+  border-radius: 4px;
+}
+
+.rang-texte {
+  position: relative;
+  display: block;
+  padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rang-chiffre {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  padding-left: 14px !important;
+  white-space: nowrap;
+}
+
+.rang-montant {
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.rang-part {
+  width: 48px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  padding-left: 10px !important;
+}
+
+.rang-reste td {
+  color: var(--ink-3);
+}
+
+.rang-reste .rang-montant {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* Tableau nu : pas d encadre, le panneau le porte deja. */
+.table-nue {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-nue th {
+  padding: 0 12px 9px 0;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table-nue th.num,
+.table-nue td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-nue th:last-child,
+.table-nue td:last-child {
+  padding-right: 0;
+}
+
+.table-nue td {
+  padding: 11px 12px 11px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.table-nue tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table-nue .td-strong {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+/* Une commission non versee : un point, et son intitule en infobulle. La
+   teinte seule ne dirait rien a qui ne la distingue pas. */
+.point-attente {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #c07a00;
+  vertical-align: 2px;
+}
+
+.remarque {
+  margin: 0;
+  padding: 13px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+@media (max-width: 760px) {
+  .panneau {
+    padding: 18px 16px;
+  }
+
+  .heros-chiffre {
+    font-size: 40px;
+  }
+
+  .heros-rythme {
+    gap: 24px;
+  }
+
+  .segmente {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .segmente button {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .rang-part {
+    display: none;
+  }
+}

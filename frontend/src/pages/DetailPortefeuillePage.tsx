@@ -13,7 +13,7 @@ type Filtre = "tous" | "servis" | "dormants";
  * page est ailleurs : séparer ceux qui achètent de ceux qui dorment. Un
  * portefeuille de trente fiches dont dix ont commandé ne se travaille pas
  * comme un portefeuille de dix fiches, et c'est la seconde moitié qui porte
- * le travail à venir.
+ * le travail à venir. Le taux de couverture porte donc la page.
  */
 export default function DetailPortefeuillePage() {
   const { t, nombre, montant, montantCompact, date } = useLangue();
@@ -38,147 +38,182 @@ export default function DetailPortefeuillePage() {
       .filter((c) => (q ? c.nom.toLowerCase().includes(q) : true));
   }, [donnees, filtre, recherche]);
 
+  const entete = (
+    <div className="page-head">
+      <div>
+        <h1>{t("co.detailPortefeuilleTitre")}</h1>
+      </div>
+    </div>
+  );
+
   if (erreur) {
     return (
-      <div className="alert alert-error">
-        <IconAlert />
-        {erreur}
-      </div>
+      <>
+        {entete}
+        <div className="alert alert-error">
+          <IconAlert />
+          {erreur}
+        </div>
+      </>
     );
   }
 
   if (!donnees) {
     return (
-      <div className="card">
-        <p className="muted-3" style={{ margin: 0 }}>
-          {t("commun.chargementDonnees")}
-        </p>
-      </div>
+      <>
+        {entete}
+        <div className="panneau panneau-vide">{t("commun.chargementDonnees")}</div>
+      </>
     );
   }
 
   const dormants = donnees.total - donnees.avecVente;
+  const couverture = donnees.couverturePct ?? 0;
+  const bonne = couverture >= 50;
+  const panier = donnees.avecVente > 0 ? Math.round(donnees.chiffreAffaires / donnees.avecVente) : 0;
+
+  /** Une répartition : rang, libellé, part en fond de ligne, effectif. */
+  function Repartition({ titre, cle }: { titre: string; cle: "pays" | "secteurActivite" }) {
+    const groupes = new Map<string, { n: number; ca: number }>();
+    for (const c of donnees!.clients) {
+      const k = c[cle] ?? t("co.detailNonRenseigne");
+      const g = groupes.get(k) ?? { n: 0, ca: 0 };
+      g.n += 1;
+      g.ca += c.chiffreAffaires;
+      groupes.set(k, g);
+    }
+    const tete = [...groupes.entries()].sort((a, b) => b[1].n - a[1].n);
+    const visibles = tete.slice(0, 7);
+    const reste = tete.slice(7);
+    const total = donnees!.clients.length || 1;
+
+    return (
+      <section className="panneau">
+        <header className="panneau-tete">
+          <h2>{titre}</h2>
+        </header>
+        <table className="rangs">
+          <tbody>
+            {visibles.map(([nom, g], i) => (
+              <tr key={nom}>
+                <td className="rang-num">{i + 1}</td>
+                <td className="rang-nom">
+                  <span className="rang-fond" style={{ width: `${(g.n / total) * 100}%` }} aria-hidden />
+                  <span className="rang-texte" title={nom}>
+                    {nom}
+                  </span>
+                </td>
+                <td className="rang-chiffre">{nombre(g.n)}</td>
+                <td className="rang-chiffre rang-montant" title={montant(g.ca)}>
+                  {g.ca > 0 ? montantCompact(g.ca) : "—"}
+                </td>
+                <td className="rang-part">{nombre(Math.round((g.n / total) * 100))}%</td>
+              </tr>
+            ))}
+            {reste.length > 0 && (
+              <tr className="rang-reste">
+                <td />
+                <td className="rang-nom">
+                  <span className="rang-texte">{t("co.autresN", { n: nombre(reste.length) })}</span>
+                </td>
+                <td className="rang-chiffre">{nombre(reste.reduce((s, [, g]) => s + g.n, 0))}</td>
+                <td className="rang-chiffre rang-montant">
+                  {montantCompact(reste.reduce((s, [, g]) => s + g.ca, 0))}
+                </td>
+                <td className="rang-part">
+                  {nombre(Math.round((reste.reduce((s, [, g]) => s + g.n, 0) / total) * 100))}%
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+    );
+  }
+
+  const concentration =
+    donnees.avecVente >= 3 && donnees.chiffreAffaires > 0
+      ? Math.round(
+          (donnees.clients
+            .filter((c) => c.nbVentes > 0)
+            .slice(0, 3)
+            .reduce((s, c) => s + c.chiffreAffaires, 0) /
+            donnees.chiffreAffaires) *
+            100
+        )
+      : null;
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>{t("co.detailPortefeuilleTitre")}</h1>
-          <div className="page-sub">{t("co.detailPortefeuilleSousTitre")}</div>
-        </div>
-      </div>
+      {entete}
 
-      <div className="card">
-        <div className="chiffres-cles">
-          <div>
-            <span className="chiffre-label">{t("co.detailFiches")}</span>
-            <strong>{nombre(donnees.total)}</strong>
+      {/* La couverture, et elle seule. Le reste du portefeuille est le travail
+          qui reste à faire : c'est ce que dit le pied de jauge. */}
+      <section className="panneau heros">
+        <div className="heros-haut">
+          <div className="heros-principal">
+            <span className="heros-contexte">{t("co.detailPortefeuilleSousTitre")}</span>
+            <span className="heros-chiffre">{nombre(couverture)}%</span>
+            <span className="heros-appui">
+              {t("co.servisSurTotal", { servis: nombre(donnees.avecVente), total: nombre(donnees.total) })}
+            </span>
           </div>
-          <div>
-            <span className="chiffre-label">{t("co.detailServis")}</span>
-            <strong>{nombre(donnees.avecVente)}</strong>
-          </div>
-          <div>
-            <span className="chiffre-label">{t("co.detailDormants")}</span>
-            <strong className={dormants > 0 ? "valeur-negative" : ""}>{nombre(dormants)}</strong>
-          </div>
-          <div>
-            <span className="chiffre-label">{t("co.detailCaPortefeuille")}</span>
-            <strong>{montantCompact(donnees.chiffreAffaires)}</strong>
-          </div>
+          <span className={`etat ${bonne ? "etat-bon" : "etat-alerte"}`}>
+            {bonne ? t("co.couvertureBonne") : t("co.couvertureFaible")}
+          </span>
         </div>
 
-        <div className="cible-rail" style={{ marginTop: 18 }}>
-          <span className="cible-barre" style={{ width: `${donnees.couverturePct ?? 0}%` }} />
+        <div className="mesure">
+          <span
+            className={`mesure-remplie${bonne ? "" : " alerte"}`}
+            style={{ width: `${Math.min(100, couverture)}%` }}
+          />
         </div>
-        <div className="cible-pied">
-          <span>{t("co.detailCouverture", { pct: nombre(donnees.couverturePct ?? 0) })}</span>
+        <div className="mesure-pied">
+          <span>{t("co.detailFiches")} · {nombre(donnees.total)}</span>
+          <span>{t("co.dormantsRestants", { n: nombre(dormants) })}</span>
         </div>
-      </div>
+
+        <dl className="heros-rythme">
+          <div>
+            <dt>{t("co.detailCaPortefeuille")}</dt>
+            <dd title={montant(donnees.chiffreAffaires)}>{montantCompact(donnees.chiffreAffaires)}</dd>
+          </div>
+          <div>
+            <dt>{t("co.detailPanier")}</dt>
+            <dd title={montant(panier)}>{montantCompact(panier)}</dd>
+          </div>
+          <div>
+            <dt>{t("co.detailDormants")}</dt>
+            <dd className={dormants > 0 ? "en-deca" : undefined}>{nombre(dormants)}</dd>
+          </div>
+        </dl>
+      </section>
 
       {/* Où se trouve le portefeuille : deux répartitions qui disent, mieux
           qu'une liste de trente noms, sur quel terrain on travaille. */}
       {donnees.clients.length > 0 && (
         <div className="deux-colonnes">
-          {(
-            [
-              { cle: "pays" as const, titre: t("co.detailParPays") },
-              { cle: "secteurActivite" as const, titre: t("co.detailParSecteur") },
-            ]
-          ).map(({ cle, titre }) => {
-            const groupes = new Map<string, { n: number; ca: number }>();
-            for (const c of donnees.clients) {
-              const k = c[cle] ?? t("co.detailNonRenseigne");
-              const g = groupes.get(k) ?? { n: 0, ca: 0 };
-              g.n += 1;
-              g.ca += c.chiffreAffaires;
-              groupes.set(k, g);
-            }
-            const lignes = [...groupes.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 8);
-            const max = Math.max(...lignes.map(([, g]) => g.n), 1);
-            return (
-              <div className="card" key={cle}>
-                <div className="card-head">
-                  <div>
-                    <div className="card-title">{titre}</div>
-                    <div className="card-sub">{t("co.detailRepartitionTitre")}</div>
-                  </div>
-                </div>
-                <ul className="repartition">
-                  {lignes.map(([nom, g]) => (
-                    <li key={nom} className="repartition-ligne">
-                      <span className="repartition-nom" title={nom}>
-                        {nom}
-                      </span>
-                      <span className="repartition-rail">
-                        <span className="repartition-barre" style={{ width: `${(g.n / max) * 100}%` }} />
-                      </span>
-                      <span className="repartition-valeur" title={montant(g.ca)}>
-                        {nombre(g.n)}
-                        {g.ca > 0 && <span className="repartition-part">{montantCompact(g.ca)}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
+          <Repartition titre={t("co.detailParPays")} cle="pays" />
+          <Repartition titre={t("co.detailParSecteur")} cle="secteurActivite" />
         </div>
       )}
 
       {/* Concentration : un portefeuille porté par trois clients est fragile,
           et la liste triée ne le dit pas d'elle-même. */}
-      {donnees.avecVente >= 3 && donnees.chiffreAffaires > 0 && (
-        <div className="card">
-          <p className="objectif-note" style={{ margin: 0 }}>
-            {t("co.detailConcentrationPortefeuille", {
-              pct: nombre(
-                Math.round(
-                  (donnees.clients
-                    .filter((c) => c.nbVentes > 0)
-                    .slice(0, 3)
-                    .reduce((s, c) => s + c.chiffreAffaires, 0) /
-                    donnees.chiffreAffaires) *
-                    100
-                )
-              ),
-            })}
-          </p>
-        </div>
+      {concentration !== null && (
+        <p className="remarque">{t("co.detailConcentrationPortefeuille", { pct: nombre(concentration) })}</p>
       )}
 
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("co.detailListeTitre")}</div>
-            <div className="card-sub">{t("co.detailListeSousTitre", { n: nombre(lignes.length) })}</div>
-          </div>
-          <div className="dim-switch" role="group" aria-label={t("co.detailFiltreEtiquette")}>
+      <section className="panneau">
+        <header className="panneau-tete">
+          <h2>{t("co.detailListeTitre")}</h2>
+          <div className="segmente" role="group" aria-label={t("co.detailFiltreEtiquette")}>
             {(["tous", "servis", "dormants"] as const).map((f) => (
               <button
                 key={f}
                 type="button"
-                className={`dim-opt${f === filtre ? " on" : ""}`}
+                className={f === filtre ? "on" : undefined}
                 onClick={() => setFiltre(f)}
                 aria-pressed={f === filtre}
               >
@@ -186,7 +221,7 @@ export default function DetailPortefeuillePage() {
               </button>
             ))}
           </div>
-        </div>
+        </header>
 
         {/* Une recherche locale, sans appel serveur : la liste tient déjà en
             mémoire, et un aller-retour par caractère serait du gaspillage. */}
@@ -213,14 +248,14 @@ export default function DetailPortefeuillePage() {
           </div>
         ) : (
           <div className="table-scroll">
-            <table>
+            <table className="table-nue">
               <thead>
                 <tr>
                   <th>{t("fc.colClient")}</th>
                   <th>{t("clients.filtrePays")}</th>
                   <th>{t("clients.filtreSecteur")}</th>
-                  <th>{t("cm.colVentes")}</th>
-                  <th>{t("co.ca")}</th>
+                  <th className="num">{t("cm.colVentes")}</th>
+                  <th className="num">{t("co.ca")}</th>
                   <th>{t("co.derniereVenteCol")}</th>
                 </tr>
               </thead>
@@ -230,17 +265,15 @@ export default function DetailPortefeuillePage() {
                     <td className="td-strong td-main" data-label={t("fc.colClient")}>
                       {c.nom}
                     </td>
-                    <td data-label={t("clients.filtrePays")}>
-                      {c.pays ?? <span className="muted-3">-</span>}
-                    </td>
+                    <td data-label={t("clients.filtrePays")}>{c.pays ?? <span className="muted-3">—</span>}</td>
                     <td data-label={t("clients.filtreSecteur")}>
-                      {c.secteurActivite ?? <span className="muted-3">-</span>}
+                      {c.secteurActivite ?? <span className="muted-3">—</span>}
                     </td>
                     <td className="num" data-label={t("cm.colVentes")}>
-                      {c.nbVentes > 0 ? nombre(c.nbVentes) : <span className="muted-3">-</span>}
+                      {c.nbVentes > 0 ? nombre(c.nbVentes) : <span className="muted-3">—</span>}
                     </td>
                     <td className="num" data-label={t("co.ca")} title={montant(c.chiffreAffaires)}>
-                      {c.nbVentes > 0 ? montantCompact(c.chiffreAffaires) : <span className="muted-3">-</span>}
+                      {c.nbVentes > 0 ? montantCompact(c.chiffreAffaires) : <span className="muted-3">—</span>}
                     </td>
                     <td data-label={t("co.derniereVenteCol")}>
                       {/* Un client sans vente est signalé comme tel, pas laissé
@@ -257,7 +290,7 @@ export default function DetailPortefeuillePage() {
             </table>
           </div>
         )}
-      </div>
+      </section>
     </>
   );
 }
