@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FeuilleHebdo, fetchFeuilleHebdo } from "../api";
+import { FeuilleDeTemps, fetchFeuilleDeTemps } from "../api";
 import { useLangue } from "../i18n";
 import { IconArrowRight, IconCalendar, IconTag } from "../components/Icons";
 
@@ -25,10 +25,10 @@ function duree(minutes: number) {
 export default function PlanningPage() {
   const { t, nombre } = useLangue();
   const navigate = useNavigate();
-  const [semaine, setSemaine] = useState<FeuilleHebdo | null>(null);
+  const [semaine, setSemaine] = useState<FeuilleDeTemps | null>(null);
 
   useEffect(() => {
-    fetchFeuilleHebdo(cleJour(new Date()))
+    fetchFeuilleDeTemps("SEMAINE", cleJour(new Date()))
       .then(setSemaine)
       .catch(() => setSemaine(null));
   }, []);
@@ -73,9 +73,11 @@ export default function PlanningPage() {
      ce rappel évite. */
   const portee = semaine
     ? t("pl.semaineEnCours", {
-        declare: duree(semaine.total),
-        cible: duree(semaine.cible),
-        pct: nombre(semaine.cible > 0 ? Math.round((semaine.total / semaine.cible) * 100) : 0),
+        declare: duree(semaine.totalMinutes),
+        cible: duree(semaine.cibleMinutes),
+        pct: nombre(
+          semaine.cibleMinutes > 0 ? Math.round((semaine.totalMinutes / semaine.cibleMinutes) * 100) : 0
+        ),
       })
     : t("commun.chargement");
 

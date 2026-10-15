@@ -1,15 +1,14 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ACTIVITES,
   PlageCalendrier,
   SaisieTemps,
   PeriodeObjectif,
   SuggestionClient,
   SuiviObjectifs,
-  TypeActivite,
   changerStatutCreneau,
   creerSaisieTemps,
+  fetchActivitesConnues,
   fetchCalendrier,
   fetchObjectifs,
   modifierSaisieTemps,
@@ -17,6 +16,8 @@ import {
 } from "../api";
 import { useLangue, type CleTraduction } from "../i18n";
 import ChampClient from "../components/ChampClient";
+import ListeDeroulante from "../components/ListeDeroulante";
+import { teinteActivite } from "../lib/activites";
 import {
   IconAlert,
   IconArrowRight,
@@ -36,24 +37,6 @@ const HEURE_DEBUT = 6;
 const HEURE_FIN = 21;
 const MINUTES_VISIBLES = (HEURE_FIN - HEURE_DEBUT) * 60;
 const HAUTEUR_HEURE = 52;
-
-/* Une teinte par activité : la couleur suit l'activité et jamais sa place
-   dans la journée, de sorte qu'un même type se reconnaisse d'une semaine à
-   l'autre. */
-const TEINTES: Record<TypeActivite, string> = {
-  PROSPECTION: "#1f86c8",
-  RELANCE: "#2a9fd6",
-  RENDEZ_VOUS: "#0c8074",
-  DEMONSTRATION: "#12a594",
-  DEVIS: "#7c4dcc",
-  NEGOCIATION: "#9b5de5",
-  SUIVI_CLIENT: "#c07a00",
-  REUNION_INTERNE: "#8a8582",
-  FORMATION: "#d97706",
-  DEPLACEMENT: "#a33d5b",
-  ADMINISTRATIF: "#6b6462",
-  AUTRE: "#9a9290",
-};
 
 function cleJour(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -131,7 +114,7 @@ function disposer(saisies: SaisieTemps[]) {
 }
 
 const VIDE = {
-  activite: "RENDEZ_VOUS" as TypeActivite,
+  activite: "",
   debut: "09:00",
   fin: "10:00",
   description: "",
@@ -165,7 +148,17 @@ export default function CalendrierPage() {
      aujourd'hui, l'année dit si l'on tient le cap. Séparément, ils ne
      racontent que la moitié de l'histoire. */
   const [objectifs, setObjectifs] = useState<Partial<Record<PeriodeObjectif, SuiviObjectifs>>>({});
+  /* Libellés déjà employés, proposés à la saisie : l'activité est libre, mais
+     reproposer son propre vocabulaire évite d'écrire trois variantes du même
+     mot et de les voir compter séparément. */
+  const [activites, setActivites] = useState<string[]>([]);
   const grille = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchActivitesConnues()
+      .then(setActivites)
+      .catch(() => setActivites([]));
+  }, []);
 
   /* Fenêtre à charger : la vue mensuelle couvre six semaines pleines, donc
      des jours des mois voisins, exactement ce que montre la grille. */
@@ -233,7 +226,6 @@ export default function CalendrierPage() {
 
   const saisiesDuJour = parJourSaisies.get(jourActif) ?? [];
   const futur = jourActif > aujourdhui;
-  const libelleActivite = (a: TypeActivite) => t(`activite.${a}` as CleTraduction);
 
   function decaler(pas: number) {
     const d = new Date(ancre);
@@ -492,15 +484,15 @@ export default function CalendrierPage() {
                       key={s.id}
                       type="button"
                       className={`cal-pastille${s.statut === "PREVU" ? " prevu" : ""}`}
-                      style={{ borderLeftColor: TEINTES[s.activite] }}
+                      style={{ borderLeftColor: teinteActivite(s.activite) }}
                       onClick={(e) => {
                         e.stopPropagation();
                         ouvrirCreneau(s);
                       }}
-                      title={`${enHeure(s.debutMinutes)} ${libelleActivite(s.activite)}`}
+                      title={`${enHeure(s.debutMinutes)} ${s.activite}`}
                     >
                       <span className="cal-pastille-heure">{enHeure(s.debutMinutes)}</span>
-                      <span className="cal-pastille-nom">{s.clientNom || libelleActivite(s.activite)}</span>
+                      <span className="cal-pastille-nom">{s.clientNom || s.activite}</span>
                     </button>
                   ))}
                   {duJour.length > 3 && (
@@ -593,12 +585,12 @@ export default function CalendrierPage() {
                           height: `${Math.max(2.2, hauteur)}%`,
                           left: `${(colonne / colonnes) * 100}%`,
                           width: `${(1 / colonnes) * 100}%`,
-                          background: TEINTES[s.activite],
+                          background: teinteActivite(s.activite),
                         }}
                         onClick={() => ouvrirCreneau(s)}
-                        title={`${enHeure(s.debutMinutes)} - ${enHeure(s.finMinutes)} · ${libelleActivite(s.activite)}`}
+                        title={`${enHeure(s.debutMinutes)} - ${enHeure(s.finMinutes)} · ${s.activite}`}
                       >
-                        <span className="cal-event-titre">{libelleActivite(s.activite)}</span>
+                        <span className="cal-event-titre">{s.activite}</span>
                         <span className="cal-event-detail">
                           {enHeure(s.debutMinutes)}
                           {s.clientNom ? ` · ${s.clientNom}` : ""}
@@ -640,17 +632,16 @@ export default function CalendrierPage() {
             <div className="form-grid form-grid-creneau" style={{ marginTop: 14 }}>
               <div className="field">
                 <label htmlFor="cal-activite">{t("ag.activite")}</label>
-                <select
+                {/* Saisie libre : la liste reprend les libellés déjà employés,
+                    elle ne les impose pas. */}
+                <ListeDeroulante
                   id="cal-activite"
-                  value={form.activite}
-                  onChange={(e) => setForm((f) => ({ ...f, activite: e.target.value as TypeActivite }))}
-                >
-                  {ACTIVITES.map((a) => (
-                    <option key={a} value={a}>
-                      {libelleActivite(a)}
-                    </option>
-                  ))}
-                </select>
+                  valeur={form.activite}
+                  options={activites}
+                  onChange={(v) => setForm((f) => ({ ...f, activite: v }))}
+                  placeholder={t("pl.activitePlaceholder")}
+                  libre
+                />
               </div>
               <div className="field">
                 <label htmlFor="cal-debut">{t("ag.debut")}</label>
@@ -711,7 +702,7 @@ export default function CalendrierPage() {
                   {t("commun.annuler")}
                 </button>
               )}
-              <button className="btn btn-primary" type="submit" disabled={envoi}>
+              <button className="btn btn-primary" type="submit" disabled={envoi || form.activite.trim() === ""}>
                 {!edition && <IconPlus size={16} />}
                 {envoi
                   ? t("ag.ajoutEnCours")
@@ -733,14 +724,14 @@ export default function CalendrierPage() {
                 <li key={s.id} className={`creneau${edition === s.id ? " en-edition" : ""}`}>
                   <span
                     className={`creneau-barre${s.statut === "PREVU" ? " prevu" : ""}`}
-                    style={{ background: TEINTES[s.activite] }}
+                    style={{ background: teinteActivite(s.activite) }}
                     aria-hidden
                   />
                   <span className="creneau-heures">
                     {enHeure(s.debutMinutes)} - {enHeure(s.finMinutes)}
                   </span>
                   <span className="creneau-corps">
-                    <span className="creneau-activite">{libelleActivite(s.activite)}</span>
+                    <span className="creneau-activite">{s.activite}</span>
                     {(s.clientNom || s.description) && (
                       <span className="creneau-detail">
                         {[s.clientNom, s.description].filter(Boolean).join(" · ")}

@@ -694,21 +694,18 @@ export async function fetchTableauCommercial() {
 
 /* ------------------------------------------------------------- Agenda */
 
-export const ACTIVITES = [
-  "PROSPECTION",
-  "RELANCE",
-  "RENDEZ_VOUS",
-  "DEMONSTRATION",
-  "DEVIS",
-  "NEGOCIATION",
-  "SUIVI_CLIENT",
-  "REUNION_INTERNE",
-  "FORMATION",
-  "DEPLACEMENT",
-  "ADMINISTRATIF",
-  "AUTRE",
-] as const;
-export type TypeActivite = (typeof ACTIVITES)[number];
+/**
+ * Libellés d'activité déjà employés par le compte, les plus fréquents d'abord,
+ * complétés de quelques propositions de départ.
+ *
+ * Ce sont des suggestions et non une liste autorisée : le champ reste libre,
+ * c'est tout l'intérêt d'avoir quitté l'énumération fermée.
+ */
+export async function fetchActivitesConnues() {
+  const res = await authedFetch("/api/planning/temps/activites");
+  if (!res.ok) throw new Error("Erreur lors du chargement des activités.");
+  return (await res.json()).activites as string[];
+}
 
 export const PERIODES = ["JOUR", "SEMAINE", "MOIS", "TRIMESTRE", "SEMESTRE", "ANNEE"] as const;
 export type PeriodeObjectif = (typeof PERIODES)[number];
@@ -722,7 +719,7 @@ export type SaisieTemps = {
   /** Minutes depuis minuit : 540 = 09:00. */
   debutMinutes: number;
   finMinutes: number;
-  activite: TypeActivite;
+  activite: string;
   description: string | null;
   statut: StatutCreneau;
   clientId: string | null;
@@ -750,7 +747,7 @@ export type FeuilleDeTemps = {
   /** Minutes par jour, indexées sur la date ISO. */
   parJour: Record<string, number>;
   parMois: { mois: string; minutes: number }[];
-  parActivite: { activite: TypeActivite; minutes: number }[];
+  parActivite: { activite: string; minutes: number }[];
 };
 
 /** Créneaux d'une plage libre, pour la grille du calendrier. */
@@ -768,51 +765,6 @@ export async function fetchCalendrier(debut: string, fin: string) {
   return res.json() as Promise<PlageCalendrier>;
 }
 
-/** La semaine en tableau : une ligne par activité, une colonne par jour. */
-export type LigneFeuille = {
-  cle: string;
-  activite: TypeActivite;
-  clientId: string | null;
-  clientNom: string | null;
-  /** Minutes par jour, et combien de créneaux les composent. */
-  parJour: Record<string, { minutes: number; nbSaisies: number }>;
-  total: number;
-};
-
-export type FeuilleHebdo = {
-  debut: string;
-  fin: string;
-  jours: { jour: string; minutes: number; cible: number; ecart: number; ouvre: boolean }[];
-  lignes: LigneFeuille[];
-  total: number;
-  cible: number;
-  ecart: number;
-  /** Heures déjà planifiées sur la semaine, hors feuille de temps. */
-  prevuMinutes: number;
-  cibleParJourMinutes: number;
-};
-
-export async function fetchFeuilleHebdo(semaine: string) {
-  const res = await authedFetch(`/api/planning/feuilles?semaine=${semaine}`);
-  if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
-  return res.json() as Promise<FeuilleHebdo>;
-}
-
-export async function poserCellule(cellule: {
-  jour: string;
-  activite: TypeActivite;
-  clientId: string | null;
-  minutes: number;
-}) {
-  const res = await authedFetch("/api/planning/feuilles/cellule", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cellule),
-  });
-  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la saisie.");
-  return res.json();
-}
-
 export async function fetchFeuilleDeTemps(periode: PeriodeObjectif, date: string) {
   const res = await authedFetch(`/api/planning/temps?periode=${periode}&date=${encodeURIComponent(date)}`);
   if (!res.ok) throw new Error("Erreur lors du chargement de la feuille de temps.");
@@ -824,7 +776,7 @@ export async function modifierSaisieTemps(
   saisie: {
     debutMinutes: number;
     finMinutes: number;
-    activite: TypeActivite;
+    activite: string;
     description: string;
     clientId: string | null;
   }
@@ -842,7 +794,7 @@ export async function creerSaisieTemps(saisie: {
   jour: string;
   debutMinutes: number;
   finMinutes: number;
-  activite: TypeActivite;
+  activite: string;
   description: string;
   clientId: string | null;
   /** Omis, le serveur déduit du jour : à venir donne un créneau prévu. */

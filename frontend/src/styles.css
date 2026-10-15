@@ -7239,3 +7239,44 @@ td.col-actions {
   border-color: var(--brand);
   color: var(--brand-700);
 }
+
+/* Feuille de temps : en-tete du jour ------------------------------------
+   Le reste de la page emprunte le vocabulaire de la fiche journaliere du
+   calendrier (.bande-jours, .jour-case, .creneau...) : une meme ligne ne
+   doit pas se dessiner de deux facons selon la page d ou on la regarde. */
+
+.jour-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jour-titre {
+  flex: 1;
+  min-width: 0;
+}
+
+.jour-titre strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.jour-sous {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* Modifier et supprimer, au bout de la ligne : la correction est le geste
+   courant sur une feuille de temps, pas l exception. */
+.creneau-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}

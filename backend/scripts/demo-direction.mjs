@@ -551,14 +551,25 @@ async function creer() {
      Les activités ne sont pas tirées uniformément : une semaine de commercial
      est faite de prospection et de relances, pas d'un tiers de formation. */
   const JOURNEE_TYPE = [
-    { activite: "PROSPECTION", debut: 480, fin: 600 },
-    { activite: "RELANCE", debut: 600, fin: 690 },
-    { activite: "RENDEZ_VOUS", debut: 690, fin: 780 },
-    { activite: "DEVIS", debut: 840, fin: 930 },
-    { activite: "SUIVI_CLIENT", debut: 930, fin: 1020 },
-    { activite: "ADMINISTRATIF", debut: 1020, fin: 1080 },
+    { activite: "Prospection", debut: 480, fin: 600 },
+    { activite: "Relance", debut: 600, fin: 690 },
+    { activite: "Rendez-vous client", debut: 690, fin: 780 },
+    { activite: "Rédaction de devis", debut: 840, fin: 930 },
+    { activite: "Suivi client", debut: 930, fin: 1020 },
+    { activite: "Administratif", debut: 1020, fin: 1080 },
   ];
-  const VARIANTES = ["DEMONSTRATION", "NEGOCIATION", "REUNION_INTERNE", "DEPLACEMENT", "FORMATION"];
+  /* Libellés libres et non codes d'énumération : la colonne porte désormais le
+     texte que le commercial tape lui-même, et le jeu de démonstration doit
+     ressembler à ce qu'on lira en production. */
+  const VARIANTES = [
+    "Démonstration",
+    "Négociation",
+    "Réunion interne",
+    "Déplacement",
+    "Formation",
+    "Visite de chantier",
+    "Point d'équipe",
+  ];
 
   const lundiCourant = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate());
   lundiCourant.setDate(lundiCourant.getDate() - ((lundiCourant.getDay() + 6) % 7));
@@ -577,7 +588,9 @@ async function creer() {
           // Une journée sur cinq n'est pas complète, comme dans la vraie vie.
           if (alea() < 0.18) continue;
           const activite = alea() < 0.22 ? piocher(VARIANTES) : creneau.activite;
-          const viseUnClient = !["REUNION_INTERNE", "FORMATION", "ADMINISTRATIF"].includes(activite);
+          const viseUnClient = !["Réunion interne", "Formation", "Administratif", "Point d'équipe"].includes(
+            activite
+          );
           const client = viseUnClient && vivier.length > 0 ? piocher(vivier) : null;
           saisies.push({
             utilisateurId: ids[vendeur],

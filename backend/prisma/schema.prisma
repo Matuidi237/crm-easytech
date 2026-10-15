@@ -367,26 +367,6 @@ model Projet {
   @@index([dateFinPrevue])
 }
 
-/// Activités récurrentes d'un commercial, telles qu'elles se pointent.
-///
-/// Liste fermée et volontairement courte : une feuille de temps à vingt
-/// catégories n'est pas remplie, et une feuille de temps non remplie ne sert
-/// à personne. « AUTRE » recueille le reste, avec sa description libre.
-enum TypeActivite {
-  PROSPECTION
-  RELANCE
-  RENDEZ_VOUS
-  DEMONSTRATION
-  DEVIS
-  NEGOCIATION
-  SUIVI_CLIENT
-  REUNION_INTERNE
-  FORMATION
-  DEPLACEMENT
-  ADMINISTRATIF
-  AUTRE
-}
-
 /// Un créneau est-il prévu, ou constaté ?
 ///
 /// La distinction porte tout l'agenda : un rendez-vous de mardi prochain et
@@ -417,7 +397,16 @@ model SaisieTemps {
   debutMinutes Int
   finMinutes   Int
 
-  activite    TypeActivite
+  /// Ce qui a été fait, en toutes lettres.
+  ///
+  /// Texte libre et non liste fermée : une nomenclature d'activités imposée
+  /// oblige à ranger « réunion de cadrage chez le client » dans une case qui
+  /// ne lui va pas, et une feuille de temps qu'on remplit de travers n'est
+  /// pas lue. Les libellés déjà employés sont reproposés à la saisie, ce qui
+  /// suffit à garder les statistiques regroupées sans rien interdire.
+  activite String
+
+  /// Précision libre, quand le libellé ne dit pas tout.
   description String?
 
   /// Prévu tant qu'il n'a pas eu lieu, réalisé une fois constaté. Un créneau
