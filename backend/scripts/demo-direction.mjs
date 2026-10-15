@@ -27,9 +27,10 @@ const PREFIXE = "demo-";
    à Douala, et les créneaux du lundi se rangeraient au dimanche. */
 const jourCalendaire = (d) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
-/* Le taux de commission porte sur le bénéfice, pas sur le chiffre d'affaires
-   (voir src/lib/commissions.ts). Les taux varient d'une personne à l'autre,
-   comme dans la réalité : un taux unique rendrait la colonne inutile. */
+/* Aucun compte ne porte de taux négocié : la règle d'EasyTech est le barème
+   par nature, 3 % sur le matériel et 5 % sur le service (voir
+   src/lib/commissions.ts). Un taux personnel remplacerait ce barème et le
+   masquerait sur presque toutes les fiches de démonstration. */
 const COMPTES = [
   {
     identifiant: "demo-dg",
@@ -79,10 +80,6 @@ const COMPTES = [
     email: "vanessa.ndongo@easytechgroup.net",
     pays: "Côte d'Ivoire",
   },
-  /* Un commercial sans taux négocié : sa fiche doit afficher une commission
-     calculée au taux maison de 3 % (TAUX_PAR_DEFAUT_PCT), signalée comme
-     telle. C'est le cas le plus courant en production, il doit figurer dans
-     le jeu de démonstration. */
   {
     identifiant: "demo-samuel",
     nomComplet: "Samuel Eto'o",

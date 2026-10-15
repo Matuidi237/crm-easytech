@@ -870,9 +870,6 @@ export const fr = {
   /* ---------------------------------------------------------- Commissions */
   "cm.sousTitre": "Ce qui vous est dû, ce qui a été versé, et le calcul derrière",
 
-  "cm.regleTitre": "Comment votre commission est calculée",
-  "cm.regleNegociee": "Vous touchez {taux}% du bénéfice de chaque vente, selon le taux négocié pour votre compte. La base est le bénéfice, pas le chiffre d'affaires : une vente à perte ne produit aucune commission.",
-  "cm.regleMaison": "Vous touchez {taux}% du bénéfice de chaque vente, au taux maison appliqué à défaut d'accord particulier. La base est le bénéfice, pas le chiffre d'affaires : une vente à perte ne produit aucune commission.",
 
   "cm.attendu": "Total gagné",
   "cm.attenduNote": "Sur {n} ventes, pour {benefice} de bénéfice",

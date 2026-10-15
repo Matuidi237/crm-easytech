@@ -1272,7 +1272,7 @@ export type MembreCommercial = {
   benefice: number;
   nbVentes: number;
   derniereVente: string | null;
-  /** null quand aucun taux de commission n'a été fixé pour ce compte. */
+  /** Cumul des commissions, chaque vente au taux de sa nature. */
   commission: number | null;
 };
 

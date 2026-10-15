@@ -90,17 +90,21 @@ model Utilisateur {
   /// Équipe commerciale, pas la provenance de ses ventes.
   pays String?
 
-  /// Taux de commission, en pourcentage (12.5 = 12,5 %).
+  /// Taux de commission NÉGOCIÉ pour ce compte, en pourcentage (12.5 = 12,5 %).
   ///
   /// Appliqué au BÉNÉFICE et non au chiffre d'affaires : c'est la marge qui
   /// rémunère l'entreprise, et commissionner sur le chiffre d'affaires
   /// récompenserait une vente à perte. Voir « commissionDe » dans
   /// src/lib/commissions.ts, seul endroit où cette règle est écrite.
-  /// Null quand aucun taux particulier n'a été négocié : le taux maison
-  /// s'applique alors (TAUX_PAR_DEFAUT_PCT dans src/lib/commissions.ts).
+  ///
+  /// Null dans le cas courant, et c'est alors le barème maison qui s'applique :
+  /// 3 % sur le matériel, 5 % sur le service (BAREME_PCT dans le même fichier).
+  /// Renseignée, la valeur REMPLACE le barème pour les deux natures, un accord
+  /// particulier se signant sur un chiffre unique.
+  ///
   /// La colonne reste nullable à dessein : « rien de négocié » et « 3 %
   /// explicitement accordés » ne se confondent pas, et une valeur copiée dans
-  /// chaque ligne figerait le taux maison au jour de la création du compte.
+  /// chaque ligne figerait le barème au jour de la création du compte.
   tauxCommissionPct Decimal? @db.Decimal(5, 2)
   role           RoleUtilisateur @default(COMMERCIAL)
   actif          Boolean         @default(true)

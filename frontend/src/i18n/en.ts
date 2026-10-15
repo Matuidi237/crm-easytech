@@ -868,9 +868,6 @@ export const en: Record<keyof typeof fr, string> = {
   /* ---------------------------------------------------------- Commissions */
   "cm.sousTitre": "What you are owed, what has been paid, and the maths behind it",
 
-  "cm.regleTitre": "How your commission is worked out",
-  "cm.regleNegociee": "You earn {taux}% of the profit on every sale, at the rate negotiated for your account. The base is profit, not revenue: a sale at a loss earns no commission.",
-  "cm.regleMaison": "You earn {taux}% of the profit on every sale, at the standard rate applied when nothing else has been agreed. The base is profit, not revenue: a sale at a loss earns no commission.",
 
   "cm.attendu": "Total earned",
   "cm.attenduNote": "Across {n} sales, on {benefice} of profit",
