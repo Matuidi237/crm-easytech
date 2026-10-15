@@ -46,7 +46,6 @@ const COMPTES = [
     fonction: "Responsable commercial",
     email: "paul.responsable@easytechgroup.net",
     pays: "Cameroun",
-    tauxCommissionPct: 8,
   },
   {
     identifiant: "demo-nerea",
@@ -55,7 +54,6 @@ const COMPTES = [
     fonction: "Commerciale grands comptes",
     email: "nerea.vendeuse@easytechgroup.net",
     pays: "Kenya",
-    tauxCommissionPct: 6.5,
   },
   {
     identifiant: "demo-victor",
@@ -64,7 +62,6 @@ const COMPTES = [
     fonction: "Commercial",
     email: "victor.vendeur@easytechgroup.net",
     pays: "Nigeria",
-    tauxCommissionPct: 6.5,
   },
   {
     identifiant: "demo-joseph",
@@ -73,7 +70,6 @@ const COMPTES = [
     fonction: "Commercial secteur public",
     email: "joseph.kamga@easytechgroup.net",
     pays: "Cameroun",
-    tauxCommissionPct: 5,
   },
   {
     identifiant: "demo-vanessa",
@@ -82,7 +78,6 @@ const COMPTES = [
     fonction: "Commerciale PME",
     email: "vanessa.ndongo@easytechgroup.net",
     pays: "Côte d'Ivoire",
-    tauxCommissionPct: 7,
   },
   /* Un commercial sans taux négocié : sa fiche doit afficher une commission
      calculée au taux maison de 3 % (TAUX_PAR_DEFAUT_PCT), signalée comme
@@ -266,16 +261,20 @@ const PARTENAIRES = [
  * Les marges sont volontairement inégales : un tableau de bord où tout se vend
  * au même taux ne montre rien. Le matériel dégage peu, le service beaucoup,
  * ce qui rend le « bénéfice moyen » et le taux de marge intéressants à lire.
+ *
+ * La nature n'est pas décorative : elle fixe le taux de commission, 3 % sur le
+ * matériel et 5 % sur le service. Le catalogue mélange donc les deux, faute de
+ * quoi le relevé de commissions n'aurait qu'une ligne à montrer.
  */
 const CATALOGUE = [
-  { produit: "Licences Microsoft 365", achat: 250000, vente: 400000 },
-  { produit: "Serveur Dell PowerEdge", achat: 1100000, vente: 1500000 },
-  { produit: "Pare-feu Fortinet", achat: 600000, vente: 900000 },
-  { produit: "Formation cybersécurité", achat: 120000, vente: 300000 },
-  { produit: "Audit infrastructure", achat: 800000, vente: 2200000 },
-  { produit: "Maintenance annuelle", achat: 300000, vente: 750000 },
-  { produit: "Postes de travail HP", achat: 320000, vente: 450000 },
-  { produit: "Hébergement cloud", achat: 180000, vente: 520000 },
+  { produit: "Licences Microsoft 365", nature: "SERVICE", achat: 250000, vente: 400000 },
+  { produit: "Serveur Dell PowerEdge", nature: "MATERIEL", achat: 1100000, vente: 1500000 },
+  { produit: "Pare-feu Fortinet", nature: "MATERIEL", achat: 600000, vente: 900000 },
+  { produit: "Formation cybersécurité", nature: "SERVICE", achat: 120000, vente: 300000 },
+  { produit: "Audit infrastructure", nature: "SERVICE", achat: 800000, vente: 2200000 },
+  { produit: "Maintenance annuelle", nature: "SERVICE", achat: 300000, vente: 750000 },
+  { produit: "Postes de travail HP", nature: "MATERIEL", achat: 320000, vente: 450000 },
+  { produit: "Hébergement cloud", nature: "SERVICE", achat: 180000, vente: 520000 },
 ];
 
 const VENDEURS = ["demo-nerea", "demo-victor", "demo-joseph", "demo-vanessa", "demo-resp", "demo-samuel"];
@@ -457,6 +456,7 @@ async function creer() {
         vendeurId: ids[vendeur],
         vendeurNom: COMPTES.find((c) => c.identifiant === vendeur).nomComplet,
         produit: article.produit,
+        nature: article.nature,
         quantite,
         prixAchat: article.achat,
         prixVente: Math.round((article.vente * remise) / 1000) * 1000,

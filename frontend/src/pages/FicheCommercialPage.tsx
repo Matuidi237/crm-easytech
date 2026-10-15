@@ -156,7 +156,16 @@ export default function FicheCommercialPage() {
             </div>
           </div>
           <div className="stat-riche-bas">
-            <span className="stat-note">{t("fc.commissionsNote", { taux: nombre(m.tauxCommissionPct) })}</span>
+            {/* Un taux négocié remplace la grille : l'afficher à côté d'elle
+                laisserait croire que les deux s'additionnent. */}
+            <span className="stat-note">
+              {m.tauxNegociePct !== null
+                ? t("fc.commissionsNote", { taux: nombre(m.tauxNegociePct) })
+                : t("fc.commissionsBareme", {
+                    materiel: nombre(m.bareme.MATERIEL),
+                    service: nombre(m.bareme.SERVICE),
+                  })}
+            </span>
           </div>
         </div>
       </div>

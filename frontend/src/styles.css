@@ -7197,3 +7197,80 @@ td.col-actions {
     display: none;
   }
 }
+
+/* =======================================================================
+   Choix de la nature d une vente
+   Deux cases plutot qu une liste deroulante : le taux de commission se lit
+   sur la case AVANT le clic. Dans une liste, on decouvre son taux une fois
+   la vente enregistree.
+   ======================================================================= */
+
+.label-bloc {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.choix-nature {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.carte-choix {
+  display: block;
+  padding: 13px 15px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.carte-choix:hover {
+  border-color: var(--brand);
+}
+
+.carte-choix.on {
+  border-color: var(--brand);
+  background: var(--brand-100);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+.carte-choix-nom {
+  display: block;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.carte-choix-note {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+/* Le taux porte une pastille : c est l information qui decide du choix, et
+   elle doit se voir sans lire la description. */
+.carte-choix-taux {
+  display: inline-block;
+  margin-top: 9px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.carte-choix.on .carte-choix-taux {
+  background: var(--surface);
+  border-color: var(--brand);
+  color: var(--brand-700);
+}

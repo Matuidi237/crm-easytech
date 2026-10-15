@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { commissionDe, tauxEffectif } from "../lib/commissions.js";
+import { BAREME_PCT, commissionDe, tauxEffectif, type NatureVente } from "../lib/commissions.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { chercherDoublon } from "./clients.js";
 import { fenetreDe, partEcoulee } from "../lib/periodes.js";
@@ -78,6 +78,7 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
         clientId: true,
         clientNom: true,
         produit: true,
+        nature: true,
         dateVente: true,
         prixAchat: true,
         prixVente: true,
@@ -163,7 +164,7 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     /* Commission calculée vente par vente, comme sur la fiche que consulte le
        directeur : un total obtenu autrement ne coïnciderait pas avec le détail,
        et c'est le commercial qui aurait à s'expliquer sur l'écart. */
-    const part = commissionDe(marge, taux);
+    const part = commissionDe(marge, v.nature, taux);
     commissionsAttendues += part;
     if (v.commissionVerseeLe) commissionsRecues += part;
 
@@ -291,14 +292,15 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       couverturePct: portefeuille.size > 0 ? Math.round((actifs / portefeuille.size) * 100) : null,
     },
     commissions: {
-      /* Le taux renvoyé est celui qui s'applique vraiment, taux maison
-         compris : afficher « non défini » à côté d'un montant calculé
-         laisserait croire à une erreur. */
-      tauxPct: tauxEffectif(taux),
-      /* Vrai quand le taux a été négocié pour ce compte. L'interface le dit,
-         parce que « 3 % parce que c'est la règle » et « 3 % parce qu'on me
-         l'a accordé » ne se renégocient pas de la même façon. */
-      tauxNegocie: taux !== null && taux !== undefined,
+      /* Le barème part toujours avec les montants : un taux dépend désormais
+         de ce qui est vendu, et un chiffre affiché seul ne permettrait plus
+         de refaire le calcul. */
+      bareme: BAREME_PCT,
+      /* Non nul quand un taux a été négocié pour ce compte, auquel cas il
+         remplace le barème. L'interface le dit, parce que « 3 % parce que
+         c'est la règle » et « 3 % parce qu'on me l'a accordé » ne se
+         renégocient pas de la même façon. */
+      tauxNegociePct: taux === null || taux === undefined ? null : Number(taux),
       attendu: Math.round(commissionsAttendues),
       recu: Math.round(commissionsRecues),
       nbVentesReglees: mesVentes.filter((v) => v.commissionVerseeLe !== null).length,
@@ -353,6 +355,7 @@ commercialRouter.get("/activite", async (req, res) => {
         clientId: true,
         clientNom: true,
         produit: true,
+        nature: true,
         quantite: true,
         prixAchat: true,
         prixVente: true,
@@ -421,7 +424,7 @@ commercialRouter.get("/activite", async (req, res) => {
 
     if (!dansLaPeriode) continue;
 
-    commissions += commissionDe(marge, compte.tauxCommissionPct);
+    commissions += commissionDe(marge, v.nature, compte.tauxCommissionPct);
     if (v.clientId) clients.add(v.clientId);
 
     const p = parProduit.get(v.produit) ?? vide();
@@ -455,7 +458,7 @@ commercialRouter.get("/activite", async (req, res) => {
       quantite: v.quantite,
       montant: Math.round(montant),
       benefice: Math.round(marge),
-      commission: commissionDe(marge, compte.tauxCommissionPct),
+      commission: commissionDe(marge, v.nature, compte.tauxCommissionPct),
       commissionVerseeLe: v.commissionVerseeLe,
     });
   }
@@ -757,6 +760,7 @@ commercialRouter.get("/commissions", async (req, res) => {
       dateVente: true,
       clientNom: true,
       produit: true,
+      nature: true,
       quantite: true,
       prixAchat: true,
       prixVente: true,
@@ -781,10 +785,21 @@ commercialRouter.get("/commissions", async (req, res) => {
   let attendu = 0;
   let recu = 0;
 
+  /* Ce que chaque nature rapporte. Le commercial ne pilote pas son mix de
+     vente s'il ne sait pas ce que le service lui a rapporté par rapport au
+     matériel, et c'est précisément ce que la grille l'invite à arbitrer. */
+  const parNature = new Map<NatureVente, { nbVentes: number; benefice: number; commission: number }>();
+
   const lignes = ventes.map((v) => {
     const montant = nb(v.prixVente) * v.quantite;
     const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
-    const part = commissionDe(marge, taux);
+    const part = commissionDe(marge, v.nature, taux);
+
+    const n = parNature.get(v.nature) ?? { nbVentes: 0, benefice: 0, commission: 0 };
+    n.nbVentes += 1;
+    n.benefice += marge;
+    n.commission += part;
+    parNature.set(v.nature, n);
 
     benefice += marge;
     attendu += part;
@@ -822,23 +837,40 @@ commercialRouter.get("/commissions", async (req, res) => {
       dateVente: v.dateVente,
       clientNom: v.clientNom,
       produit: v.produit,
+      nature: v.nature,
       quantite: v.quantite,
       montant: Math.round(montant),
       benefice: Math.round(marge),
       commission: part,
+      /* Le taux de la ligne voyage avec elle : sans lui, un relevé qui mêle
+         3 % et 5 % devient impossible à recalculer de tête. */
+      tauxPct: tauxEffectif(v.nature, taux),
       commissionVerseeLe: v.commissionVerseeLe,
     };
   });
 
   res.json({
     regle: {
-      tauxPct: tauxEffectif(taux),
-      tauxNegocie: taux !== null && taux !== undefined,
+      bareme: BAREME_PCT,
+      tauxNegociePct: taux === null || taux === undefined ? null : Number(taux),
       /* L'assiette est rappelée explicitement : beaucoup de commerciaux
          attendent un pourcentage du chiffre d'affaires, et découvrir la base
          de calcul au moment de contester est le pire moment. */
       assiette: "BENEFICE" as const,
     },
+    /* Ordre fixe, barème compris : les deux natures figurent toujours, même
+       à zéro. Une grille dont une ligne disparaît faute de vente laisserait
+       croire qu'elle ne s'applique pas. */
+    parNature: (["MATERIEL", "SERVICE"] as const).map((nature) => {
+      const n = parNature.get(nature) ?? { nbVentes: 0, benefice: 0, commission: 0 };
+      return {
+        nature,
+        tauxPct: tauxEffectif(nature, taux),
+        nbVentes: n.nbVentes,
+        benefice: Math.round(n.benefice),
+        commission: Math.round(n.commission),
+      };
+    }),
     totaux: {
       chiffreAffaires: Math.round(lignes.reduce((s, l) => s + l.montant, 0)),
       benefice: Math.round(benefice),
@@ -905,13 +937,22 @@ commercialRouter.get("/clients", async (req, res) => {
 commercialRouter.get("/produits", async (_req, res) => {
   const ventes = await prisma.vente.findMany({
     orderBy: { dateVente: "desc" },
-    select: { produit: true, prixAchat: true, prixVente: true },
+    select: { produit: true, nature: true, prixAchat: true, prixVente: true },
   });
 
-  const derniers = new Map<string, { produit: string; prixAchat: number; prixVente: number }>();
+  type Suggestion = { produit: string; nature: NatureVente; prixAchat: number; prixVente: number };
+  const derniers = new Map<string, Suggestion>();
   for (const v of ventes) {
     if (derniers.has(v.produit)) continue; // la liste est déjà triée : la première vue est la plus récente
-    derniers.set(v.produit, { produit: v.produit, prixAchat: nb(v.prixAchat), prixVente: nb(v.prixVente) });
+    /* La nature suit le produit : un pare-feu reste du matériel d'une vente à
+       l'autre, et la reproposer évite qu'une même référence soit commissionnée
+       à 3 % un mois et à 5 % le suivant selon l'attention du vendeur. */
+    derniers.set(v.produit, {
+      produit: v.produit,
+      nature: v.nature,
+      prixAchat: nb(v.prixAchat),
+      prixVente: nb(v.prixVente),
+    });
   }
 
   res.json({ produits: [...derniers.values()].sort((a, b) => a.produit.localeCompare(b.produit)) });
@@ -938,6 +979,7 @@ commercialRouter.post("/ventes", async (req, res) => {
     clientNom?: string;
     nouveauClient?: { pays?: string; secteurActivite?: string } | null;
     produit?: string;
+    nature?: string;
     quantite?: number;
     prixAchat?: number;
     prixVente?: number;
@@ -945,6 +987,13 @@ commercialRouter.post("/ventes", async (req, res) => {
   };
 
   const produit = (corps.produit ?? "").trim();
+  /* La nature est exigée, pas devinée. Elle fixe le taux de commission, et
+     une valeur par défaut silencieuse ferait payer à l'entreprise, ou au
+     commercial, une inattention de saisie. */
+  const nature = corps.nature === "MATERIEL" || corps.nature === "SERVICE" ? corps.nature : null;
+  if (!nature) {
+    return res.status(400).json({ error: "Précisez s'il s'agit de matériel ou d'un service." });
+  }
   const clientNom = (corps.clientNom ?? "").trim();
   if (!clientNom) return res.status(400).json({ error: "Le client est obligatoire." });
   if (!produit) return res.status(400).json({ error: "Le produit ou service est obligatoire." });
@@ -1027,6 +1076,7 @@ commercialRouter.post("/ventes", async (req, res) => {
       vendeurId: moi.id,
       vendeurNom: moi.nomComplet,
       produit,
+      nature,
       quantite,
       prixAchat,
       prixVente,
@@ -1048,7 +1098,8 @@ commercialRouter.post("/ventes", async (req, res) => {
     id: vente.id,
     montant: Math.round(montant),
     benefice: Math.round(benefice),
-    commission: commissionDe(benefice, compte?.tauxCommissionPct),
+    commission: commissionDe(benefice, nature, compte?.tauxCommissionPct),
+    tauxPct: tauxEffectif(nature, compte?.tauxCommissionPct),
     clientCree,
   });
 });

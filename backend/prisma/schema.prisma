@@ -159,6 +159,14 @@ model Vente {
   produit  String
   quantite Int @default(1)
 
+  /// Matériel ou service. C'est cette nature, et elle seule, qui fixe le taux
+  /// de commission (voir src/lib/commissions.ts) : le libellé du produit reste
+  /// du texte libre et ne peut donc pas porter une règle de rémunération.
+  ///
+  /// Le défaut est MATERIEL parce qu'il commissionne au taux le plus bas :
+  /// une vente mal qualifiée ne doit pas verser plus que dû.
+  nature NatureVente @default(MATERIEL)
+
   /// Coût unitaire d'acquisition et prix unitaire facturé. Leur écart donne
   /// la marge, d'où le bénéfice moyen.
   prixAchat Decimal @db.Decimal(18, 2)
@@ -195,6 +203,20 @@ model Vente {
   @@index([clientId])
   @@index([produit])
   @@index([dateVente])
+}
+
+/// Nature de ce qui est vendu.
+///
+/// Deux valeurs et pas davantage : c'est une grille de commissionnement, pas
+/// un catalogue. Le matériel se revend avec une marge faible et un travail
+/// de vente court ; le service engage le commercial bien au-delà de la
+/// signature, et EasyTech le rémunère en conséquence.
+enum NatureVente {
+  /// Équipements et consommables revendus en l'état.
+  MATERIEL
+
+  /// Prestations, licences, abonnements, développement : tout l'immatériel.
+  SERVICE
 }
 
 /// Surcharge de la matrice de permissions pour un rôle. Absent = le rôle

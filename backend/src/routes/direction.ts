@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { commissionDe, tauxEffectif } from "../lib/commissions.js";
+import {
+  BAREME_PCT,
+  beneficeVide,
+  commissionCumulee,
+  commissionDe,
+  type BeneficeParNature,
+} from "../lib/commissions.js";
 
 export const directionRouter = Router();
 
@@ -351,15 +357,41 @@ directionRouter.get("/analyses", async (_req, res) => {
  */
 async function agregatsParVendeur() {
   const lignes = await prisma.vente.findMany({
-    select: { vendeurId: true, prixVente: true, prixAchat: true, quantite: true, dateVente: true },
+    select: {
+      vendeurId: true,
+      nature: true,
+      prixVente: true,
+      prixAchat: true,
+      quantite: true,
+      dateVente: true,
+    },
   });
 
-  const par = new Map<string, { ca: number; benefice: number; nbVentes: number; derniereVente: Date | null }>();
+  /* Le bénéfice est ventilé par nature en plus d'être cumulé : depuis que le
+     taux dépend de ce qui est vendu, un bénéfice global ne permet plus de
+     retrouver une commission. */
+  type Agregat = {
+    ca: number;
+    benefice: number;
+    beneficeParNature: BeneficeParNature;
+    nbVentes: number;
+    derniereVente: Date | null;
+  };
+
+  const par = new Map<string, Agregat>();
   for (const l of lignes) {
     if (!l.vendeurId) continue;
-    const acc = par.get(l.vendeurId) ?? { ca: 0, benefice: 0, nbVentes: 0, derniereVente: null };
+    const acc: Agregat = par.get(l.vendeurId) ?? {
+      ca: 0,
+      benefice: 0,
+      beneficeParNature: beneficeVide(),
+      nbVentes: 0,
+      derniereVente: null,
+    };
+    const marge = (nb(l.prixVente) - nb(l.prixAchat)) * l.quantite;
     acc.ca += nb(l.prixVente) * l.quantite;
-    acc.benefice += (nb(l.prixVente) - nb(l.prixAchat)) * l.quantite;
+    acc.benefice += marge;
+    acc.beneficeParNature[l.nature] += marge;
     acc.nbVentes += 1;
     if (!acc.derniereVente || l.dateVente > acc.derniereVente) acc.derniereVente = l.dateVente;
     par.set(l.vendeurId, acc);
@@ -490,7 +522,7 @@ directionRouter.get("/equipe-commerciale", async (req, res) => {
         benefice,
         nbVentes: a?.nbVentes ?? 0,
         derniereVente: a?.derniereVente ?? null,
-        commission: commissionDe(benefice, m.tauxCommissionPct),
+        commission: commissionCumulee(a?.beneficeParNature ?? beneficeVide(), m.tauxCommissionPct),
       };
     })
     /* Du plus gros contributeur au plus petit : c'est le classement que
@@ -531,6 +563,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       dateVente: true,
       clientNom: true,
       produit: true,
+      nature: true,
       quantite: true,
       prixAchat: true,
       prixVente: true,
@@ -540,6 +573,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
 
   let ca = 0;
   let benefice = 0;
+  const beneficeParNature = beneficeVide();
   const clients = new Set<string>();
   const maintenant = new Date();
   const parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[] = [];
@@ -559,6 +593,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
     const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
     ca += montant;
     benefice += marge;
+    beneficeParNature[v.nature] += marge;
     clients.add(v.clientNom);
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
@@ -579,7 +614,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       benefice: Math.round(marge),
       /* Commission ligne à ligne : c'est ainsi qu'elle se vérifie. Un total
          seul ne se conteste pas, et une commission se conteste. */
-      commission: commissionDe(marge, membre.tauxCommissionPct),
+      commission: commissionDe(marge, v.nature, membre.tauxCommissionPct),
       /* Le versement voyage avec le montant : les deux écrans lisent le même
          type, et une fiche qui annoncerait une commission sans dire si elle a
          été réglée poserait au directeur la question qu'il vient résoudre. */
@@ -610,11 +645,17 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       pays: membre.pays,
       dernierAcces: membre.dernierAcces,
       responsable: membre.responsable,
-      tauxCommissionPct: tauxEffectif(membre.tauxCommissionPct),
+      /* Le barème part avec la fiche : un taux unique n'existe plus, et le
+         directeur a besoin de la grille pour relire une commission. */
+      bareme: BAREME_PCT,
+      tauxNegociePct:
+        membre.tauxCommissionPct === null || membre.tauxCommissionPct === undefined
+          ? null
+          : Number(membre.tauxCommissionPct),
     },
     chiffreAffaires: Math.round(ca),
     benefice: Math.round(benefice),
-    commissions: commissionDe(benefice, membre.tauxCommissionPct),
+    commissions: commissionCumulee(beneficeParNature, membre.tauxCommissionPct),
     margePct: ca > 0 ? Math.round((benefice / ca) * 100) : 0,
     nbVentes: ventes.length,
     nbClients: clients.size,

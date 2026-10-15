@@ -155,13 +155,21 @@ export default function CommercialPage() {
       /* Le taux maison est signalé comme tel : sans cette mention, un
          commercial croirait son taux négocié et ne penserait pas à le
          discuter. */
-      note: t(commissions.tauxNegocie ? "co.commissionsNote" : "co.commissionsNoteDefaut", {
-        n: nombre(commissions.nbVentesReglees),
-        total: nombre(ca.nbVentes),
-        /* Formaté et non interpolé brut : un taux de 6,5 s'écrivait
-           « 6.5% » en français, avec le point décimal anglais. */
-        taux: nombre(commissions.tauxPct),
-      }),
+      note:
+        commissions.tauxNegociePct !== null
+          ? t("co.commissionsNote", {
+              n: nombre(commissions.nbVentesReglees),
+              total: nombre(ca.nbVentes),
+              /* Formaté et non interpolé brut : un taux de 6,5 s'écrivait
+                 « 6.5% » en français, avec le point décimal anglais. */
+              taux: nombre(commissions.tauxNegociePct),
+            })
+          : t("co.commissionsNoteDefaut", {
+              n: nombre(commissions.nbVentesReglees),
+              total: nombre(ca.nbVentes),
+              materiel: nombre(commissions.bareme.MATERIEL),
+              service: nombre(commissions.bareme.SERVICE),
+            }),
       icone: IconCoins,
       fg: "#2a79ae",
       bg: "#e8f3fb",

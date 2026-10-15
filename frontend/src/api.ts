@@ -673,10 +673,10 @@ export type TableauCommercial = {
   };
   portefeuille: { total: number; avecVente: number; couverturePct: number | null };
   commissions: {
-    /** Taux réellement appliqué, taux maison compris. */
-    tauxPct: number;
-    /** Faux quand c'est le taux maison qui s'applique, faute d'accord. */
-    tauxNegocie: boolean;
+    /** Barème maison, par nature de ce qui est vendu. */
+    bareme: BaremeCommission;
+    /** Non nul quand un taux particulier a été négocié : il remplace le barème. */
+    tauxNegociePct: number | null;
     attendu: number;
     recu: number;
     nbVentesReglees: number;
@@ -1098,12 +1098,21 @@ export async function fetchDetailPortefeuille() {
 /** Relevé de commissions du compte connecté. */
 export type ReleveCommissions = {
   regle: {
-    tauxPct: number;
-    /** Faux quand c'est le taux maison qui s'applique, faute d'accord. */
-    tauxNegocie: boolean;
+    /** Barème maison, par nature de ce qui est vendu. */
+    bareme: BaremeCommission;
+    /** Non nul quand un taux particulier a été négocié : il remplace le barème. */
+    tauxNegociePct: number | null;
     /** Base de calcul. Le bénéfice, jamais le chiffre d'affaires. */
     assiette: "BENEFICE";
   };
+  /** Les deux natures, toujours, même sans vente : c'est une grille. */
+  parNature: {
+    nature: NatureVente;
+    tauxPct: number;
+    nbVentes: number;
+    benefice: number;
+    commission: number;
+  }[];
   totaux: {
     chiffreAffaires: number;
     benefice: number;
@@ -1147,8 +1156,13 @@ export async function chercherClients(q: string) {
   return (await res.json()).clients as SuggestionClient[];
 }
 
-/** Produit déjà vendu, avec ses derniers prix connus. */
-export type SuggestionProduit = { produit: string; prixAchat: number; prixVente: number };
+/** Produit déjà vendu, avec sa nature et ses derniers prix connus. */
+export type SuggestionProduit = {
+  produit: string;
+  nature: NatureVente;
+  prixAchat: number;
+  prixVente: number;
+};
 
 export async function fetchProduitsConnus() {
   const res = await authedFetch("/api/commercial/produits");
@@ -1156,12 +1170,28 @@ export async function fetchProduitsConnus() {
   return (await res.json()).produits as SuggestionProduit[];
 }
 
+/**
+ * Nature de ce qui est vendu.
+ *
+ * Elle fixe le taux de commission : 3 % sur le matériel, 5 % sur le service.
+ * Le libellé du produit reste du texte libre et ne peut donc pas porter cette
+ * règle, d'où un champ à part.
+ */
+export type NatureVente = "MATERIEL" | "SERVICE";
+
+/** Barème maison, en pourcentage du bénéfice, par nature. */
+export type BaremeCommission = Record<NatureVente, number>;
+
+/** Les deux natures dans l'ordre d'affichage, matériel d'abord. */
+export const NATURES_VENTE: NatureVente[] = ["MATERIEL", "SERVICE"];
+
 export type NouvelleVente = {
   /** Renseigné quand une suggestion a été retenue ; sinon la fiche est créée. */
   clientId: string | null;
   clientNom: string;
   nouveauClient: { pays: string; secteurActivite: string } | null;
   produit: string;
+  nature: NatureVente;
   quantite: number;
   prixAchat: number;
   prixVente: number;
@@ -1173,6 +1203,8 @@ export type VenteEnregistree = {
   montant: number;
   benefice: number;
   commission: number | null;
+  /** Taux appliqué, pour que la confirmation dise d'où vient le montant. */
+  tauxPct: number;
   clientCree: boolean;
 };
 
@@ -1262,6 +1294,10 @@ export type VenteCommercial = {
   dateVente: string;
   clientNom: string;
   produit: string;
+  /** Absente des vues qui n'ont pas besoin du taux appliqué. */
+  nature?: NatureVente;
+  /** Taux appliqué à cette ligne, barème de sa nature ou taux négocié. */
+  tauxPct?: number;
   quantite: number;
   montant: number;
   benefice: number;
@@ -1282,8 +1318,10 @@ export type FicheCommercial = {
     pays: string | null;
     dernierAcces: string | null;
     responsable: { id: string; nomComplet: string } | null;
-    /** Taux réellement appliqué, taux maison compris. */
-    tauxCommissionPct: number;
+    /** Barème maison, par nature de ce qui est vendu. */
+    bareme: BaremeCommission;
+    /** Non nul quand un taux particulier a été négocié : il remplace le barème. */
+    tauxNegociePct: number | null;
   };
   chiffreAffaires: number;
   benefice: number;

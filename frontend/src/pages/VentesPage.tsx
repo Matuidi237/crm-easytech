@@ -1,5 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  NATURES_VENTE,
+  NatureVente,
   SuggestionClient,
   SuggestionProduit,
   TableauCommercial,
@@ -25,6 +27,9 @@ const VIDE = {
   pays: "",
   secteurActivite: "",
   produit: "",
+  /* Aucune nature présélectionnée : c'est elle qui fixe le taux, et un défaut
+     silencieux ferait commissionner un service au taux du matériel. */
+  nature: "" as NatureVente | "",
   quantite: "1",
   prixAchat: "",
   prixVente: "",
@@ -93,6 +98,9 @@ export default function VentesPage() {
     setForm((f) => ({
       ...f,
       produit: nom,
+      /* La nature suit le produit connu, sans écraser un choix déjà fait : une
+         même référence ne change pas de camp d'une vente à l'autre. */
+      nature: connu && !f.nature ? connu.nature : f.nature,
       prixAchat: connu && !f.prixAchat ? String(connu.prixAchat) : f.prixAchat,
       prixVente: connu && !f.prixVente ? String(connu.prixVente) : f.prixVente,
     }));
@@ -108,24 +116,31 @@ export default function VentesPage() {
     const total = vente * q;
     const benefice = (vente - achat) * q;
     /* Même calcul que le serveur, pour que l'aperçu annonce exactement ce qui
-       sera enregistré. Tant que le tableau de bord n'est pas chargé, le taux
-       est inconnu et la case reste vide plutôt que d'afficher un montant
-       fondé sur une hypothèse. */
-    const taux = donnees?.commissions.tauxPct ?? null;
+       sera enregistré. Tant que la nature n'est pas choisie ou que le barème
+       n'est pas chargé, le taux est inconnu et la case reste vide plutôt que
+       d'afficher un montant fondé sur une hypothèse. */
+    const regle = donnees?.commissions;
+    const taux =
+      !regle || !form.nature ? null : regle.tauxNegociePct ?? regle.bareme[form.nature];
     return {
       total,
       benefice,
       margePct: total > 0 ? Math.round((benefice / total) * 100) : 0,
+      tauxPct: taux,
       commission: taux === null ? null : Math.round(Math.max(0, benefice) * (taux / 100)),
     };
-  }, [form.quantite, form.prixAchat, form.prixVente, donnees]);
+  }, [form.quantite, form.prixAchat, form.prixVente, form.nature, donnees]);
 
   /* Fiche inconnue : les deux champs qui alimentent les ventilations du
      directeur apparaissent. Sans eux la vente compterait dans le chiffre
      d'affaires mais nulle part dans sa répartition. */
   const clientNouveau = form.clientNom.trim().length > 0 && form.clientId === null;
   const complet =
-    form.clientNom.trim().length > 0 && form.produit.trim().length > 0 && form.prixVente !== "" && !!apercu;
+    form.clientNom.trim().length > 0 &&
+    form.produit.trim().length > 0 &&
+    form.nature !== "" &&
+    form.prixVente !== "" &&
+    !!apercu;
 
   async function envoyer(e: FormEvent) {
     e.preventDefault();
@@ -140,6 +155,7 @@ export default function VentesPage() {
           ? { pays: form.pays.trim(), secteurActivite: form.secteurActivite.trim() }
           : null,
         produit: form.produit.trim(),
+        nature: form.nature as NatureVente,
         quantite: parseInt(form.quantite, 10),
         prixAchat: Number(form.prixAchat),
         prixVente: Number(form.prixVente),
@@ -293,6 +309,37 @@ export default function VentesPage() {
                 onChange={(e) => champ("quantite", e.target.value)}
                 required
               />
+            </div>
+          </div>
+
+          {/* La nature fixe la rémunération : elle se choisit en deux cases
+              visibles, avec le taux écrit dessus, et non dans une liste où
+              l'on découvre son taux après coup. */}
+          <div className="field">
+            <span className="label-bloc">{t("ve.nature")}</span>
+            <div className="choix-nature" role="radiogroup" aria-label={t("ve.nature")}>
+              {NATURES_VENTE.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={form.nature === n}
+                  className={`carte-choix${form.nature === n ? " on" : ""}`}
+                  onClick={() => setForm((f) => ({ ...f, nature: n }))}
+                >
+                  <span className="carte-choix-nom">{t(`nature.${n}` as "nature.MATERIEL")}</span>
+                  <span className="carte-choix-note">
+                    {t(`nature.aide.${n}` as "nature.aide.MATERIEL")}
+                  </span>
+                  <span className="carte-choix-taux">
+                    {t("ve.tauxCommission", {
+                      taux: nombre(
+                        donnees?.commissions.tauxNegociePct ?? donnees?.commissions.bareme[n] ?? 0
+                      ),
+                    })}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         </section>
