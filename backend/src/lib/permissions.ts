@@ -26,6 +26,11 @@ export const PERMISSIONS = [
   "newsletters.creer",
   "newsletters.envoyer",
   "stats.globales",
+  // Renseigner le prix d'achat d'une vente, donc la marge et la commission
+  // qu'elle produira. Capacite a part : le commercial saisit la vente mais
+  // ne connait pas le cout, et le lui ouvrir reviendrait a lui laisser fixer
+  // sa propre remuneration.
+  "ventes.cout",
   "utilisateurs.gerer", // créer et modifier des comptes
   "utilisateurs.gererAdmins", // toucher aux administrateurs et au super admin
   "permissions.gerer", // modifier la matrice elle-même
@@ -123,6 +128,7 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
     "clients.voirTous",
     "clients.coordonnees",
     "clients.exporter",
+    "ventes.cout",
     "newsletters.voir",
     "newsletters.creer",
     "newsletters.envoyer",

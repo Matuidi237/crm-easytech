@@ -26,6 +26,7 @@ import PartenairesPage from "./pages/PartenairesPage";
 import CommercialPage from "./pages/CommercialPage";
 import VentesPage from "./pages/VentesPage";
 import CommissionsPage from "./pages/CommissionsPage";
+import ACoutPage from "./pages/ACoutPage";
 import PlanningPage from "./pages/PlanningPage";
 import CalendrierPage from "./pages/CalendrierPage";
 import FeuillesDeTempsPage from "./pages/FeuillesDeTempsPage";
@@ -86,6 +87,9 @@ export default function App() {
             <Route path="/import" element={<RouteProtegee requiert="clients.importer"><ImportPage /></RouteProtegee>} />
             <Route path="/newsletters" element={<RouteProtegee requiert="newsletters.voir"><NewslettersPage /></RouteProtegee>} />
             <Route path="/newsletters/:id" element={<RouteProtegee requiert="newsletters.voir"><NewsletterDetailPage /></RouteProtegee>} />
+            {/* Commandes dont le prix d'achat manque. La capacite, et non le
+                role : le DG comme le responsable des projets y accèdent. */}
+            <Route path="/a-chiffrer" element={<RouteProtegee requiert="ventes.cout"><ACoutPage /></RouteProtegee>} />
             <Route
               path="/equipes"
               element={

@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { requirePermission } from "../lib/auth.js";
+import { margeDe, montantDe } from "../lib/ventes.js";
 import {
   BAREME_PCT,
   beneficeVide,
@@ -81,26 +83,42 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
   /* Deux compteurs paralleles pour la comparaison mois a mois. Le mois en
      cours est incomplet par nature : l'interface le dit, plutot que de laisser
      croire a une chute le 2 du mois. */
-  const moisCourant = { ca: 0, benefice: 0, nbVentes: 0 };
-  const moisPrecedent = { ca: 0, benefice: 0, nbVentes: 0 };
+  const moisCourant = { ca: 0, caEvalue: 0, benefice: 0, nbVentes: 0 };
+  const moisPrecedent = { ca: 0, caEvalue: 0, benefice: 0, nbVentes: 0 };
 
   let chiffreAffaires = 0;
   let coutTotal = 0;
+  /* Assiette du taux de marge : le chiffre d'affaires des seules ventes dont
+     le coût est connu. Le rapporter au chiffre d'affaires total ferait baisser
+     le taux à chaque commande en attente, sans que rien n'ait changé. */
+  let caEvalue = 0;
+  let ventesSansCout = 0;
   const parVendeur = new Map<string, { nom: string; ca: number; nbVentes: number }>();
   const parProduit = new Map<string, { nbVentes: number; ca: number }>();
   const clientsFactures = new Set<string>();
 
   for (const v of ventes) {
-    const montant = nb(v.prixVente) * v.quantite;
-    const cout = nb(v.prixAchat) * v.quantite;
+    const montant = montantDe(v);
+    /* Null tant que le prix d'achat n'a pas été renseigné. La vente compte
+       alors dans le chiffre d'affaires, jamais dans la marge : la compter pour
+       nulle afficherait une rentabilité de 100 %. */
+    const marge = margeDe(v);
     chiffreAffaires += montant;
-    coutTotal += cout;
+    if (marge !== null) {
+      caEvalue += montant;
+      coutTotal += montant - marge;
+    } else {
+      ventesSansCout += 1;
+    }
 
     const periode =
       v.dateVente >= debutMois ? moisCourant : v.dateVente >= debutMoisPrecedent ? moisPrecedent : null;
     if (periode) {
       periode.ca += montant;
-      periode.benefice += montant - cout;
+      if (marge !== null) {
+        periode.caEvalue += montant;
+        periode.benefice += marge;
+      }
       periode.nbVentes += 1;
     }
 
@@ -127,7 +145,10 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
     (a, b) => b[1].nbVentes - a[1].nbVentes || b[1].ca - a[1].ca
   )[0];
 
-  const beneficeTotal = chiffreAffaires - coutTotal;
+  /* Le bénéfice ne porte que sur les ventes chiffrées, et son taux se mesure
+     sur la même assiette. Le rapporter au chiffre d'affaires total diluerait
+     une marge réelle dans des commandes dont le coût n'est pas encore connu. */
+  const beneficeTotal = caEvalue - coutTotal;
 
   res.json({
     aDesVentes: true,
@@ -148,9 +169,14 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
     /* Bénéfice moyen PAR VENTE : c'est ce qu'on peut comparer d'une période à
        l'autre. Le taux de marge l'accompagne, parce qu'un bénéfice moyen seul
        ne dit pas s'il vient de gros volumes ou de bonnes marges. */
-    beneficeMoyen: Math.round(beneficeTotal / nbVentes),
+    /* Sur les ventes chiffrées, et sur elles seules. Diviser par toutes les
+       ventes ferait baisser le bénéfice moyen à chaque commande en attente. */
+    beneficeMoyen: nbVentes - ventesSansCout > 0 ? Math.round(beneficeTotal / (nbVentes - ventesSansCout)) : 0,
     beneficeTotal: Math.round(beneficeTotal),
-    margeMoyennePct: chiffreAffaires > 0 ? Math.round((beneficeTotal / chiffreAffaires) * 100) : 0,
+    margeMoyennePct: caEvalue > 0 ? Math.round((beneficeTotal / caEvalue) * 100) : null,
+    /* Commandes en attente de leur prix d'achat. Le dire ici évite qu'un
+       directeur lise une marge partielle comme une marge complète. */
+    ventesSansCout,
     nbClientsFactures: clientsFactures.size,
 
     /* Mois en cours compare au mois precedent. Seuls trois indicateurs s'y
@@ -320,9 +346,10 @@ directionRouter.get("/analyses", async (_req, res) => {
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const i = indexMois.get(cle);
     if (i === undefined) continue;
-    const montant = nb(v.prixVente) * v.quantite;
+    const montant = montantDe(v);
+    const marge = margeDe(v);
     parMois[i].ca += montant;
-    parMois[i].benefice += montant - nb(v.prixAchat) * v.quantite;
+    if (marge !== null) parMois[i].benefice += marge;
     parMois[i].nbVentes += 1;
   }
 
@@ -337,8 +364,8 @@ directionRouter.get("/analyses", async (_req, res) => {
       produit: v.produit,
       vendeurNom: v.vendeurNom,
       quantite: v.quantite,
-      montant: Math.round(nb(v.prixVente) * v.quantite),
-      benefice: Math.round((nb(v.prixVente) - nb(v.prixAchat)) * v.quantite),
+      montant: Math.round(montantDe(v)),
+      benefice: margeDe(v) === null ? null : Math.round(margeDe(v)!),
     })),
   });
 });
@@ -372,6 +399,8 @@ async function agregatsParVendeur() {
      retrouver une commission. */
   type Agregat = {
     ca: number;
+    /** Chiffre d'affaires des seules ventes chiffrées : assiette du taux. */
+    caEvalue: number;
     benefice: number;
     beneficeParNature: BeneficeParNature;
     nbVentes: number;
@@ -383,15 +412,20 @@ async function agregatsParVendeur() {
     if (!l.vendeurId) continue;
     const acc: Agregat = par.get(l.vendeurId) ?? {
       ca: 0,
+      caEvalue: 0,
       benefice: 0,
       beneficeParNature: beneficeVide(),
       nbVentes: 0,
       derniereVente: null,
     };
-    const marge = (nb(l.prixVente) - nb(l.prixAchat)) * l.quantite;
-    acc.ca += nb(l.prixVente) * l.quantite;
-    acc.benefice += marge;
-    acc.beneficeParNature[l.nature] += marge;
+    const marge = margeDe(l);
+    const montant = montantDe(l);
+    acc.ca += montant;
+    if (marge !== null) {
+      acc.caEvalue += montant;
+      acc.benefice += marge;
+      acc.beneficeParNature[l.nature] += marge;
+    }
     acc.nbVentes += 1;
     if (!acc.derniereVente || l.dateVente > acc.derniereVente) acc.derniereVente = l.dateVente;
     par.set(l.vendeurId, acc);
@@ -532,6 +566,112 @@ directionRouter.get("/equipe-commerciale", async (req, res) => {
   res.json({ membres: lignes, pays: tousPays.map((p) => p.pays as string) });
 });
 
+/* ==========================================================================
+   Prix d'achat des commandes
+   ========================================================================== */
+
+/**
+ * Commandes en attente de leur prix d'achat.
+ *
+ * Le commercial enregistre ce que le client a validé dans Zoho : il connaît
+ * le prix de vente, jamais le coût. Tant que celui-ci manque, la vente compte
+ * dans le chiffre d'affaires mais reste hors marge, hors classement à la
+ * rentabilité et hors commission.
+ *
+ * Cette file est donc la contrepartie directe de ce choix : sans elle, les
+ * commandes non chiffrées s'accumuleraient sans que personne ne le sache, et
+ * les commerciaux attendraient une commission que rien ne déclenche.
+ */
+directionRouter.get("/ventes/sans-cout", requirePermission("ventes.cout"), async (_req, res) => {
+  const lignes = await prisma.vente.findMany({
+    where: { prixAchat: null },
+    /* De la plus ancienne à la plus récente : c'est celle qui attend depuis le
+       plus longtemps qui bloque une commission. */
+    orderBy: [{ dateVente: "asc" }, { createdAt: "asc" }],
+    take: 300,
+    select: {
+      id: true,
+      dateVente: true,
+      referenceCommande: true,
+      clientNom: true,
+      vendeurNom: true,
+      produit: true,
+      nature: true,
+      quantite: true,
+      prixVente: true,
+    },
+  });
+
+  const total = await prisma.vente.count({ where: { prixAchat: null } });
+
+  res.json({
+    total,
+    /* Ce que ces lignes pèsent : une file de deux cents lignes à cent mille
+       francs ne demande pas la même attention qu'une seule à trente millions. */
+    caEnAttente: Math.round(lignes.reduce((t, l) => t + nb(l.prixVente) * l.quantite, 0)),
+    lignes: lignes.map((l) => ({
+      ...l,
+      prixVente: Math.round(nb(l.prixVente)),
+      montant: Math.round(nb(l.prixVente) * l.quantite),
+    })),
+  });
+});
+
+/**
+ * Renseigne, corrige ou retire le prix d'achat d'une ligne.
+ *
+ * Le coût décide de la commission de quelqu'un d'autre : on garde donc qui l'a
+ * saisi et quand, pour que la question se règle sans aller lire un journal.
+ *
+ * Null est accepté et remet la ligne en attente. C'est utile quand un coût a
+ * été saisi par erreur : le retirer vaut mieux que de laisser une marge fausse
+ * alimenter une commission.
+ */
+directionRouter.patch("/ventes/:id/cout", requirePermission("ventes.cout"), async (req, res) => {
+  const moi = req.utilisateur!;
+  const vente = await prisma.vente.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, prixVente: true, quantite: true, nature: true, commissionVerseeLe: true },
+  });
+  if (!vente) return res.status(404).json({ error: "Vente introuvable." });
+
+  /* Une commission déjà versée a quitté le CRM : changer le coût maintenant
+     recalculerait un montant qui ne correspondrait plus à ce qui a été payé. */
+  if (vente.commissionVerseeLe) {
+    return res.status(409).json({
+      error: "La commission de cette vente a déjà été versée : son coût ne peut plus être modifié.",
+    });
+  }
+
+  const brut = (req.body as { prixAchat?: number | null }).prixAchat;
+  if (brut === null) {
+    const remise = await prisma.vente.update({
+      where: { id: vente.id },
+      data: { prixAchat: null, coutSaisiParNom: null, coutSaisiLe: null },
+      select: { id: true },
+    });
+    return res.json({ id: remise.id, prixAchat: null, benefice: null });
+  }
+
+  const prixAchat = Number(brut);
+  if (!Number.isFinite(prixAchat) || prixAchat < 0) {
+    return res.status(400).json({ error: "Le prix d'achat est invalide." });
+  }
+
+  const maj = await prisma.vente.update({
+    where: { id: vente.id },
+    data: {
+      prixAchat: Math.round(prixAchat),
+      coutSaisiParNom: moi.nomComplet,
+      coutSaisiLe: new Date(),
+    },
+    select: { id: true, prixAchat: true, prixVente: true, quantite: true },
+  });
+
+  const benefice = Math.round((nb(maj.prixVente) - nb(maj.prixAchat)) * maj.quantite);
+  res.json({ id: maj.id, prixAchat: Math.round(nb(maj.prixAchat)), benefice });
+});
+
 /** Fiche d'un commercial : ce qu'il a réalisé, et le détail de ses ventes. */
 directionRouter.get("/commercial/:id", async (req, res) => {
   const membre = await prisma.utilisateur.findFirst({
@@ -573,6 +713,7 @@ directionRouter.get("/commercial/:id", async (req, res) => {
 
   let ca = 0;
   let benefice = 0;
+  let caEvalue = 0;
   const beneficeParNature = beneficeVide();
   const clients = new Set<string>();
   const maintenant = new Date();
@@ -589,18 +730,21 @@ directionRouter.get("/commercial/:id", async (req, res) => {
   const indexMois = new Map(parMois.map((m, i) => [m.mois, i]));
 
   const detail = ventes.map((v) => {
-    const montant = nb(v.prixVente) * v.quantite;
-    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const montant = montantDe(v);
+    const marge = margeDe(v);
     ca += montant;
-    benefice += marge;
-    beneficeParNature[v.nature] += marge;
+    if (marge !== null) {
+      caEvalue += montant;
+      benefice += marge;
+      beneficeParNature[v.nature] += marge;
+    }
     clients.add(v.clientNom);
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const i = indexMois.get(cle);
     if (i !== undefined) {
       parMois[i].ca += montant;
-      parMois[i].benefice += marge;
+      if (marge !== null) parMois[i].benefice += marge;
       parMois[i].nbVentes += 1;
     }
 
@@ -611,10 +755,10 @@ directionRouter.get("/commercial/:id", async (req, res) => {
       produit: v.produit,
       quantite: v.quantite,
       montant: Math.round(montant),
-      benefice: Math.round(marge),
+      benefice: marge === null ? null : Math.round(marge),
       /* Commission ligne à ligne : c'est ainsi qu'elle se vérifie. Un total
          seul ne se conteste pas, et une commission se conteste. */
-      commission: commissionDe(marge, v.nature, membre.tauxCommissionPct),
+      commission: marge === null ? null : commissionDe(marge, v.nature, membre.tauxCommissionPct),
       /* Le versement voyage avec le montant : les deux écrans lisent le même
          type, et une fiche qui annoncerait une commission sans dire si elle a
          été réglée poserait au directeur la question qu'il vient résoudre. */
@@ -656,8 +800,11 @@ directionRouter.get("/commercial/:id", async (req, res) => {
     chiffreAffaires: Math.round(ca),
     benefice: Math.round(benefice),
     commissions: commissionCumulee(beneficeParNature, membre.tauxCommissionPct),
-    margePct: ca > 0 ? Math.round((benefice / ca) * 100) : 0,
+    margePct: caEvalue > 0 ? Math.round((benefice / caEvalue) * 100) : null,
     nbVentes: ventes.length,
+    /* Ce qui attend encore son prix d'achat : un taux de marge calculé sur la
+       moitié des ventes ne se lit pas comme un taux calculé sur toutes. */
+    ventesSansCout: ventes.filter((v) => v.prixAchat === null).length,
     nbClients: clients.size,
     partEquipePct: caEquipe > 0 ? Math.round((ca / caEquipe) * 100) : 0,
     rang: classement.findIndex((c) => c.id === membre.id) + 1,
@@ -955,7 +1102,10 @@ directionRouter.get("/partenaires", async (_req, res) => {
       produits.add(v.produit);
       if (v.dateVente >= debutFenetre) {
         caDouzeMois += montant;
-        beneficeDouzeMois += montant - nb(v.prixAchat) * v.quantite;
+        {
+          const marge = margeDe(v);
+          if (marge !== null) beneficeDouzeMois += marge;
+        }
         nbVentes += 1;
       }
     }

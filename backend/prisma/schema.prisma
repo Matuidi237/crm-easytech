@@ -174,10 +174,36 @@ model Vente {
   /// une vente mal qualifiée ne doit pas verser plus que dû.
   nature NatureVente @default(MATERIEL)
 
-  /// Coût unitaire d'acquisition et prix unitaire facturé. Leur écart donne
-  /// la marge, d'où le bénéfice moyen.
-  prixAchat Decimal @db.Decimal(18, 2)
+  /// Prix unitaire facturé au client. Toujours connu : c'est ce que porte le
+  /// document validé dans Zoho, et donc ce que saisit le commercial.
   prixVente Decimal @db.Decimal(18, 2)
+
+  /// Coût unitaire d'acquisition. NULL tant que personne ne l'a renseigné.
+  ///
+  /// Chez EasyTech le commercial ne le connaît pas : il vend sur la base d'un
+  /// devis Zoho, et seule la direction dispose du prix d'achat réel. Exiger
+  /// un chiffre à la saisie ne produirait donc pas une marge juste, mais un
+  /// nombre inventé pour que le formulaire accepte d'être validé.
+  ///
+  /// Tant qu'il manque, la vente compte dans le chiffre d'affaires et dans les
+  /// objectifs, mais reste hors de tout calcul de marge et de commission : une
+  /// marge inconnue vaut mieux qu'une marge fausse.
+  prixAchat Decimal? @db.Decimal(18, 2)
+
+  /// Qui a renseigné le coût, et quand. Le coût décide de la commission de
+  /// quelqu'un d'autre : il doit être attribuable sans aller lire un journal.
+  coutSaisiParNom String?
+  coutSaisiLe     DateTime?
+
+  /// Référence du document validé dans Zoho (devis accepté, bon de commande
+  /// ou facture selon le circuit).
+  ///
+  /// C'est la clé de rapprochement avec l'extérieur. Sans elle, le jour où une
+  /// synchronisation automatique arrivera, elle recréerait ce qui est déjà en
+  /// base et gonflerait le chiffre d'affaires en silence. Les lignes d'un même
+  /// document partagent la même référence, ce qui suffit à les regrouper sans
+  /// modéliser une entité « commande » séparée.
+  referenceCommande String?
 
   dateVente DateTime @default(now())
 
@@ -210,6 +236,7 @@ model Vente {
   @@index([clientId])
   @@index([produit])
   @@index([dateVente])
+  @@index([referenceCommande])
 }
 
 /// Nature de ce qui est vendu.

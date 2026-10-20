@@ -2,6 +2,14 @@ import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { BAREME_PCT, commissionDe, tauxEffectif, type NatureVente } from "../lib/commissions.js";
+import {
+  ajouter,
+  cumulVide,
+  margeDe,
+  margePct,
+  montantDe,
+  type Cumul,
+} from "../lib/ventes.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { chercherDoublon } from "./clients.js";
 import { fenetreDe, partEcoulee } from "../lib/periodes.js";
@@ -40,7 +48,7 @@ function variation(actuel: number, precedent: number): number | null {
   return Math.round(((actuel - precedent) / precedent) * 100);
 }
 
-type Perf = { id: string; ca: number; benefice: number; nbVentes: number };
+type Perf = { id: string; ca: number; caEvalue: number; benefice: number; nbVentes: number };
 
 /**
  * Rang d'un identifiant dans une liste déjà triée, en 1..n.
@@ -79,6 +87,7 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
         clientNom: true,
         produit: true,
         nature: true,
+        referenceCommande: true,
         dateVente: true,
         prixAchat: true,
         prixVente: true,
@@ -121,6 +130,11 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   let caMoisPrecedent = 0;
   let commissionsAttendues = 0;
   let commissionsRecues = 0;
+  /* Chiffre d'affaires des seules ventes chiffrées : c'est l'assiette du taux
+     de marge. Le rapporter au chiffre d'affaires total ferait baisser le taux
+     à chaque commande non encore complétée, sans que rien n'ait changé. */
+  let caEvalue = 0;
+  let ventesSansCout = 0;
   /* Le cumul de l'année civile, seul comparable à un objectif annuel. Le
      total de tous les temps inclurait les exercices précédents et donnerait
      un taux de complétion flatteur et faux. */
@@ -148,15 +162,22 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   const detail = [];
 
   for (const v of mesVentes) {
-    const montant = nb(v.prixVente) * v.quantite;
-    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const montant = montantDe(v);
+    /* Null tant que la direction n'a pas renseigné le prix d'achat. La vente
+       compte alors dans le chiffre d'affaires et dans l'objectif, mais ni dans
+       le bénéfice ni dans la commission : une marge inconnue ne vaut pas zéro,
+       et la compter pour telle afficherait 100 % de marge. */
+    const marge = margeDe(v);
     ca += montant;
-    benefice += marge;
+    if (marge !== null) {
+      caEvalue += montant;
+      benefice += marge;
+    }
     if (v.dateVente >= debutMois) caMois += montant;
     else if (v.dateVente >= debutMoisPrecedent) caMoisPrecedent += montant;
     if (v.dateVente >= anneeEnCours.debut && v.dateVente < anneeEnCours.fin) {
       caAnnee += montant;
-      beneficeAnnee += marge;
+      if (marge !== null) beneficeAnnee += marge;
       nbVentesAnnee += 1;
     }
     if (v.clientId) mesClients.add(v.clientId);
@@ -164,15 +185,19 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     /* Commission calculée vente par vente, comme sur la fiche que consulte le
        directeur : un total obtenu autrement ne coïnciderait pas avec le détail,
        et c'est le commercial qui aurait à s'expliquer sur l'écart. */
-    const part = commissionDe(marge, v.nature, taux);
-    commissionsAttendues += part;
-    if (v.commissionVerseeLe) commissionsRecues += part;
+    const part = marge === null ? null : commissionDe(marge, v.nature, taux);
+    if (part !== null) {
+      commissionsAttendues += part;
+      if (v.commissionVerseeLe) commissionsRecues += part;
+    } else {
+      ventesSansCout += 1;
+    }
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const i = indexMois.get(cle);
     if (i !== undefined) {
       parMois[i].ca += montant;
-      parMois[i].benefice += marge;
+      if (marge !== null) parMois[i].benefice += marge;
       parMois[i].nbVentes += 1;
     }
 
@@ -181,9 +206,10 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
       dateVente: v.dateVente,
       clientNom: v.clientNom,
       produit: v.produit,
+      referenceCommande: v.referenceCommande,
       quantite: v.quantite,
       montant: Math.round(montant),
-      benefice: Math.round(marge),
+      benefice: marge === null ? null : Math.round(marge),
       commission: part,
       /* Réglée ou non, ligne à ligne : c'est ce qui rend vérifiable l'écart
          entre « reçu » et « attendu » affiché en haut de page. Un total qu'on
@@ -194,12 +220,19 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
   }
 
   /* --- Classement --------------------------------------------------------- */
-  const perfs = new Map<string, Perf>(equipe.map((e) => [e.id, { id: e.id, ca: 0, benefice: 0, nbVentes: 0 }]));
+  const perfs = new Map<string, Perf>(
+    equipe.map((e) => [e.id, { id: e.id, ca: 0, caEvalue: 0, benefice: 0, nbVentes: 0 }])
+  );
   for (const v of ventesEquipe) {
     const p = perfs.get(v.vendeurId!);
     if (!p) continue; // vendeur inactif ou d'un autre rôle : hors classement
-    p.ca += nb(v.prixVente) * v.quantite;
-    p.benefice += (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const montant = montantDe(v);
+    const marge = margeDe(v);
+    p.ca += montant;
+    if (marge !== null) {
+      p.caEvalue += montant;
+      p.benefice += marge;
+    }
     p.nbVentes += 1;
   }
 
@@ -210,7 +243,9 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
      mesurerait deux fois la même chose. Sans vente, la marge n'existe pas, et
      un taux de 0 la placerait devant quelqu'un qui vend à faible marge. */
   const parMarge = membres
-    .map((p) => ({ id: p.id, score: p.ca > 0 ? p.benefice / p.ca : -1 }))
+    /* Le taux se mesure sur ce qui est chiffré. Quelqu'un dont aucune vente
+       n'a encore reçu son coût n'a pas un taux de zéro, il n'en a pas. */
+    .map((p) => ({ id: p.id, score: p.caEvalue > 0 ? p.benefice / p.caEvalue : -1 }))
     .sort((a, b) => b.score - a.score);
 
   const rangCa = rangDe(parCa, moi.id);
@@ -270,8 +305,12 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
     chiffreAffaires: {
       total: Math.round(ca),
       benefice: Math.round(benefice),
-      margePct: ca > 0 ? Math.round((benefice / ca) * 100) : null,
+      /* Sur l'assiette chiffrée, pas sur le chiffre d'affaires total. */
+      margePct: caEvalue > 0 ? Math.round((benefice / caEvalue) * 100) : null,
       nbVentes: mesVentes.length,
+      /* Ce qui attend encore son prix d'achat. Le dire évite qu'un commercial
+         croie sa marge en baisse alors qu'elle n'est pas encore calculée. */
+      ventesSansCout,
       mois: Math.round(caMois),
       variationMois: variation(caMois, caMoisPrecedent),
       partEquipePct: caEquipe > 0 ? Math.round((ca / caEquipe) * 100) : null,
@@ -302,6 +341,9 @@ commercialRouter.get("/tableau-de-bord", async (req, res) => {
          renégocient pas de la même façon. */
       tauxNegociePct: taux === null || taux === undefined ? null : Number(taux),
       attendu: Math.round(commissionsAttendues),
+      /* Des commissions restent à déterminer tant que des coûts manquent : le
+         montant attendu n'est donc pas encore le montant final. */
+      ventesSansCout,
       recu: Math.round(commissionsRecues),
       nbVentesReglees: mesVentes.filter((v) => v.commissionVerseeLe !== null).length,
     },
@@ -356,6 +398,7 @@ commercialRouter.get("/activite", async (req, res) => {
         clientNom: true,
         produit: true,
         nature: true,
+        referenceCommande: true,
         quantite: true,
         prixAchat: true,
         prixVente: true,
@@ -377,8 +420,7 @@ commercialRouter.get("/activite", async (req, res) => {
   const sourceEncadrement = !compte.objectifsPersonnels;
   const objectif = objectifs.find((o) => o.fixeParEncadrement === sourceEncadrement) ?? null;
 
-  type Cumul = { ca: number; benefice: number; nbVentes: number; quantite: number };
-  const vide = (): Cumul => ({ ca: 0, benefice: 0, nbVentes: 0, quantite: 0 });
+  const vide = cumulVide;
 
   const courant = vide();
   const avant = vide();
@@ -404,49 +446,43 @@ commercialRouter.get("/activite", async (req, res) => {
     dateVente: Date;
     clientNom: string;
     produit: string;
+    referenceCommande: string | null;
     quantite: number;
     montant: number;
-    benefice: number;
-    commission: number;
+    /* Null tant que le coût manque : l'interface écrit alors « à chiffrer »
+       plutôt qu'un zéro qui passerait pour une vente sans marge. */
+    benefice: number | null;
+    commission: number | null;
     commissionVerseeLe: Date | null;
   }[] = [];
 
   for (const v of ventes) {
-    const montant = nb(v.prixVente) * v.quantite;
-    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const montant = montantDe(v);
+    /* Null tant que le prix d'achat n'a pas été renseigné : la vente compte
+       alors dans le chiffre d'affaires, jamais dans la marge. Le cumul range
+       lui-même ce qui est chiffré de ce qui ne l'est pas. */
+    const marge = margeDe(v);
     const dansLaPeriode = v.dateVente >= courante.debut;
 
-    const cible = dansLaPeriode ? courant : avant;
-    cible.ca += montant;
-    cible.benefice += marge;
-    cible.nbVentes += 1;
-    cible.quantite += v.quantite;
+    ajouter(dansLaPeriode ? courant : avant, v);
 
     if (!dansLaPeriode) continue;
 
-    commissions += commissionDe(marge, v.nature, compte.tauxCommissionPct);
+    if (marge !== null) commissions += commissionDe(marge, v.nature, compte.tauxCommissionPct);
     if (v.clientId) clients.add(v.clientId);
 
-    const p = parProduit.get(v.produit) ?? vide();
-    p.ca += montant;
-    p.benefice += marge;
-    p.nbVentes += 1;
-    p.quantite += v.quantite;
-    parProduit.set(v.produit, p);
+    ajouter(parProduit.get(v.produit) ?? parProduit.set(v.produit, vide()).get(v.produit)!, v);
 
     const cleClient = v.clientId ?? `nom:${v.clientNom}`;
     const c = parClient.get(cleClient) ?? { ...vide(), nom: v.clientNom };
-    c.ca += montant;
-    c.benefice += marge;
-    c.nbVentes += 1;
-    c.quantite += v.quantite;
+    ajouter(c, v);
     parClient.set(cleClient, c);
 
     const mois = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const m = parMois.get(mois);
     if (m) {
       m.ca += montant;
-      m.benefice += marge;
+      if (marge !== null) m.benefice += marge;
       m.nbVentes += 1;
     }
 
@@ -455,10 +491,11 @@ commercialRouter.get("/activite", async (req, res) => {
       dateVente: v.dateVente,
       clientNom: v.clientNom,
       produit: v.produit,
+      referenceCommande: v.referenceCommande,
       quantite: v.quantite,
       montant: Math.round(montant),
-      benefice: Math.round(marge),
-      commission: commissionDe(marge, v.nature, compte.tauxCommissionPct),
+      benefice: marge === null ? null : Math.round(marge),
+      commission: marge === null ? null : commissionDe(marge, v.nature, compte.tauxCommissionPct),
       commissionVerseeLe: v.commissionVerseeLe,
     });
   }
@@ -485,7 +522,7 @@ commercialRouter.get("/activite", async (req, res) => {
       : null,
     courant: {
       ...arrondir(courant),
-      margePct: courant.ca > 0 ? Math.round((courant.benefice / courant.ca) * 100) : null,
+      margePct: margePct(courant),
       /* Panier moyen : deux commerciaux au même chiffre n'ont pas le même
          métier selon qu'ils signent trois contrats ou trente. */
       panierMoyen: courant.nbVentes > 0 ? Math.round(courant.ca / courant.nbVentes) : 0,
@@ -494,7 +531,7 @@ commercialRouter.get("/activite", async (req, res) => {
     },
     precedent: {
       ...arrondir(avant),
-      margePct: avant.ca > 0 ? Math.round((avant.benefice / avant.ca) * 100) : null,
+      margePct: margePct(avant),
       panierMoyen: avant.nbVentes > 0 ? Math.round(avant.ca / avant.nbVentes) : 0,
     },
     parMois: [...parMois.entries()]
@@ -537,7 +574,9 @@ commercialRouter.get("/classement", async (req, res) => {
     }),
   ]);
 
-  const perfs = new Map<string, Perf>(equipe.map((e) => [e.id, { id: e.id, ca: 0, benefice: 0, nbVentes: 0 }]));
+  const perfs = new Map<string, Perf>(
+    equipe.map((e) => [e.id, { id: e.id, ca: 0, caEvalue: 0, benefice: 0, nbVentes: 0 }])
+  );
   /* Rang mois par mois sur douze mois : une place isolée ne dit pas si l'on
      monte ou si l'on décroche, et c'est la tendance qui se discute. */
   const maintenant = new Date();
@@ -549,12 +588,15 @@ commercialRouter.get("/classement", async (req, res) => {
   const caMensuel = new Map<string, Map<string, number>>(mois.map((m) => [m, new Map()]));
 
   for (const v of ventesEquipe) {
-    const montant = nb(v.prixVente) * v.quantite;
-    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    const montant = montantDe(v);
+    const marge = margeDe(v);
     const p = perfs.get(v.vendeurId!);
     if (!p) continue;
     p.ca += montant;
-    p.benefice += marge;
+    if (marge !== null) {
+      p.caEvalue += montant;
+      p.benefice += marge;
+    }
     p.nbVentes += 1;
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
@@ -565,7 +607,9 @@ commercialRouter.get("/classement", async (req, res) => {
   const membres = [...perfs.values()];
   const parCa = membres.map((p) => ({ id: p.id, score: p.ca })).sort((a, b) => b.score - a.score);
   const parMarge = membres
-    .map((p) => ({ id: p.id, score: p.ca > 0 ? p.benefice / p.ca : -1 }))
+    /* Sur l'assiette chiffrée : sans coût renseigné, il n'y a pas de taux de
+       marge, et un zéro placerait l'intéressé devant qui vend à faible marge. */
+    .map((p) => ({ id: p.id, score: p.caEvalue > 0 ? p.benefice / p.caEvalue : -1 }))
     .sort((a, b) => b.score - a.score);
   const parCombine = membres
     .map((p) => ({
@@ -574,7 +618,7 @@ commercialRouter.get("/classement", async (req, res) => {
     }))
     .sort((a, b) => a.score - b.score);
 
-  const moiPerf = perfs.get(moi.id) ?? { id: moi.id, ca: 0, benefice: 0, nbVentes: 0 };
+  const moiPerf = perfs.get(moi.id) ?? { id: moi.id, ca: 0, caEvalue: 0, benefice: 0, nbVentes: 0 };
   const cas = parCa.map((c) => c.score);
   const mediane = cas.length === 0 ? 0 : cas[Math.floor(cas.length / 2)];
 
@@ -586,7 +630,7 @@ commercialRouter.get("/classement", async (req, res) => {
     moi: {
       chiffreAffaires: Math.round(moiPerf.ca),
       benefice: Math.round(moiPerf.benefice),
-      margePct: moiPerf.ca > 0 ? Math.round((moiPerf.benefice / moiPerf.ca) * 100) : null,
+      margePct: moiPerf.caEvalue > 0 ? Math.round((moiPerf.benefice / moiPerf.caEvalue) * 100) : null,
       nbVentes: moiPerf.nbVentes,
     },
     /* Repères anonymes : ils situent sans désigner. */
@@ -697,8 +741,10 @@ commercialRouter.get("/portefeuille", async (req, res) => {
         derniereVente: null,
       } satisfies Ligne);
     ligne.nbVentes += 1;
-    ligne.chiffreAffaires += nb(v.prixVente) * v.quantite;
-    ligne.benefice += (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    ligne.chiffreAffaires += montantDe(v);
+    // Le bénéfice n'inclut que ce qui est chiffré ; le reste attend son coût.
+    const marge = margeDe(v);
+    if (marge !== null) ligne.benefice += marge;
     if (!ligne.derniereVente || v.dateVente > ligne.derniereVente) ligne.derniereVente = v.dateVente;
     lignes.set(cle, ligne);
   }
@@ -761,6 +807,7 @@ commercialRouter.get("/commissions", async (req, res) => {
       clientNom: true,
       produit: true,
       nature: true,
+      referenceCommande: true,
       quantite: true,
       prixAchat: true,
       prixVente: true,
@@ -776,6 +823,8 @@ commercialRouter.get("/commissions", async (req, res) => {
     commission: number;
     verse: number;
     du: number;
+    /** Lignes du mois encore sans coût, donc sans commission calculable. */
+    sansCout: number;
     /** Date du dernier versement du mois, pour retrouver le paiement reçu. */
     dernierVersement: Date | null;
   };
@@ -784,6 +833,10 @@ commercialRouter.get("/commissions", async (req, res) => {
   let benefice = 0;
   let attendu = 0;
   let recu = 0;
+  /* Ventes dont le coût n'a pas encore été renseigné par la direction : leur
+     commission n'est pas nulle, elle n'est pas encore calculable. Le dire est
+     la seule façon d'expliquer un « attendu » qui va encore monter. */
+  let sansCout = 0;
 
   /* Ce que chaque nature rapporte. Le commercial ne pilote pas son mix de
      vente s'il ne sait pas ce que le service lui a rapporté par rapport au
@@ -791,19 +844,25 @@ commercialRouter.get("/commissions", async (req, res) => {
   const parNature = new Map<NatureVente, { nbVentes: number; benefice: number; commission: number }>();
 
   const lignes = ventes.map((v) => {
-    const montant = nb(v.prixVente) * v.quantite;
-    const marge = (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
-    const part = commissionDe(marge, v.nature, taux);
+    const montant = montantDe(v);
+    /* Null tant que le prix d'achat manque. La ligne figure quand même au
+       relevé, en attente : la masquer laisserait croire que la vente a été
+       oubliée, alors que c'est son coût qui l'est. */
+    const marge = margeDe(v);
+    const part = marge === null ? null : commissionDe(marge, v.nature, taux);
 
     const n = parNature.get(v.nature) ?? { nbVentes: 0, benefice: 0, commission: 0 };
     n.nbVentes += 1;
-    n.benefice += marge;
-    n.commission += part;
+    if (marge !== null && part !== null) {
+      n.benefice += marge;
+      n.commission += part;
+      benefice += marge;
+      attendu += part;
+      if (v.commissionVerseeLe) recu += part;
+    } else {
+      sansCout += 1;
+    }
     parNature.set(v.nature, n);
-
-    benefice += marge;
-    attendu += part;
-    if (v.commissionVerseeLe) recu += part;
 
     const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
     const releve =
@@ -816,19 +875,24 @@ commercialRouter.get("/commissions", async (req, res) => {
         commission: 0,
         verse: 0,
         du: 0,
+        sansCout: 0,
         dernierVersement: null,
       } satisfies Releve);
     releve.nbVentes += 1;
     releve.chiffreAffaires += montant;
-    releve.benefice += marge;
-    releve.commission += part;
-    if (v.commissionVerseeLe) {
-      releve.verse += part;
-      if (!releve.dernierVersement || v.commissionVerseeLe > releve.dernierVersement) {
-        releve.dernierVersement = v.commissionVerseeLe;
+    if (marge !== null && part !== null) {
+      releve.benefice += marge;
+      releve.commission += part;
+      if (v.commissionVerseeLe) {
+        releve.verse += part;
+        if (!releve.dernierVersement || v.commissionVerseeLe > releve.dernierVersement) {
+          releve.dernierVersement = v.commissionVerseeLe;
+        }
+      } else {
+        releve.du += part;
       }
     } else {
-      releve.du += part;
+      releve.sansCout += 1;
     }
     parMois.set(cle, releve);
 
@@ -839,8 +903,9 @@ commercialRouter.get("/commissions", async (req, res) => {
       produit: v.produit,
       nature: v.nature,
       quantite: v.quantite,
+      referenceCommande: v.referenceCommande,
       montant: Math.round(montant),
-      benefice: Math.round(marge),
+      benefice: marge === null ? null : Math.round(marge),
       commission: part,
       /* Le taux de la ligne voyage avec elle : sans lui, un relevé qui mêle
          3 % et 5 % devient impossible à recalculer de tête. */
@@ -879,6 +944,7 @@ commercialRouter.get("/commissions", async (req, res) => {
       reste: Math.round(attendu - recu),
       nbVentes: lignes.length,
       nbVentesReglees: lignes.filter((l) => l.commissionVerseeLe !== null).length,
+      ventesSansCout: sansCout,
     },
     // Du mois le plus récent au plus ancien, comme la liste des ventes.
     parMois: [...parMois.values()]
@@ -966,7 +1032,23 @@ function montantValide(valeur: unknown): number | null {
 }
 
 /**
- * Enregistre une vente au nom du compte connecté.
+ * Enregistre une commande validée, au nom du compte connecté.
+ *
+ * Chez EasyTech le devis part de Zoho ; quand le client le valide, il devient
+ * un document ferme, et c'est ce document que cette route recopie. Trois
+ * conséquences, toutes délibérées :
+ *
+ * La référence du document est exigée. C'est elle qui rattache la ligne à son
+ * original, et qui permettra, le jour où une synchronisation automatique sera
+ * branchée, de reconnaître ce qui est déjà en base au lieu de le recréer.
+ *
+ * Une commande porte plusieurs lignes, comme le document d'origine. Les
+ * enregistrer séparément obligerait à ressaisir le client et la date autant
+ * de fois, et priverait l'écran de tout moyen de les regrouper.
+ *
+ * Le prix d'achat n'est pas demandé : le commercial ne le connaît pas. Il est
+ * renseigné ensuite par qui de droit, et la vente reste hors marge et hors
+ * commission en attendant.
  *
  * Le vendeur n'est jamais lu dans la requête : il vient du jeton. Accepter un
  * identifiant de vendeur permettrait d'inscrire une vente au nom d'un
@@ -978,47 +1060,81 @@ commercialRouter.post("/ventes", async (req, res) => {
     clientId?: string | null;
     clientNom?: string;
     nouveauClient?: { pays?: string; secteurActivite?: string } | null;
-    produit?: string;
-    nature?: string;
-    quantite?: number;
-    prixAchat?: number;
-    prixVente?: number;
+    referenceCommande?: string;
     dateVente?: string;
+    lignes?: { produit?: string; nature?: string; quantite?: number; prixVente?: number }[];
   };
 
-  const produit = (corps.produit ?? "").trim();
-  /* La nature est exigée, pas devinée. Elle fixe le taux de commission, et
-     une valeur par défaut silencieuse ferait payer à l'entreprise, ou au
-     commercial, une inattention de saisie. */
-  const nature = corps.nature === "MATERIEL" || corps.nature === "SERVICE" ? corps.nature : null;
-  if (!nature) {
-    return res.status(400).json({ error: "Précisez s'il s'agit de matériel ou d'un service." });
+  const referenceCommande = (corps.referenceCommande ?? "").trim();
+  if (!referenceCommande) {
+    return res.status(400).json({ error: "La référence du document Zoho est obligatoire." });
   }
+  if (referenceCommande.length > 60) {
+    return res.status(400).json({ error: "Cette référence est trop longue." });
+  }
+
   const clientNom = (corps.clientNom ?? "").trim();
   if (!clientNom) return res.status(400).json({ error: "Le client est obligatoire." });
-  if (!produit) return res.status(400).json({ error: "Le produit ou service est obligatoire." });
 
-  const quantite = Number(corps.quantite);
-  if (!Number.isInteger(quantite) || quantite < 1) {
-    return res.status(400).json({ error: "La quantité doit être un entier d'au moins 1." });
+  const brutes = Array.isArray(corps.lignes) ? corps.lignes : [];
+  if (brutes.length === 0) {
+    return res.status(400).json({ error: "Une commande comporte au moins une ligne." });
+  }
+  if (brutes.length > 50) {
+    return res.status(400).json({ error: "Cette commande comporte trop de lignes." });
   }
 
-  const prixAchat = montantValide(corps.prixAchat);
-  const prixVente = montantValide(corps.prixVente);
-  if (prixAchat === null) return res.status(400).json({ error: "Le prix d'achat est invalide." });
-  if (prixVente === null) return res.status(400).json({ error: "Le prix de vente est invalide." });
+  /* Toutes les lignes sont validées avant qu'aucune ne soit écrite : une
+     commande à moitié enregistrée donnerait un chiffre d'affaires faux que
+     personne ne penserait à vérifier. */
+  const lignes: { produit: string; nature: NatureVente; quantite: number; prixVente: number }[] = [];
+  for (const [i, l] of brutes.entries()) {
+    const produit = (l.produit ?? "").trim();
+    if (!produit) {
+      return res.status(400).json({ error: `Ligne ${i + 1} : le produit ou service est obligatoire.` });
+    }
+    /* La nature est exigée, pas devinée. Elle fixe le taux de commission, et
+       une valeur par défaut silencieuse ferait payer à l'entreprise, ou au
+       commercial, une inattention de saisie. */
+    const nature = l.nature === "MATERIEL" || l.nature === "SERVICE" ? l.nature : null;
+    if (!nature) {
+      return res.status(400).json({ error: `Ligne ${i + 1} : précisez matériel ou service.` });
+    }
+    const quantite = Number(l.quantite);
+    if (!Number.isInteger(quantite) || quantite < 1) {
+      return res.status(400).json({ error: `Ligne ${i + 1} : la quantité doit être un entier d'au moins 1.` });
+    }
+    const prixVente = montantValide(l.prixVente);
+    if (prixVente === null) {
+      return res.status(400).json({ error: `Ligne ${i + 1} : le prix de vente est invalide.` });
+    }
+    lignes.push({ produit, nature, quantite, prixVente });
+  }
 
   const dateVente = corps.dateVente ? new Date(corps.dateVente) : new Date();
   if (Number.isNaN(dateVente.getTime())) {
-    return res.status(400).json({ error: "La date de vente est invalide." });
+    return res.status(400).json({ error: "La date est invalide." });
   }
-  /* Une vente datée dans l'avenir gonflerait le mois en cours et fausserait la
-     comparaison mois à mois affichée partout. On refuse plutôt que de corriger
-     en silence une date que l'utilisateur croit avoir saisie. */
+  /* Une commande datée dans l'avenir gonflerait le mois en cours et fausserait
+     la comparaison mois à mois affichée partout. On refuse plutôt que de
+     corriger en silence une date que l'utilisateur croit avoir saisie. */
   const finDuJour = new Date();
   finDuJour.setHours(23, 59, 59, 999);
   if (dateVente > finDuJour) {
-    return res.status(400).json({ error: "Une vente ne peut pas être datée dans le futur." });
+    return res.status(400).json({ error: "Une commande ne peut pas être datée dans le futur." });
+  }
+
+  /* Référence déjà présente : on refuse, sur tout le système et pas seulement
+     sur ses propres ventes. Deux fois le même document, c'est deux fois le
+     même chiffre d'affaires, et plus personne ne sait lequel fait foi. */
+  const deja = await prisma.vente.findFirst({
+    where: { referenceCommande: { equals: referenceCommande, mode: "insensitive" } },
+    select: { vendeurNom: true },
+  });
+  if (deja) {
+    return res.status(409).json({
+      error: `La référence ${referenceCommande} a déjà été enregistrée par ${deja.vendeurNom}.`,
+    });
   }
 
   /* Rattachement du client. Sans identifiant, la vente garde un nom lisible
@@ -1042,9 +1158,9 @@ commercialRouter.post("/ventes", async (req, res) => {
     }
     /* Même garde qu'à la création directe : une fiche déjà présente dans le
        système, fût-ce chez un collègue, ne doit pas en recevoir une seconde.
-       La saisie de la vente s'arrête ici, le temps qu'un responsable rattache
-       la fiche. C'est une gêne assumée : deux fiches jumelles coûtent plus
-       cher à réconcilier plus tard qu'une vente saisie demain. */
+       La saisie s'arrête ici, le temps qu'un responsable rattache la fiche.
+       C'est une gêne assumée : deux fiches jumelles coûtent plus cher à
+       réconcilier plus tard qu'une commande saisie demain. */
     const doublon = await chercherDoublon(clientNom, null, moi);
     if (doublon) {
       return res.status(409).json({
@@ -1069,37 +1185,31 @@ commercialRouter.post("/ventes", async (req, res) => {
     clientCree = true;
   }
 
-  const vente = await prisma.vente.create({
-    data: {
+  await prisma.vente.createMany({
+    data: lignes.map((l) => ({
       clientId,
       clientNom,
       vendeurId: moi.id,
       vendeurNom: moi.nomComplet,
-      produit,
-      nature,
-      quantite,
-      prixAchat,
-      prixVente,
+      referenceCommande,
+      produit: l.produit,
+      nature: l.nature,
+      quantite: l.quantite,
+      prixVente: l.prixVente,
+      // Pas de prixAchat : il est renseigné ensuite par la direction.
       dateVente,
-      // Jamais « estDemo » : une vente saisie à la main est une vraie vente,
-      // et le nettoyage du jeu de démonstration ne doit pas l'emporter.
-    },
-    select: { id: true, produit: true, quantite: true, prixAchat: true, prixVente: true },
+      // Jamais « estDemo » : une commande saisie à la main est une vraie
+      // commande, et le nettoyage du jeu de démonstration ne doit pas
+      // l'emporter.
+    })),
   });
 
-  const montant = nb(vente.prixVente) * vente.quantite;
-  const benefice = (nb(vente.prixVente) - nb(vente.prixAchat)) * vente.quantite;
-  const compte = await prisma.utilisateur.findUnique({
-    where: { id: moi.id },
-    select: { tauxCommissionPct: true },
-  });
+  const montant = lignes.reduce((t, l) => t + l.prixVente * l.quantite, 0);
 
   res.status(201).json({
-    id: vente.id,
+    referenceCommande,
+    nbLignes: lignes.length,
     montant: Math.round(montant),
-    benefice: Math.round(benefice),
-    commission: commissionDe(benefice, nature, compte?.tauxCommissionPct),
-    tauxPct: tauxEffectif(nature, compte?.tauxCommissionPct),
     clientCree,
   });
 });

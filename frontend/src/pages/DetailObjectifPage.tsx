@@ -420,8 +420,16 @@ export default function DetailObjectifPage() {
                     <td className="num" data-label={t("fc.colMontant")} title={montant(v.montant)}>
                       {montantCompact(v.montant)}
                     </td>
-                    <td className="num" data-label={t("fc.colBenefice")} title={montant(v.benefice)}>
-                      {montantCompact(v.benefice)}
+                    <td
+                      className="num"
+                      data-label={t("fc.colBenefice")}
+                      title={v.benefice === null ? undefined : montant(v.benefice)}
+                    >
+                      {v.benefice === null ? (
+                        <span className="muted-3">{t("ve.aChiffrer")}</span>
+                      ) : (
+                        montantCompact(v.benefice)
+                      )}
                     </td>
                     <td className="num" data-label={t("fc.colCommission")}>
                       {v.commission === null ? (

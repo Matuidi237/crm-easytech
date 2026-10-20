@@ -289,24 +289,43 @@ export default function CommissionsPage() {
                     <td data-label={t("cm.colNature")}>
                       {v.nature ? t(`nature.${v.nature}` as CleTraduction) : "—"}
                     </td>
-                    <td className="num" data-label={t("fc.colBenefice")} title={montant(v.benefice)}>
-                      {montantCompact(v.benefice)}
+                    <td
+                      className="num"
+                      data-label={t("fc.colBenefice")}
+                      title={v.benefice === null ? undefined : montant(v.benefice)}
+                    >
+                      {v.benefice === null ? (
+                        <span className="muted-3">{t("ve.aChiffrer")}</span>
+                      ) : (
+                        montantCompact(v.benefice)
+                      )}
                     </td>
                     {/* Le taux de la ligne, parce que deux taux cohabitent : sans
                         lui, la part ne se recalcule pas de tête. */}
                     <td className="num" data-label={t("cm.colTaux")}>
                       {v.tauxPct === undefined ? "—" : `${nombre(v.tauxPct)}%`}
                     </td>
+                    {/* Sans coût, pas de commission calculable : l'écrire vaut
+                        mieux qu'un zéro, qui se lirait comme une vente qui ne
+                        rapporte rien. */}
                     <td
                       className="num td-strong"
                       data-label={t("cm.colPart")}
-                      title={t("cm.calculDetail", {
-                        benefice: montant(Math.max(0, v.benefice)),
-                        taux: nombre(v.tauxPct ?? 0),
-                        commission: montant(v.commission ?? 0),
-                      })}
+                      title={
+                        v.benefice === null || v.commission === null
+                          ? undefined
+                          : t("cm.calculDetail", {
+                              benefice: montant(Math.max(0, v.benefice)),
+                              taux: nombre(v.tauxPct ?? 0),
+                              commission: montant(v.commission),
+                            })
+                      }
                     >
-                      {montantCompact(v.commission ?? 0)}
+                      {v.commission === null ? (
+                        <span className="muted-3">{t("ve.aChiffrer")}</span>
+                      ) : (
+                        montantCompact(v.commission)
+                      )}
                     </td>
                     <td data-label={t("cm.colStatut")}>
                       {v.commissionVerseeLe ? (

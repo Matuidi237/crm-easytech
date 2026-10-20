@@ -467,8 +467,15 @@ async function creer() {
         produit: article.produit,
         nature: article.nature,
         quantite,
-        prixAchat: article.achat,
+        /* Les commandes récentes attendent encore leur prix d'achat, comme en
+           vrai : le commercial recopie le document Zoho, la direction chiffre
+           ensuite. Sans ces lignes-là, l'écran « À chiffrer » s'ouvrirait vide
+           et personne ne verrait à quoi il sert. */
+        prixAchat: recul === 0 && alea() < 0.6 ? null : article.achat,
         prixVente: Math.round((article.vente * remise) / 1000) * 1000,
+        /* Référence du document validé dans Zoho. Un numéro par commande, et
+           non par ligne : c'est lui qui les regroupe à l'écran. */
+        referenceCommande: `SO-${String(2600 + ventes.length).padStart(5, "0")}`,
         dateVente: dateVente,
         /* Réglée si le mois de la vente est clos depuis assez longtemps ;
            versée le 5 du mois suivant, comme une paie. Laisser toutes les

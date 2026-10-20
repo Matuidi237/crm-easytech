@@ -25,7 +25,13 @@ export type Permission =
   | "clients.importer" | "clients.exporter" | "clients.coordonnees"
   | "acces.accorder"
   | "newsletters.voir" | "newsletters.creer" | "newsletters.envoyer"
-  | "stats.globales" | "utilisateurs.gerer" | "utilisateurs.gererAdmins" | "permissions.gerer";
+  | "stats.globales"
+  /* Renseigner le prix d'achat d'une vente, donc la marge et la commission
+     qu'elle produira. Capacite a part : le commercial saisit la commande mais
+     ne connait pas le cout, et le lui ouvrir reviendrait a lui laisser fixer
+     sa propre remuneration. */
+  | "ventes.cout"
+  | "utilisateurs.gerer" | "utilisateurs.gererAdmins" | "permissions.gerer";
 
 export type SessionUtilisateur = {
   id: string;
@@ -659,6 +665,8 @@ export type TableauCommercial = {
     benefice: number;
     margePct: number | null;
     nbVentes: number;
+    /** Lignes dont le prix d'achat n'a pas encore été renseigné. */
+    ventesSansCout: number;
     mois: number;
     variationMois: number | null;
     partEquipePct: number | null;
@@ -680,6 +688,8 @@ export type TableauCommercial = {
     attendu: number;
     recu: number;
     nbVentesReglees: number;
+    /** Commissions encore incalculables, faute de prix d'achat. */
+    ventesSansCout: number;
   };
   /** Douze mois glissants, les mois sans vente compris. */
   parMois: { mois: string; ca: number; benefice: number; nbVentes: number }[];
@@ -1146,6 +1156,7 @@ export type ReleveCommissions = {
     reste: number;
     nbVentes: number;
     nbVentesReglees: number;
+    ventesSansCout: number;
   };
   /** Un relevé par mois de vente, du plus récent au plus ancien. */
   parMois: {
@@ -1156,6 +1167,8 @@ export type ReleveCommissions = {
     commission: number;
     verse: number;
     du: number;
+    /** Lignes du mois en attente de leur coût. */
+    sansCout: number;
     dernierVersement: string | null;
   }[];
   ventes: VenteCommercial[];
@@ -1165,6 +1178,44 @@ export async function fetchReleveCommissions() {
   const res = await authedFetch("/api/commercial/commissions");
   if (!res.ok) throw new Error("Erreur lors du chargement de vos commissions.");
   return res.json() as Promise<ReleveCommissions>;
+}
+
+/* ----------------------------------------------- Prix d'achat à renseigner */
+
+export type LigneSansCout = {
+  id: string;
+  dateVente: string;
+  referenceCommande: string | null;
+  clientNom: string;
+  vendeurNom: string;
+  produit: string;
+  nature: NatureVente;
+  quantite: number;
+  prixVente: number;
+  montant: number;
+};
+
+export type FileSansCout = {
+  total: number;
+  caEnAttente: number;
+  lignes: LigneSansCout[];
+};
+
+export async function fetchVentesSansCout() {
+  const res = await authedFetch("/api/direction/ventes/sans-cout");
+  if (!res.ok) throw new Error("Erreur lors du chargement des commandes à chiffrer.");
+  return res.json() as Promise<FileSansCout>;
+}
+
+/** Null remet la ligne en attente, pour corriger un coût saisi par erreur. */
+export async function renseignerCout(id: string, prixAchat: number | null) {
+  const res = await authedFetch(`/api/direction/ventes/${id}/cout`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prixAchat }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement du coût.");
+  return res.json() as Promise<{ id: string; prixAchat: number | null; benefice: number | null }>;
 }
 
 /** Client proposé pendant la frappe, limité au périmètre du compte. */
@@ -1210,37 +1261,45 @@ export type BaremeCommission = Record<NatureVente, number>;
 /** Les deux natures dans l'ordre d'affichage, matériel d'abord. */
 export const NATURES_VENTE: NatureVente[] = ["MATERIEL", "SERVICE"];
 
-export type NouvelleVente = {
+/** Une ligne du document validé dans Zoho. */
+export type LigneCommande = {
+  produit: string;
+  nature: NatureVente;
+  quantite: number;
+  prixVente: number;
+};
+
+/**
+ * Commande validée, telle qu'on la recopie depuis Zoho.
+ *
+ * Pas de prix d'achat : le commercial ne le connaît pas, et la direction le
+ * renseigne ensuite. La référence du document fait le lien avec l'original.
+ */
+export type NouvelleCommande = {
   /** Renseigné quand une suggestion a été retenue ; sinon la fiche est créée. */
   clientId: string | null;
   clientNom: string;
   nouveauClient: { pays: string; secteurActivite: string } | null;
-  produit: string;
-  nature: NatureVente;
-  quantite: number;
-  prixAchat: number;
-  prixVente: number;
+  referenceCommande: string;
   dateVente: string;
+  lignes: LigneCommande[];
 };
 
-export type VenteEnregistree = {
-  id: string;
+export type CommandeEnregistree = {
+  referenceCommande: string;
+  nbLignes: number;
   montant: number;
-  benefice: number;
-  commission: number | null;
-  /** Taux appliqué, pour que la confirmation dise d'où vient le montant. */
-  tauxPct: number;
   clientCree: boolean;
 };
 
-export async function creerVente(vente: NouvelleVente) {
+export async function creerCommande(commande: NouvelleCommande) {
   const res = await authedFetch("/api/commercial/ventes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(vente),
+    body: JSON.stringify(commande),
   });
-  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de la vente.");
-  return res.json() as Promise<VenteEnregistree>;
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de la commande.");
+  return res.json() as Promise<CommandeEnregistree>;
 }
 
 export async function supprimerVente(id: string) {
@@ -1319,13 +1378,22 @@ export type VenteCommercial = {
   dateVente: string;
   clientNom: string;
   produit: string;
+  /** Référence du document Zoho d'où vient la ligne. */
+  referenceCommande?: string | null;
   /** Absente des vues qui n'ont pas besoin du taux appliqué. */
   nature?: NatureVente;
   /** Taux appliqué à cette ligne, barème de sa nature ou taux négocié. */
   tauxPct?: number;
   quantite: number;
   montant: number;
-  benefice: number;
+  /**
+   * Null tant que la direction n'a pas renseigné le prix d'achat.
+   *
+   * Zéro voudrait dire « vendue sans marge », ce qui est une information ;
+   * null dit « on ne sait pas encore », ce qui n'en est pas une. Les écrans
+   * écrivent alors « à chiffrer ».
+   */
+  benefice: number | null;
   commission: number | null;
   /** Null tant que la commission n'a pas été versée. */
   commissionVerseeLe: string | null;

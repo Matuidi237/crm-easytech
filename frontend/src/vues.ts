@@ -30,6 +30,7 @@ const NAV_STANDARD: EntreeNav[] = [
   { to: "/clients", cle: "nav.clients", icone: "users" },
   { to: "/import", cle: "nav.import", icone: "import", requiert: "clients.importer" },
   { to: "/newsletters", cle: "nav.newsletters", icone: "mail", requiert: "newsletters.voir" },
+  { to: "/a-chiffrer", cle: "nav.aChiffrer", icone: "coins", requiert: "ventes.cout" },
 ];
 
 /** Vue de la direction générale. */
@@ -39,6 +40,10 @@ const NAV_DG: EntreeNav[] = [
   { to: "/clients", cle: "nav.clients", icone: "users" },
   { to: "/campagnes", cle: "nav.campagnes", icone: "mail", requiert: "newsletters.voir" },
   { to: "/partenaires", cle: "nav.partenaires", icone: "handshake" },
+  /* Les commandes dont le prix d'achat manque. L'onglet est visible pour qui
+     peut le renseigner : sans lui, la file s'allongerait sans que personne
+     ne la voie, et les commissions resteraient en suspens. */
+  { to: "/a-chiffrer", cle: "nav.aChiffrer", icone: "coins", requiert: "ventes.cout" },
 ];
 
 /**

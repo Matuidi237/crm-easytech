@@ -1,18 +1,21 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  LigneCommande,
   NATURES_VENTE,
   NatureVente,
   SuggestionClient,
   SuggestionProduit,
   TableauCommercial,
-  creerVente,
+  VenteCommercial,
+  creerCommande,
   fetchProduitsConnus,
   fetchTableauCommercial,
   supprimerVente,
 } from "../api";
 import { useLangue } from "../i18n";
 import ChampClient from "../components/ChampClient";
-import { IconAlert, IconCheck, IconInbox, IconPlus } from "../components/Icons";
+import ListeDeroulante from "../components/ListeDeroulante";
+import { IconAlert, IconCheck, IconClose, IconInbox, IconPlus, IconTrash } from "../components/Icons";
 
 /** Date du jour au format attendu par un champ date, dans le fuseau local. */
 function aujourdhui() {
@@ -21,33 +24,40 @@ function aujourdhui() {
   return `${d.getFullYear()}-${mois}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+type LigneSaisie = {
+  produit: string;
+  nature: NatureVente | "";
+  quantite: string;
+  prixVente: string;
+};
+
+const LIGNE_VIDE: LigneSaisie = { produit: "", nature: "", quantite: "1", prixVente: "" };
+
 const VIDE = {
   clientId: null as string | null,
   clientNom: "",
   pays: "",
   secteurActivite: "",
-  produit: "",
-  /* Aucune nature présélectionnée : c'est elle qui fixe le taux, et un défaut
-     silencieux ferait commissionner un service au taux du matériel. */
-  nature: "" as NatureVente | "",
-  quantite: "1",
-  prixAchat: "",
-  prixVente: "",
+  referenceCommande: "",
   dateVente: aujourdhui(),
+  lignes: [{ ...LIGNE_VIDE }],
 };
 
 /**
- * Saisie des ventes.
+ * Commandes validées.
  *
- * C'est le seul écran qui alimente les statistiques : tout ce que le directeur
- * lit ensuite (chiffre d'affaires, meilleur vendeur, meilleur produit, marge,
- * commissions, ventilation par pays et par secteur) se calcule à partir de ce
- * formulaire.
+ * Chez EasyTech, le devis part de Zoho ; quand le client le valide, il devient
+ * un document ferme. Cet écran ne crée donc pas une vente, il recopie ce
+ * document, et tout y découle de ce fait.
  *
- * Il est découpé en trois temps numérotés, à qui, quoi, et pour combien, parce
- * qu'une vente se raconte dans cet ordre. Chaque champ porte la raison de son
- * existence, et le récapitulatif montre en direct ce que la vente va produire :
- * une marge négative se voit ici, pas dans le bilan du mois suivant.
+ * La référence Zoho ouvre la saisie : c'est elle qui relie la ligne à son
+ * original, et c'est par elle qu'une synchronisation automatique reconnaîtra
+ * un jour ce qui est déjà en base au lieu de le recréer.
+ *
+ * Une commande porte plusieurs lignes, comme le document d'origine. Et le prix
+ * d'achat n'est pas demandé : le commercial ne le connaît pas. L'exiger ne
+ * produirait pas une marge juste mais un chiffre inventé pour que le
+ * formulaire accepte d'être validé.
  */
 export default function VentesPage() {
   const { t, nombre, montant, montantCompact, date, dateHeure } = useLangue();
@@ -55,6 +65,7 @@ export default function VentesPage() {
   const [form, setForm] = useState(VIDE);
   const [produits, setProduits] = useState<SuggestionProduit[]>([]);
   const [donnees, setDonnees] = useState<TableauCommercial | null>(null);
+  const [ouvert, setOuvert] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [succes, setSucces] = useState<string | null>(null);
@@ -72,11 +83,12 @@ export default function VentesPage() {
       .catch(() => setProduits([]));
   }, []);
 
-  const champ = (cle: keyof typeof VIDE, valeur: string) => setForm((f) => ({ ...f, [cle]: valeur }));
+  const champ = (cle: "clientNom" | "pays" | "secteurActivite" | "referenceCommande" | "dateVente", valeur: string) =>
+    setForm((f) => ({ ...f, [cle]: valeur }));
 
   /* Le rattachement ne survit pas à une modification du nom : laisser
-     l'identifiant en place attribuerait la vente à la fiche précédente alors
-     que l'écran affiche un autre nom. */
+     l'identifiant en place attribuerait la commande à la fiche précédente
+     alors que l'écran affiche un autre nom. */
   function saisirNom(nom: string) {
     setForm((f) => ({ ...f, clientNom: nom, clientId: null }));
   }
@@ -91,84 +103,106 @@ export default function VentesPage() {
     }));
   }
 
-  /* Choisir un produit connu reprend ses derniers prix, sans jamais écraser ce
-     qui a déjà été tapé : un tarif négocié n'est pas le tarif précédent. */
-  function choisirProduit(nom: string) {
-    const connu = produits.find((p) => p.produit === nom);
+  function majLigne(i: number, modif: Partial<LigneSaisie>) {
     setForm((f) => ({
       ...f,
-      produit: nom,
-      /* La nature suit le produit connu, sans écraser un choix déjà fait : une
-         même référence ne change pas de camp d'une vente à l'autre. */
-      nature: connu && !f.nature ? connu.nature : f.nature,
-      prixAchat: connu && !f.prixAchat ? String(connu.prixAchat) : f.prixAchat,
-      prixVente: connu && !f.prixVente ? String(connu.prixVente) : f.prixVente,
+      lignes: f.lignes.map((l, j) => (j === i ? { ...l, ...modif } : l)),
     }));
   }
 
-  const apercu = useMemo(() => {
-    const q = parseInt(form.quantite, 10);
-    const achat = Number(form.prixAchat);
-    const vente = Number(form.prixVente);
-    if (!Number.isInteger(q) || q < 1 || !Number.isFinite(achat) || !Number.isFinite(vente) || !form.prixVente) {
-      return null;
-    }
-    const total = vente * q;
-    const benefice = (vente - achat) * q;
-    /* Même calcul que le serveur, pour que l'aperçu annonce exactement ce qui
-       sera enregistré. Tant que la nature n'est pas choisie ou que le barème
-       n'est pas chargé, le taux est inconnu et la case reste vide plutôt que
-       d'afficher un montant fondé sur une hypothèse. */
-    const regle = donnees?.commissions;
-    const taux =
-      !regle || !form.nature ? null : regle.tauxNegociePct ?? regle.bareme[form.nature];
-    return {
-      total,
-      benefice,
-      margePct: total > 0 ? Math.round((benefice / total) * 100) : 0,
-      tauxPct: taux,
-      commission: taux === null ? null : Math.round(Math.max(0, benefice) * (taux / 100)),
-    };
-  }, [form.quantite, form.prixAchat, form.prixVente, form.nature, donnees]);
+  /* Choisir un produit connu reprend sa nature et son dernier prix, sans
+     jamais écraser ce qui a déjà été tapé : un tarif négocié n'est pas le
+     tarif précédent. */
+  function choisirProduit(i: number, nom: string) {
+    const connu = produits.find((p) => p.produit === nom);
+    setForm((f) => ({
+      ...f,
+      lignes: f.lignes.map((l, j) =>
+        j !== i
+          ? l
+          : {
+              ...l,
+              produit: nom,
+              nature: connu && !l.nature ? connu.nature : l.nature,
+              prixVente: connu && !l.prixVente ? String(connu.prixVente) : l.prixVente,
+            }
+      ),
+    }));
+  }
+
+  const totalCommande = useMemo(
+    () =>
+      form.lignes.reduce((t, l) => {
+        const q = parseInt(l.quantite, 10);
+        const p = Number(l.prixVente);
+        if (!Number.isInteger(q) || q < 1 || !Number.isFinite(p) || l.prixVente === "") return t;
+        return t + p * q;
+      }, 0),
+    [form.lignes]
+  );
+
+  const ligneValide = (l: LigneSaisie) => {
+    const q = parseInt(l.quantite, 10);
+    const p = Number(l.prixVente);
+    return (
+      l.produit.trim() !== "" &&
+      l.nature !== "" &&
+      Number.isInteger(q) &&
+      q >= 1 &&
+      l.prixVente !== "" &&
+      Number.isFinite(p) &&
+      p >= 0
+    );
+  };
 
   /* Fiche inconnue : les deux champs qui alimentent les ventilations du
-     directeur apparaissent. Sans eux la vente compterait dans le chiffre
+     directeur apparaissent. Sans eux la commande compterait dans le chiffre
      d'affaires mais nulle part dans sa répartition. */
   const clientNouveau = form.clientNom.trim().length > 0 && form.clientId === null;
   const complet =
     form.clientNom.trim().length > 0 &&
-    form.produit.trim().length > 0 &&
-    form.nature !== "" &&
-    form.prixVente !== "" &&
-    !!apercu;
+    form.referenceCommande.trim().length > 0 &&
+    form.lignes.length > 0 &&
+    form.lignes.every(ligneValide);
 
   async function envoyer(e: FormEvent) {
     e.preventDefault();
     setErreur(null);
     setSucces(null);
     setEnvoi(true);
+    const lignes: LigneCommande[] = form.lignes.map((l) => ({
+      produit: l.produit.trim(),
+      nature: l.nature as NatureVente,
+      quantite: parseInt(l.quantite, 10),
+      prixVente: Number(l.prixVente),
+    }));
     try {
-      const r = await creerVente({
+      const r = await creerCommande({
         clientId: form.clientId,
         clientNom: form.clientNom.trim(),
         nouveauClient: clientNouveau
           ? { pays: form.pays.trim(), secteurActivite: form.secteurActivite.trim() }
           : null,
-        produit: form.produit.trim(),
-        nature: form.nature as NatureVente,
-        quantite: parseInt(form.quantite, 10),
-        prixAchat: Number(form.prixAchat),
-        prixVente: Number(form.prixVente),
+        referenceCommande: form.referenceCommande.trim(),
         dateVente: form.dateVente,
+        lignes,
       });
       setSucces(
         r.clientCree
-          ? t("ve.enregistreeAvecClient", { montant: montantCompact(r.montant), client: form.clientNom.trim() })
-          : t("ve.enregistree", { montant: montantCompact(r.montant) })
+          ? t("ve.commandeEnregistreeAvecClient", {
+              reference: r.referenceCommande,
+              montant: montantCompact(r.montant),
+              client: form.clientNom.trim(),
+            })
+          : t("ve.commandeEnregistree", {
+              reference: r.referenceCommande,
+              montant: montantCompact(r.montant),
+            })
       );
-      /* La date survit à la remise à zéro : on saisit souvent plusieurs ventes
-         du même jour à la suite, et la retaper à chaque fois use. */
-      setForm({ ...VIDE, dateVente: form.dateVente });
+      /* La date survit à la remise à zéro : on saisit souvent plusieurs
+         commandes du même jour à la suite, et la retaper à chaque fois use. */
+      setForm({ ...VIDE, dateVente: form.dateVente, lignes: [{ ...LIGNE_VIDE }] });
+      setOuvert(false);
       recharger();
       fetchProduitsConnus()
         .then(setProduits)
@@ -194,12 +228,33 @@ export default function VentesPage() {
 
   const ventes = donnees?.ventes ?? [];
 
+  /* Les lignes se regroupent par référence : c'est ainsi qu'elles existent
+     dans Zoho, et les lire éparpillées obligerait à reconstituer de tête ce
+     qu'un seul document contenait. */
+  const commandes = useMemo(() => {
+    const par = new Map<string, { reference: string | null; lignes: VenteCommercial[] }>();
+    for (const v of ventes) {
+      const cle = v.referenceCommande ?? `sans:${v.id}`;
+      const groupe = par.get(cle) ?? { reference: v.referenceCommande ?? null, lignes: [] };
+      groupe.lignes.push(v);
+      par.set(cle, groupe);
+    }
+    return [...par.values()];
+  }, [ventes]);
+
+  const sansCout = donnees?.chiffreAffaires.ventesSansCout ?? 0;
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1>{t("nav.ventes")}</h1>
-          <div className="page-sub">{t("ve.sousTitre")}</div>
+        </div>
+        <div className="head-actions">
+          <button className="btn btn-primary" onClick={() => setOuvert(true)} disabled={ouvert}>
+            <IconPlus size={16} />
+            {t("ve.nouvelleCommande")}
+          </button>
         </div>
       </div>
 
@@ -216,330 +271,334 @@ export default function VentesPage() {
         </div>
       )}
 
-      <form className="card form-vente" onSubmit={envoyer}>
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("ve.formulaireTitre")}</div>
-            <div className="card-sub">{t("ve.formulaireSousTitre")}</div>
-          </div>
-        </div>
+      {/* Ce qui attend un prix d'achat. Le dire ici évite qu'un commercial
+          croie sa commission oubliée alors qu'elle n'est pas calculable. */}
+      {sansCout > 0 && (
+        <p className="remarque">
+          <strong>{t("ve.enAttenteDeCout", { n: nombre(sansCout) })}</strong>
+          {". "}
+          {t("ve.enAttenteDeCoutAide")}
+        </p>
+      )}
 
-        {/* 1. À qui ---------------------------------------------------- */}
-        <section className="bloc-saisie">
-          <div className="steps">
-            <span className="step-num">1</span>
-            <div className="bloc-titre">{t("ve.etapeClient")}</div>
-          </div>
+      {ouvert && (
+        <form className="panneau" onSubmit={envoyer}>
+          <header className="panneau-tete">
+            <h2>{t("ve.nouvelleCommande")}</h2>
+            <span className="panneau-note">{t("ve.coutExplication")}</span>
+          </header>
 
-          <div className="field">
-            <label htmlFor="vente-client">{t("ve.client")}</label>
-            <ChampClient valeur={form.clientNom} onChange={saisirNom} onChoisir={retenirClient} />
-            <div className={`field-hint${clientNouveau ? " hint-nouveau" : ""}`}>
-              {form.clientId ? t("ve.clientRattache") : clientNouveau ? t("ve.clientCree") : t("ve.clientAide")}
+          {/* 1. Quel document ------------------------------------------- */}
+          <section className="bloc-saisie">
+            <div className="steps">
+              <span className="step-num">1</span>
+              <div className="bloc-titre">{t("ve.etapeDocument")}</div>
             </div>
-          </div>
 
-          {/* Pays et secteur ne s'affichent que pour une fiche à créer : sur
-              une fiche existante ils sont déjà connus, et une seconde saisie
-              ouvrirait la porte à deux valeurs contradictoires. */}
-          {clientNouveau && (
             <div className="form-grid">
               <div className="field">
-                <label htmlFor="vente-pays">{t("ve.pays")}</label>
+                <label htmlFor="vente-reference">{t("ve.reference")}</label>
                 <input
-                  id="vente-pays"
-                  value={form.pays}
-                  onChange={(e) => champ("pays", e.target.value)}
-                  placeholder={t("ve.paysPlaceholder")}
+                  id="vente-reference"
+                  value={form.referenceCommande}
+                  onChange={(e) => champ("referenceCommande", e.target.value)}
+                  placeholder={t("ve.referencePlaceholder")}
+                  autoComplete="off"
+                  autoFocus
+                  required
                 />
-                <div className="field-hint">{t("ve.paysAide")}</div>
+                <div className="field-hint">{t("ve.referenceAide")}</div>
               </div>
               <div className="field">
-                <label htmlFor="vente-secteur">{t("ve.secteur")}</label>
+                <label htmlFor="vente-date">{t("ve.dateVente")}</label>
                 <input
-                  id="vente-secteur"
-                  value={form.secteurActivite}
-                  onChange={(e) => champ("secteurActivite", e.target.value)}
-                  placeholder={t("ve.secteurPlaceholder")}
-                />
-                <div className="field-hint">{t("ve.secteurAide")}</div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* 2. Quoi ----------------------------------------------------- */}
-        <section className="bloc-saisie">
-          <div className="steps">
-            <span className="step-num">2</span>
-            <div className="bloc-titre">{t("ve.etapeProduit")}</div>
-          </div>
-
-          <div className="form-grid form-grid-produit">
-            <div className="field">
-              <label htmlFor="vente-produit">{t("ve.produit")}</label>
-              <input
-                id="vente-produit"
-                list="produits-connus"
-                value={form.produit}
-                onChange={(e) => choisirProduit(e.target.value)}
-                placeholder={t("ve.produitPlaceholder")}
-                autoComplete="off"
-                required
-              />
-              {/* Liste native : elle propose sans interdire, exactement ce
-                  qu'il faut pour un catalogue qui n'est pas encore figé. */}
-              <datalist id="produits-connus">
-                {produits.map((p) => (
-                  <option key={p.produit} value={p.produit} />
-                ))}
-              </datalist>
-              <div className="field-hint">{t("ve.produitAide")}</div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="vente-quantite">{t("ve.quantite")}</label>
-              <input
-                id="vente-quantite"
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                value={form.quantite}
-                onChange={(e) => champ("quantite", e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* La nature fixe la rémunération : elle se choisit en deux cases
-              visibles, avec le taux écrit dessus, et non dans une liste où
-              l'on découvre son taux après coup. */}
-          <div className="field">
-            <span className="label-bloc">{t("ve.nature")}</span>
-            <div className="choix-nature" role="radiogroup" aria-label={t("ve.nature")}>
-              {NATURES_VENTE.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  role="radio"
-                  aria-checked={form.nature === n}
-                  className={`carte-choix${form.nature === n ? " on" : ""}`}
-                  onClick={() => setForm((f) => ({ ...f, nature: n }))}
-                >
-                  <span className="carte-choix-nom">{t(`nature.${n}` as "nature.MATERIEL")}</span>
-                  <span className="carte-choix-note">
-                    {t(`nature.aide.${n}` as "nature.aide.MATERIEL")}
-                  </span>
-                  <span className="carte-choix-taux">
-                    {t("ve.tauxCommission", {
-                      taux: nombre(
-                        donnees?.commissions.tauxNegociePct ?? donnees?.commissions.bareme[n] ?? 0
-                      ),
-                    })}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* 3. Pour combien --------------------------------------------- */}
-        <section className="bloc-saisie">
-          <div className="steps">
-            <span className="step-num">3</span>
-            <div className="bloc-titre">{t("ve.etapePrix")}</div>
-          </div>
-
-          <div className="form-grid form-grid-trois">
-            <div className="field">
-              <label htmlFor="vente-achat">{t("ve.prixAchat")}</label>
-              {/* La devise dans le champ plutôt que dans le libellé : elle
-                  reste sous les yeux pendant qu'on tape le montant. */}
-              <div className="champ-montant">
-                <input
-                  id="vente-achat"
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
-                  value={form.prixAchat}
-                  onChange={(e) => champ("prixAchat", e.target.value)}
-                  placeholder="0"
+                  id="vente-date"
+                  type="date"
+                  value={form.dateVente}
+                  // Pas de commande datée demain : elle gonflerait le mois en cours.
+                  max={aujourdhui()}
+                  onChange={(e) => champ("dateVente", e.target.value)}
                   required
                 />
-                <span className="champ-suffixe">XAF</span>
+                <div className="field-hint">{t("ve.dateAide")}</div>
               </div>
-              <div className="field-hint">{t("ve.prixAchatAide")}</div>
             </div>
 
             <div className="field">
-              <label htmlFor="vente-vente">{t("ve.prixVente")}</label>
-              <div className="champ-montant">
-                <input
-                  id="vente-vente"
-                  type="number"
-                  min={0}
-                  step={1}
-                  inputMode="numeric"
-                  value={form.prixVente}
-                  onChange={(e) => champ("prixVente", e.target.value)}
-                  placeholder="0"
-                  required
-                />
-                <span className="champ-suffixe">XAF</span>
+              <label htmlFor="vente-client">{t("ve.client")}</label>
+              <ChampClient valeur={form.clientNom} onChange={saisirNom} onChoisir={retenirClient} />
+              <div className={`field-hint${clientNouveau ? " hint-nouveau" : ""}`}>
+                {form.clientId ? t("ve.clientRattache") : clientNouveau ? t("ve.clientCree") : t("ve.clientAide")}
               </div>
-              <div className="field-hint">{t("ve.prixVenteAide")}</div>
             </div>
 
-            <div className="field">
-              <label htmlFor="vente-date">{t("ve.dateVente")}</label>
-              <input
-                id="vente-date"
-                type="date"
-                value={form.dateVente}
-                // Pas de vente datée demain : elle gonflerait le mois en cours.
-                max={aujourdhui()}
-                onChange={(e) => champ("dateVente", e.target.value)}
-                required
-              />
-              <div className="field-hint">{t("ve.dateAide")}</div>
+            {/* Pays et secteur ne s'affichent que pour une fiche à créer : sur
+                une fiche existante ils sont déjà connus, et une seconde saisie
+                ouvrirait la porte à deux valeurs contradictoires. */}
+            {clientNouveau && (
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="vente-pays">{t("ve.pays")}</label>
+                  <input
+                    id="vente-pays"
+                    value={form.pays}
+                    onChange={(e) => champ("pays", e.target.value)}
+                    placeholder={t("ve.paysPlaceholder")}
+                  />
+                  <div className="field-hint">{t("ve.paysAide")}</div>
+                </div>
+                <div className="field">
+                  <label htmlFor="vente-secteur">{t("ve.secteur")}</label>
+                  <input
+                    id="vente-secteur"
+                    value={form.secteurActivite}
+                    onChange={(e) => champ("secteurActivite", e.target.value)}
+                    placeholder={t("ve.secteurPlaceholder")}
+                  />
+                  <div className="field-hint">{t("ve.secteurAide")}</div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* 2. Les lignes ---------------------------------------------- */}
+          <section className="bloc-saisie">
+            <div className="steps">
+              <span className="step-num">2</span>
+              <div className="bloc-titre">{t("ve.etapeLignes")}</div>
+            </div>
+
+            {form.lignes.map((l, i) => (
+              <div className="ligne-commande" key={i}>
+                <div className="ligne-tete">
+                  <span className="ligne-num">{t("ve.ligneN", { n: nombre(i + 1) })}</span>
+                  {form.lignes.length > 1 && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => setForm((f) => ({ ...f, lignes: f.lignes.filter((_, j) => j !== i) }))}
+                      aria-label={t("ve.retirerLigne")}
+                      title={t("ve.retirerLigne")}
+                    >
+                      <IconTrash size={15} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="form-grid form-grid-produit">
+                  <div className="field">
+                    <label htmlFor={`produit-${i}`}>{t("ve.produit")}</label>
+                    {/* Saisie libre : la liste reprend ce qui a déjà été vendu
+                        pour éviter que « Pare-feu » et « Parefeu » deviennent
+                        deux produits dans les statistiques du directeur. */}
+                    <ListeDeroulante
+                      id={`produit-${i}`}
+                      valeur={l.produit}
+                      options={produits.map((p) => p.produit)}
+                      onChange={(v) => choisirProduit(i, v)}
+                      placeholder={t("ve.produitPlaceholder")}
+                      libre
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`quantite-${i}`}>{t("ve.quantite")}</label>
+                    <input
+                      id={`quantite-${i}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      value={l.quantite}
+                      onChange={(e) => majLigne(i, { quantite: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`prix-${i}`}>{t("ve.prixVente")}</label>
+                    <div className="champ-montant">
+                      <input
+                        id={`prix-${i}`}
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="numeric"
+                        value={l.prixVente}
+                        onChange={(e) => majLigne(i, { prixVente: e.target.value })}
+                        placeholder="0"
+                        required
+                      />
+                      <span className="champ-suffixe">XAF</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* La nature fixe le taux de commission : elle se choisit sur
+                    deux cases qui affichent leur taux avant le clic. */}
+                <div className="field">
+                  <span className="label-bloc">{t("ve.nature")}</span>
+                  <div className="choix-nature" role="radiogroup" aria-label={t("ve.nature")}>
+                    {NATURES_VENTE.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        role="radio"
+                        aria-checked={l.nature === n}
+                        className={`carte-choix${l.nature === n ? " on" : ""}`}
+                        onClick={() => majLigne(i, { nature: n })}
+                      >
+                        <span className="carte-choix-nom">{t(`nature.${n}` as "nature.MATERIEL")}</span>
+                        <span className="carte-choix-note">{t(`nature.aide.${n}` as "nature.aide.MATERIEL")}</span>
+                        <span className="carte-choix-taux">
+                          {t("ve.tauxCommission", {
+                            taux: nombre(
+                              donnees?.commissions.tauxNegociePct ?? donnees?.commissions.bareme[n] ?? 0
+                            ),
+                          })}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => setForm((f) => ({ ...f, lignes: [...f.lignes, { ...LIGNE_VIDE }] }))}
+            >
+              <IconPlus size={15} />
+              {t("ve.ajouterLigne")}
+            </button>
+          </section>
+
+          <div className="barre-vente">
+            <div className="barre-chiffres">
+              <div className="barre-case">
+                <span className="barre-label">{t("ve.totalCommande")}</span>
+                <strong className="barre-valeur">{totalCommande > 0 ? montant(totalCommande) : "—"}</strong>
+              </div>
+              <div className="barre-case">
+                <span className="barre-label">{t("ve.nLignes", { n: nombre(form.lignes.length) })}</span>
+                <strong className="barre-valeur">{form.referenceCommande.trim() || "—"}</strong>
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ margin: 0 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setOuvert(false);
+                  setForm({ ...VIDE, lignes: [{ ...LIGNE_VIDE }] });
+                }}
+              >
+                <IconClose size={15} />
+                {t("commun.annuler")}
+              </button>
+              <button className="btn btn-primary" type="submit" disabled={envoi || !complet}>
+                <IconCheck size={16} />
+                {envoi ? t("ag.ajoutEnCours") : t("commun.enregistrer")}
+              </button>
             </div>
           </div>
-        </section>
+        </form>
+      )}
 
-        {apercu && apercu.benefice < 0 && (
-          <div className="alert alert-warn">
-            <IconAlert />
-            {t("ve.alertePerte")}
-          </div>
-        )}
+      <section className="panneau">
+        <header className="panneau-tete">
+          <h2>{t("ve.commandesTitre")}</h2>
+          <span className="panneau-note">{t("co.historiqueSousTitre", { n: nombre(ventes.length) })}</span>
+        </header>
 
-        {/* Barre de validation : le résultat de la saisie et le bouton au même
-            endroit, pour n'enregistrer qu'après avoir vu ce qu'on enregistre. */}
-        <div className="barre-vente">
-          <div className="barre-chiffres">
-            <div className="barre-case">
-              <span className="barre-label">{t("ve.apercuMontant")}</span>
-              <strong className="barre-valeur">{apercu ? montant(apercu.total) : "-"}</strong>
-            </div>
-            <div className="barre-case">
-              <span className="barre-label">{t("ve.apercuBenefice")}</span>
-              <strong className={`barre-valeur${apercu && apercu.benefice < 0 ? " valeur-negative" : ""}`}>
-                {apercu ? montant(apercu.benefice) : "-"}
-              </strong>
-            </div>
-            <div className="barre-case">
-              <span className="barre-label">{t("ve.apercuMarge")}</span>
-              <strong className="barre-valeur">{apercu ? `${apercu.margePct}%` : "-"}</strong>
-            </div>
-            <div className="barre-case">
-              <span className="barre-label">{t("ve.apercuCommission")}</span>
-              <strong className="barre-valeur">
-                {!apercu || apercu.commission === null ? "-" : montant(apercu.commission)}
-              </strong>
-            </div>
-          </div>
-
-          <button className="btn btn-primary" type="submit" disabled={envoi || !complet}>
-            <IconPlus size={16} />
-            {envoi ? t("ve.enregistrement") : t("ve.enregistrer")}
-          </button>
-        </div>
-      </form>
-
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("ve.listeTitre")}</div>
-            <div className="card-sub">{t("co.historiqueSousTitre", { n: nombre(ventes.length) })}</div>
-          </div>
-          {donnees && <span className="tag">{montantCompact(donnees.chiffreAffaires.total)}</span>}
-        </div>
-
-        {donnees === null ? (
-          <p className="muted-3" style={{ margin: 0, padding: 20 }}>
-            {t("commun.chargementDonnees")}
-          </p>
-        ) : ventes.length === 0 ? (
+        {ventes.length === 0 ? (
           <div className="empty">
             <div className="empty-icon">
               <IconInbox />
             </div>
-            <div className="empty-title">{t("co.historiqueVideTitre")}</div>
+            <div className="empty-title">{t("ve.commandesTitre")}</div>
             <p className="empty-text" style={{ margin: 0 }}>
-              {t("ve.listeVideTexte")}
+              {t("ve.listeVideCommandes")}
             </p>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 6 }} onClick={() => setOuvert(true)}>
+              <IconPlus size={15} />
+              {t("ve.nouvelleCommande")}
+            </button>
           </div>
         ) : (
           <div className="table-scroll">
-            <table>
+            <table className="table-nue">
               <thead>
                 <tr>
+                  <th>{t("ve.colReference")}</th>
                   <th>{t("fc.colDate")}</th>
                   <th>{t("fc.colClient")}</th>
                   <th>{t("fc.colProduit")}</th>
-                  <th>{t("fc.colQuantite")}</th>
-                  <th>{t("fc.colMontant")}</th>
-                  <th>{t("fc.colBenefice")}</th>
-                  <th>{t("fc.colCommission")}</th>
-                  <th className="col-actions" />
+                  <th className="num">{t("ve.quantite")}</th>
+                  <th className="num">{t("fc.colMontant")}</th>
+                  <th className="num">{t("fc.colBenefice")}</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {ventes.map((v) => (
-                  <tr key={v.id}>
-                    <td data-label={t("fc.colDate")}>{dateHeure(v.dateVente)}</td>
-                    <td className="td-strong td-main" data-label={t("fc.colClient")}>
-                      {v.clientNom}
-                    </td>
-                    <td data-label={t("fc.colProduit")}>{v.produit}</td>
-                    <td className="num" data-label={t("fc.colQuantite")}>
-                      {nombre(v.quantite)}
-                    </td>
-                    <td className="num" data-label={t("fc.colMontant")} title={montant(v.montant)}>
-                      {montantCompact(v.montant)}
-                    </td>
-                    <td
-                      className={`num ${v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
-                      data-label={t("fc.colBenefice")}
-                      title={montant(v.benefice)}
-                    >
-                      {v.benefice >= 0 ? "+" : ""}
-                      {montantCompact(v.benefice)}
-                    </td>
-                    <td className="num" data-label={t("fc.colCommission")}>
-                      {v.commission === null ? (
-                        <span className="muted-3">-</span>
-                      ) : (
-                        <>
-                          <span title={montant(v.commission)}>{montantCompact(v.commission)}</span>
-                          <span className={`pill ${v.commissionVerseeLe ? "pill-success" : "pill-warn"} pill-reglement`}>
-                            {v.commissionVerseeLe ? t("co.versee", { date: date(v.commissionVerseeLe) }) : t("co.due")}
+                {commandes.map((c) =>
+                  c.lignes.map((v, i) => (
+                    <tr key={v.id} className={i === 0 ? "commande-debut" : undefined}>
+                      {/* La référence n'est écrite qu'une fois par commande :
+                          la répéter sur chaque ligne ferait lire trois fois le
+                          même numéro pour un seul document. */}
+                      <td className="td-strong" data-label={t("ve.colReference")}>
+                        {i === 0 ? c.reference ?? <span className="muted-3">—</span> : ""}
+                      </td>
+                      <td data-label={t("fc.colDate")}>{i === 0 ? dateHeure(v.dateVente) : ""}</td>
+                      <td className="td-main" data-label={t("fc.colClient")}>
+                        {i === 0 ? v.clientNom : ""}
+                      </td>
+                      <td data-label={t("fc.colProduit")}>{v.produit}</td>
+                      <td className="num" data-label={t("ve.quantite")}>
+                        {nombre(v.quantite)}
+                      </td>
+                      <td className="num" data-label={t("fc.colMontant")} title={montant(v.montant)}>
+                        {montantCompact(v.montant)}
+                      </td>
+                      <td
+                        className="num"
+                        data-label={t("fc.colBenefice")}
+                        title={v.benefice === null ? undefined : montant(v.benefice)}
+                      >
+                        {v.benefice === null ? (
+                          <span className="muted-3">{t("ve.aChiffrer")}</span>
+                        ) : (
+                          montantCompact(v.benefice)
+                        )}
+                      </td>
+                      <td className="num">
+                        {/* Une commission versée verrouille la ligne côté
+                            serveur : le bouton disparaît plutôt que d'échouer. */}
+                        {v.commissionVerseeLe ? (
+                          <span className="muted-3" title={t("ve.verrouilleeAide")}>
+                            {t("co.versee", { date: date(v.commissionVerseeLe) })}
                           </span>
-                        </>
-                      )}
-                    </td>
-                    <td className="col-actions">
-                      {/* Une commission versée verrouille la ligne côté serveur :
-                          le bouton disparaît plutôt que d'échouer au clic. */}
-                      {v.commissionVerseeLe ? (
-                        <span className="muted-3" title={t("ve.verrouilleeAide")}>
-                          {t("ve.verrouillee")}
-                        </span>
-                      ) : (
-                        <button type="button" className="link-action danger" onClick={() => annuler(v.id, v.clientNom)}>
-                          {t("ve.annuler")}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        ) : (
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => annuler(v.id, v.clientNom)}
+                            aria-label={t("commun.supprimer")}
+                            title={t("commun.supprimer")}
+                          >
+                            <IconTrash size={15} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </section>
     </>
   );
 }

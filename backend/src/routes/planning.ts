@@ -3,6 +3,7 @@ import type { PeriodeObjectif, RoleUtilisateur, StatutCreneau } from "@prisma/cl
 import { prisma } from "../lib/prisma.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { debutDe, fenetreDe, minuit, partEcoulee } from "../lib/periodes.js";
+import { margeDe, montantDe } from "../lib/ventes.js";
 import {
   ACTIVITES_SUGGEREES,
   FILTRE_RENDEZ_VOUS,
@@ -745,7 +746,11 @@ planningRouter.get("/objectifs", async (req, res) => {
   let benefice = 0;
   for (const v of ventes) {
     chiffreAffaires += nb(v.prixVente) * v.quantite;
-    benefice += (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+    // Les ventes non chiffrées alimentent le chiffre d'affaires, pas la marge.
+    {
+      const marge = margeDe(v);
+      if (marge !== null) benefice += marge;
+    }
   }
 
   const normaliser = normaliserObjectif;
@@ -827,7 +832,11 @@ planningRouter.get("/objectifs/feuille-de-route", async (req, res) => {
     for (const v of ventes) {
       if (v.dateVente < debutLocal || v.dateVente >= fin) continue;
       chiffreAffaires += nb(v.prixVente) * v.quantite;
-      benefice += (nb(v.prixVente) - nb(v.prixAchat)) * v.quantite;
+      // Les ventes non chiffrées alimentent le chiffre d'affaires, pas la marge.
+    {
+      const marge = margeDe(v);
+      if (marge !== null) benefice += marge;
+    }
       nbVentes += 1;
     }
     const nbRendezVous = rendezVous.filter(

@@ -261,13 +261,19 @@ export default function CommercialPage() {
                     <td className="num" data-label={t("fc.colMontant")} title={montant(v.montant)}>
                       {montantCompact(v.montant)}
                     </td>
+                    {/* Null quand la direction n'a pas encore renseigné le
+                        prix d'achat : on l'écrit, plutôt que d'afficher un
+                        zéro qui se lirait comme une vente sans marge. */}
                     <td
-                      className={`num ${v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
+                      className={`num ${v.benefice === null ? "" : v.benefice >= 0 ? "num-positif" : "num-negatif"}`}
                       data-label={t("fc.colBenefice")}
-                      title={montant(v.benefice)}
+                      title={v.benefice === null ? undefined : montant(v.benefice)}
                     >
-                      {v.benefice >= 0 ? "+" : ""}
-                      {montantCompact(v.benefice)}
+                      {v.benefice === null ? (
+                        <span className="muted-3">{t("ve.aChiffrer")}</span>
+                      ) : (
+                        `${v.benefice >= 0 ? "+" : ""}${montantCompact(v.benefice)}`
+                      )}
                     </td>
                     {/* La colonne du DG porte le montant ; celle-ci y ajoute le
                         règlement. C'est la question que se pose l'intéressé, et
