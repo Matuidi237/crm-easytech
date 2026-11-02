@@ -75,6 +75,10 @@ enum RoleUtilisateur {
   COMMERCIAL
   COMPTABLE
   CHEF_DE_PROJET
+
+  /// Ressources humaines. Tient l'effectif, les contrats et les congés, et ne
+  /// voit du commercial que ce que tout le monde voit.
+  RH
 }
 
 model Utilisateur {
@@ -124,6 +128,12 @@ model Utilisateur {
   /// que sur ceux fixés par son responsable. Les deux jeux restent en base :
   /// basculer ne détruit rien, et on peut revenir.
   objectifsPersonnels Boolean @default(false)
+
+  /// Dossier du personnel, quand ce compte appartient à un employé.
+  ///
+  /// Facultatif dans les deux sens : un prestataire ou un compte technique n'a
+  /// pas de dossier RH, et la plupart des employés n'ont pas de compte.
+  employe         Employe?
 
   saisiesTemps    SaisieTemps[]        @relation("Temps")
   notesPosees     Note[]               @relation("Notes")
@@ -781,4 +791,266 @@ model CampagneDestinataire {
   /// le dédoublonnage est garanti par la base, pas seulement par l'import.
   @@unique([campagneId, email])
   @@index([campagneId])
+}
+
+
+// ==========================================================================
+// Ressources humaines
+// ==========================================================================
+
+/// Situation d'une personne dans l'entreprise.
+enum StatutEmploye {
+  /// En poste.
+  ACTIF
+
+  /// Présent à l'effectif mais momentanément écarté : suspension, congé sans
+  /// solde de longue durée, détachement. Ne disparaît pas des listes, mais ne
+  /// compte pas dans l'effectif présent.
+  SUSPENDU
+
+  /// Parti. La fiche reste : un dossier du personnel se conserve, et les
+  /// congés pris ou les éléments de paie d'un ancien salarié restent à justifier.
+  SORTI
+}
+
+/// Une personne employée, qu'elle ait un accès à l'application ou non.
+///
+/// C'est le pivot du module RH, et il est distinct d'« Utilisateur » à dessein.
+/// Un chauffeur, un agent de sécurité ou un technicien de terrain n'ont aucune
+/// raison de se connecter, et doivent pourtant figurer à l'effectif et poser
+/// des congés. À l'inverse, un compte peut exister sans personne derrière lui.
+/// Fondre les deux obligerait à ouvrir un compte à chacun, avec les accès que
+/// cela suppose, ou à laisser la moitié du personnel hors de la RH.
+model Employe {
+  id String @id @default(uuid())
+
+  /// Identifiant interne du dossier. Unique, et saisi par la RH : c'est lui
+  /// qui figure sur les bulletins et les courriers, l'outil ne l'invente pas.
+  matricule String @unique
+
+  nom     String
+  prenoms String?
+
+  /// Coordonnées personnelles, distinctes de l'adresse professionnelle du
+  /// compte : on écrit à un salarié en congé sur son adresse à lui.
+  emailPersonnel String?
+  telephone      String?
+  adresse        String?
+  dateNaissance  DateTime? @db.Date
+  lieuNaissance  String?
+
+  /// Numéro d'assuré social, pour les déclarations.
+  numeroCnps String?
+
+  /// Intitulé du poste et service de rattachement, en texte libre.
+  ///
+  /// Même choix que pour les activités des feuilles de temps : une
+  /// nomenclature fermée oblige à ranger un poste réel dans une case qui ne
+  /// lui va pas. Les valeurs déjà employées sont reproposées à la saisie, ce
+  /// qui suffit à garder l'organigramme cohérent sans rien interdire.
+  poste   String?
+  service String?
+
+  /// Responsable hiérarchique, au sens RH.
+  ///
+  /// Distinct de la hiérarchie commerciale portée par Utilisateur.responsable :
+  /// l'une dit qui voit le portefeuille de qui, l'autre qui valide le congé de
+  /// qui. Les confondre se paie le jour où un commercial change de responsable
+  /// commercial sans changer de manager.
+  manager   Employe?  @relation("Hierarchie", fields: [managerId], references: [id], onDelete: SetNull)
+  managerId String?
+  subordonnes Employe[] @relation("Hierarchie")
+
+  dateEmbauche DateTime  @db.Date
+  statut       StatutEmploye @default(ACTIF)
+  dateSortie   DateTime? @db.Date
+  motifSortie  String?
+
+  /// Compte de connexion, s'il en a un. Un à un : deux dossiers ne peuvent pas
+  /// pointer vers la même personne connectée.
+  utilisateur   Utilisateur? @relation(fields: [utilisateurId], references: [id], onDelete: SetNull)
+  utilisateurId String?      @unique
+
+  contrats  Contrat[]
+  absences  DemandeAbsence[]  @relation("Demandeur")
+  ajustements AjustementConge[]
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([statut])
+  @@index([managerId])
+  @@index([estDemo])
+  @@index([nom])
+}
+
+/// Nature juridique d'un engagement.
+enum TypeContrat {
+  CDI
+  CDD
+  STAGE
+  PRESTATION
+  INTERIM
+}
+
+/// Un engagement contractuel, passé ou en cours.
+///
+/// Un employé en a plusieurs dans le temps : un stage puis un CDD puis un CDI,
+/// ou des avenants successifs. On ne remplace donc jamais le contrat en place,
+/// on en ouvre un nouveau : l'historique est ce qui permet de prouver une
+/// ancienneté et de répondre à un contrôle.
+model Contrat {
+  id String @id @default(uuid())
+
+  employe   Employe @relation(fields: [employeId], references: [id], onDelete: Cascade)
+  employeId String
+
+  type      TypeContrat
+  intitule  String?
+  debut     DateTime  @db.Date
+
+  /// Nul pour un CDI. Rempli, il déclenche l'alerte d'échéance : un CDD qui
+  /// se poursuit sans renouvellement écrit se requalifie.
+  fin       DateTime? @db.Date
+
+  /// Fin de la période d'essai, quand il y en a une.
+  finEssai  DateTime? @db.Date
+
+  /// Salaire brut mensuel.
+  ///
+  /// La donnée la plus sensible du dossier : elle se lit derrière une capacité
+  /// à part (« rh.remuneration »), et non avec le reste de la fiche. Le même
+  /// principe que le prix d'achat d'une vente, que le commercial ne voit pas.
+  salaireBrutMensuel Decimal? @db.Decimal(18, 2)
+
+  /// Quotité travaillée, 100 pour un temps plein.
+  tempsPct Int @default(100)
+
+  note String?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeId])
+  @@index([fin])
+  @@index([estDemo])
+}
+
+/// Motif d'une absence.
+///
+/// Liste fermée, contrairement aux activités : le motif décide si l'absence
+/// consomme le solde de congés, et une valeur libre ne permettrait pas de
+/// trancher. Les cas particuliers se précisent dans le motif écrit.
+enum TypeAbsence {
+  /// Seul type qui décompte du solde annuel.
+  CONGE_ANNUEL
+
+  MALADIE
+  MATERNITE
+  PATERNITE
+  SANS_SOLDE
+  EVENEMENT_FAMILIAL
+  AUTORISATION_EXCEPTIONNELLE
+  AUTRE
+}
+
+/// État d'une demande dans le circuit de validation.
+enum StatutAbsence {
+  /// Posée, en attente du manager.
+  SOUMISE
+
+  /// Le manager a donné son accord, la RH doit encore vérifier le solde et
+  /// les règles.
+  VALIDEE_MANAGER
+
+  /// Accord définitif. Seules ces absences-là décomptent du solde et
+  /// apparaissent dans les plannings.
+  APPROUVEE
+
+  REFUSEE
+
+  /// Retirée par le demandeur avant décision, ou annulée après accord.
+  ANNULEE
+}
+
+/// Une demande d'absence et son circuit.
+///
+/// Deux étapes, manager puis RH : le manager connaît la charge de son équipe,
+/// la RH connaît le solde et la règle. Chaque décision garde son auteur et sa
+/// date, parce qu'un congé refusé se discute et qu'une décision sans signature
+/// ne se discute pas, elle se subit.
+model DemandeAbsence {
+  id String @id @default(uuid())
+
+  employe   Employe @relation("Demandeur", fields: [employeId], references: [id], onDelete: Cascade)
+  employeId String
+
+  type  TypeAbsence
+  debut DateTime @db.Date
+  fin   DateTime @db.Date
+
+  /// Jours ouvrés décomptés, calculés à la soumission et figés ensuite.
+  ///
+  /// Figés à dessein : recalculer plus tard ferait bouger un solde déjà
+  /// communiqué si la liste des jours fériés change entre-temps.
+  joursOuvres Decimal @db.Decimal(5, 1)
+
+  /// Demi-journées aux extrémités : partir un vendredi midi est courant, et
+  /// l'arrondir au jour plein fait perdre un demi-jour à quelqu'un.
+  demiDebut Boolean @default(false)
+  demiFin   Boolean @default(false)
+
+  motif String?
+
+  statut StatutAbsence @default(SOUMISE)
+
+  valideeManagerParNom String?
+  valideeManagerLe     DateTime?
+  valideeRhParNom      String?
+  valideeRhLe          DateTime?
+  decideeParNom        String?
+  motifDecision        String?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeId, debut])
+  @@index([statut])
+  @@index([estDemo])
+}
+
+/// Correction manuelle d'un solde de congés.
+///
+/// Les droits se calculent à partir de l'ancienneté et des absences prises,
+/// mais la réalité déborde toujours du calcul : un reliquat reporté de
+/// l'exercice précédent, un rachat, une régularisation d'entrée en cours
+/// d'année. Plutôt que de laisser la RH forcer un solde sans trace, chaque
+/// écart est une ligne datée, motivée et signée.
+model AjustementConge {
+  id String @id @default(uuid())
+
+  employe   Employe @relation(fields: [employeId], references: [id], onDelete: Cascade)
+  employeId String
+
+  /// Exercice concerné, en année civile.
+  annee Int
+
+  /// Positif pour un report ou un octroi, négatif pour une reprise.
+  jours Decimal @db.Decimal(5, 1)
+
+  motif      String
+  saisiParNom String
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([employeId, annee])
+  @@index([estDemo])
 }
