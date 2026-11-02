@@ -134,6 +134,15 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
     "newsletters.envoyer",
     "stats.globales",
   ],
+
+  /**
+   * Ressources humaines.
+   *
+   * Aucune capacité sur le CRM, et c'est voulu : la RH tient l'effectif et les
+   * congés, elle n'a pas à lire le portefeuille clients ni les montants des
+   * ventes. Ses propres capacités, nommées « rh.* », arriveront avec le module.
+   */
+  RH: [],
 };
 
 /** Libellés affichés dans l'interface. */
@@ -145,6 +154,7 @@ export const LIBELLES_ROLES: Record<RoleUtilisateur, string> = {
   COMMERCIAL: "Commercial",
   COMPTABLE: "Comptable",
   CHEF_DE_PROJET: "Chef de projet",
+  RH: "Ressources humaines",
 };
 
 /** Du plus élevé au plus restreint. Sert à empêcher qu'un compte en promeuve un autre au-dessus de lui. */
@@ -155,6 +165,9 @@ const RANG: Record<RoleUtilisateur, number> = {
      l'autre, « peutAgirSur » exigeant un rang strictement supérieur. */
   DG: 80,
   RESPONSABLE_COMMERCIAL: 60,
+  /* Au rang d'un chef de projet : la RH administre des dossiers, pas des
+     comptes, et ne doit pas pouvoir promouvoir qui que ce soit. */
+  RH: 50,
   CHEF_DE_PROJET: 50,
   COMPTABLE: 40,
   COMMERCIAL: 20,
