@@ -10,6 +10,14 @@ import {
   montantDe,
   type Cumul,
 } from "../lib/ventes.js";
+import {
+  COLONNES,
+  PROBABILITE_PCT,
+  estOuverte,
+  joursDansEtape,
+  stagne,
+  valeurPonderee,
+} from "../lib/pipeline.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
 import { chercherDoublon } from "./clients.js";
 import { fenetreDe, partEcoulee } from "../lib/periodes.js";
@@ -959,6 +967,291 @@ commercialRouter.get("/commissions", async (req, res) => {
       })),
     ventes: lignes,
   });
+});
+
+/* ==========================================================================
+   Pipeline commercial
+   ========================================================================== */
+
+const SELECT_OPPORTUNITE = {
+  id: true,
+  titre: true,
+  clientId: true,
+  clientNom: true,
+  etape: true,
+  priorite: true,
+  montantEstime: true,
+  nature: true,
+  description: true,
+  clotureEstimeeLe: true,
+  etapeDepuisLe: true,
+  motifPerte: true,
+  referenceCommande: true,
+  ordre: true,
+  updatedAt: true,
+} as const;
+
+type OpportuniteBrute = {
+  montantEstime: unknown;
+  etape: keyof typeof PROBABILITE_PCT;
+  etapeDepuisLe: Date;
+};
+
+/** Ajoute ce qui se déduit de l'étape, pour que l'interface ne le recalcule pas. */
+function enrichir<T extends OpportuniteBrute>(o: T) {
+  const montant = Math.round(nb(o.montantEstime));
+  return {
+    ...o,
+    montantEstime: montant,
+    probabilitePct: PROBABILITE_PCT[o.etape],
+    valeurPonderee: valeurPonderee(montant, o.etape),
+    joursDansEtape: joursDansEtape(o.etapeDepuisLe),
+    stagne: stagne(o.etape, o.etapeDepuisLe),
+  };
+}
+
+/**
+ * Le tableau du commercial connecté.
+ *
+ * Les affaires perdues ne sont pas renvoyées avec les colonnes : une colonne de
+ * perdues se remplit sans fin et chasse de l'écran celles qui appellent une
+ * action. Elles se demandent à part, quand on veut analyser les motifs.
+ *
+ * Les gagnées sont bornées à quatre-vingt-dix jours, pour la même raison : la
+ * colonne doit montrer ce qui vient d'être conclu, pas l'historique complet.
+ */
+commercialRouter.get("/pipeline", async (req, res) => {
+  const moi = req.utilisateur!;
+
+  const borneGagnees = new Date();
+  borneGagnees.setDate(borneGagnees.getDate() - 90);
+
+  const opportunites = await prisma.opportunite.findMany({
+    where: {
+      commercialId: moi.id,
+      OR: [
+        { etape: { in: ["NOUVELLE", "QUALIFIEE", "DEVIS_ENVOYE", "NEGOCIATION"] } },
+        { etape: "GAGNEE", clotureeLe: { gte: borneGagnees } },
+      ],
+    },
+    orderBy: [{ ordre: "asc" }, { updatedAt: "desc" }],
+    select: SELECT_OPPORTUNITE,
+  });
+
+  const enrichies = opportunites.map(enrichir);
+  const ouvertes = enrichies.filter((o) => estOuverte(o.etape));
+
+  res.json({
+    colonnes: COLONNES.map((etape) => ({
+      etape,
+      probabilitePct: PROBABILITE_PCT[etape],
+      opportunites: enrichies.filter((o) => o.etape === etape),
+    })),
+    totaux: {
+      /* Le brut et le pondéré côte à côte : le premier dit ce qui est en jeu, le
+         second ce qu'on peut raisonnablement attendre. Donner le brut seul
+         promettrait ce qui n'arrivera pas. */
+      nbOuvertes: ouvertes.length,
+      montantOuvert: ouvertes.reduce((t, o) => t + o.montantEstime, 0),
+      valeurPonderee: ouvertes.reduce((t, o) => t + o.valeurPonderee, 0),
+      nbStagnantes: ouvertes.filter((o) => o.stagne).length,
+    },
+  });
+});
+
+/** Les affaires perdues, à part, avec leurs motifs. */
+commercialRouter.get("/pipeline/perdues", async (req, res) => {
+  const moi = req.utilisateur!;
+  const perdues = await prisma.opportunite.findMany({
+    where: { commercialId: moi.id, etape: "PERDUE" },
+    orderBy: { clotureeLe: "desc" },
+    take: 50,
+    select: { ...SELECT_OPPORTUNITE, clotureeLe: true },
+  });
+  res.json({
+    perdues: perdues.map((o) => ({ ...o, montantEstime: Math.round(nb(o.montantEstime)) })),
+  });
+});
+
+/** Lit et valide ce qui est commun à la création et à la correction. */
+/**
+ * Jour calendaire, ramené à minuit UTC.
+ *
+ * Les colonnes `@db.Date` tronquent l'horodatage sur UTC : y écrire un minuit
+ * local décalerait la date d'un jour à Douala, et une clôture prévue le 1er
+ * tomberait au 30 du mois précédent.
+ */
+function jourCalendaire(d: Date): Date {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
+function lireCorpsOpportunite(corps: {
+  titre?: string;
+  montantEstime?: number;
+  nature?: string;
+  priorite?: string;
+  description?: string;
+  clotureEstimeeLe?: string | null;
+}) {
+  const titre = (corps.titre ?? "").trim();
+  if (!titre) return { erreur: "L'intitulé de l'affaire est obligatoire." };
+  if (titre.length > 120) return { erreur: "Cet intitulé est trop long." };
+
+  const montantEstime = montantValide(corps.montantEstime);
+  if (montantEstime === null) return { erreur: "Le montant estimé est invalide." };
+
+  const nature = corps.nature === "SERVICE" ? "SERVICE" : "MATERIEL";
+  const priorite =
+    corps.priorite === "HAUTE" || corps.priorite === "BASSE" ? corps.priorite : "MOYENNE";
+
+  let clotureEstimeeLe: Date | null = null;
+  if (corps.clotureEstimeeLe) {
+    const d = new Date(corps.clotureEstimeeLe);
+    if (Number.isNaN(d.getTime())) return { erreur: "La date de clôture estimée est invalide." };
+    clotureEstimeeLe = jourCalendaire(d);
+  }
+
+  return {
+    donnees: {
+      titre,
+      montantEstime,
+      nature: nature as "MATERIEL" | "SERVICE",
+      priorite: priorite as "HAUTE" | "MOYENNE" | "BASSE",
+      description: corps.description?.trim() || null,
+      clotureEstimeeLe,
+    },
+  };
+}
+
+commercialRouter.post("/pipeline", async (req, res) => {
+  const moi = req.utilisateur!;
+  const corps = req.body as Parameters<typeof lireCorpsOpportunite>[0] & {
+    clientId?: string | null;
+    clientNom?: string;
+  };
+
+  const lu = lireCorpsOpportunite(corps);
+  if ("erreur" in lu) return res.status(400).json({ error: lu.erreur });
+
+  const clientNom = (corps.clientNom ?? "").trim();
+  if (!clientNom) return res.status(400).json({ error: "Le client est obligatoire." });
+
+  /* Le client doit être dans le périmètre, comme partout ailleurs : on ne suit
+     pas une affaire chez quelqu'un dont on n'a pas la fiche. */
+  let clientId: string | null = null;
+  if (corps.clientId) {
+    const perimetre = perimetreClients(moi);
+    const existant = await prisma.client.findFirst({
+      where: perimetre ? { AND: [{ id: corps.clientId }, perimetre] } : { id: corps.clientId },
+      select: { id: true },
+    });
+    if (!existant) return res.status(404).json({ error: "Client introuvable dans votre périmètre." });
+    clientId = existant.id;
+  }
+
+  /* En tête de la première colonne : une affaire qu'on vient de saisir est
+     celle qu'on a en tête, elle ne doit pas apparaître en bas d'une pile. */
+  const premiere = await prisma.opportunite.findFirst({
+    where: { commercialId: moi.id, etape: "NOUVELLE" },
+    orderBy: { ordre: "asc" },
+    select: { ordre: true },
+  });
+
+  const creee = await prisma.opportunite.create({
+    data: {
+      ...lu.donnees,
+      clientId,
+      clientNom,
+      commercialId: moi.id,
+      commercialNom: moi.nomComplet,
+      ordre: (premiere?.ordre ?? 0) - 1,
+    },
+    select: SELECT_OPPORTUNITE,
+  });
+
+  res.status(201).json(enrichir(creee));
+});
+
+commercialRouter.patch("/pipeline/:id", async (req, res) => {
+  const moi = req.utilisateur!;
+  const existante = await prisma.opportunite.findFirst({
+    where: { id: req.params.id, commercialId: moi.id },
+    select: { id: true },
+  });
+  // 404 et non 403 : on ne confirme pas l'existence de l'affaire d'un collègue.
+  if (!existante) return res.status(404).json({ error: "Affaire introuvable." });
+
+  const lu = lireCorpsOpportunite(req.body);
+  if ("erreur" in lu) return res.status(400).json({ error: lu.erreur });
+
+  const maj = await prisma.opportunite.update({
+    where: { id: existante.id },
+    data: lu.donnees,
+    select: SELECT_OPPORTUNITE,
+  });
+  res.json(enrichir(maj));
+});
+
+/**
+ * Déplace une affaire d'une colonne à l'autre.
+ *
+ * Geste à part de la correction complète, parce que c'est celui qu'on fait
+ * vingt fois par semaine et qu'il doit coûter un glissement. Passer par la
+ * correction obligerait à renvoyer tout le contenu de la carte, et la moindre
+ * erreur de l'appelant écraserait ce qu'on ne voulait pas toucher.
+ */
+commercialRouter.patch("/pipeline/:id/etape", async (req, res) => {
+  const moi = req.utilisateur!;
+  const existante = await prisma.opportunite.findFirst({
+    where: { id: req.params.id, commercialId: moi.id },
+    select: { id: true, etape: true },
+  });
+  if (!existante) return res.status(404).json({ error: "Affaire introuvable." });
+
+  const corps = req.body as { etape?: string; motifPerte?: string; referenceCommande?: string };
+  const etape = corps.etape;
+  const connues = ["NOUVELLE", "QUALIFIEE", "DEVIS_ENVOYE", "NEGOCIATION", "GAGNEE", "PERDUE"];
+  if (!etape || !connues.includes(etape)) {
+    return res.status(400).json({ error: "Étape inconnue." });
+  }
+
+  /* Une affaire perdue sans motif n'apprend rien, et c'est précisément ce
+     qu'on voudra analyser dans six mois. On l'exige au moment où la raison est
+     encore fraîche, pas plus tard. */
+  const motifPerte = (corps.motifPerte ?? "").trim();
+  if (etape === "PERDUE" && !motifPerte) {
+    return res.status(400).json({ error: "Indiquez pourquoi l'affaire est perdue." });
+  }
+
+  const cloture = etape === "GAGNEE" || etape === "PERDUE";
+  const maj = await prisma.opportunite.update({
+    where: { id: existante.id },
+    data: {
+      etape: etape as "NOUVELLE",
+      // Le compteur d'immobilité repart à chaque changement d'étape, et
+      // seulement à ce moment : c'est l'avancement qu'il mesure.
+      etapeDepuisLe: existante.etape === etape ? undefined : new Date(),
+      clotureeLe: cloture ? new Date() : null,
+      motifPerte: etape === "PERDUE" ? motifPerte : null,
+      referenceCommande:
+        etape === "GAGNEE" ? corps.referenceCommande?.trim() || null : null,
+    },
+    select: SELECT_OPPORTUNITE,
+  });
+
+  res.json(enrichir(maj));
+});
+
+commercialRouter.delete("/pipeline/:id", async (req, res) => {
+  const moi = req.utilisateur!;
+  const affaire = await prisma.opportunite.findFirst({
+    where: { id: req.params.id, commercialId: moi.id },
+    select: { id: true },
+  });
+  if (!affaire) return res.status(404).json({ error: "Affaire introuvable." });
+
+  await prisma.opportunite.delete({ where: { id: affaire.id } });
+  res.json({ ok: true });
 });
 
 /* ==========================================================================

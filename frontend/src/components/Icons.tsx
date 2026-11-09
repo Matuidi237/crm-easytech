@@ -14,6 +14,16 @@ function base(size: number, strokeWidth: number) {
   };
 }
 
+export function IconKanban({ size = 19, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <rect x="3" y="3" width="5" height="18" rx="2" />
+      <rect x="9.5" y="3" width="5" height="12" rx="2" />
+      <rect x="16" y="3" width="5" height="7.5" rx="2" />
+    </svg>
+  );
+}
+
 export function IconDashboard({ size = 19, strokeWidth = 1.7, className }: IconProps) {
   return (
     <svg {...base(size, strokeWidth)} className={className}>

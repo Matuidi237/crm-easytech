@@ -1180,6 +1180,123 @@ export async function fetchReleveCommissions() {
   return res.json() as Promise<ReleveCommissions>;
 }
 
+/* ------------------------------------------------------ Pipeline commercial */
+
+/**
+ * Étapes du cycle de vente, dans l'ordre.
+ *
+ * Liste fermée : l'étape commande les colonnes, la probabilité et les
+ * statistiques de transformation.
+ */
+export const ETAPES_PIPELINE = [
+  "NOUVELLE",
+  "QUALIFIEE",
+  "DEVIS_ENVOYE",
+  "NEGOCIATION",
+  "GAGNEE",
+  "PERDUE",
+] as const;
+export type EtapePipeline = (typeof ETAPES_PIPELINE)[number];
+
+export const PRIORITES = ["BASSE", "MOYENNE", "HAUTE"] as const;
+export type PrioriteOpportunite = (typeof PRIORITES)[number];
+
+export type Opportunite = {
+  id: string;
+  titre: string;
+  clientId: string | null;
+  clientNom: string;
+  etape: EtapePipeline;
+  priorite: PrioriteOpportunite;
+  montantEstime: number;
+  nature: NatureVente;
+  description: string | null;
+  clotureEstimeeLe: string | null;
+  etapeDepuisLe: string;
+  motifPerte: string | null;
+  referenceCommande: string | null;
+  ordre: number;
+  updatedAt: string;
+  /** Déduits de l'étape par le serveur, pour que l'interface ne les recalcule pas. */
+  probabilitePct: number;
+  valeurPonderee: number;
+  joursDansEtape: number;
+  /** Ouverte et immobile depuis trop longtemps. */
+  stagne: boolean;
+};
+
+export type TableauPipeline = {
+  colonnes: { etape: EtapePipeline; probabilitePct: number; opportunites: Opportunite[] }[];
+  totaux: {
+    nbOuvertes: number;
+    montantOuvert: number;
+    valeurPonderee: number;
+    nbStagnantes: number;
+  };
+};
+
+export async function fetchPipeline() {
+  const res = await authedFetch("/api/commercial/pipeline");
+  if (!res.ok) throw new Error("Erreur lors du chargement de votre pipeline.");
+  return res.json() as Promise<TableauPipeline>;
+}
+
+export async function fetchAffairesPerdues() {
+  const res = await authedFetch("/api/commercial/pipeline/perdues");
+  if (!res.ok) throw new Error("Erreur lors du chargement des affaires perdues.");
+  return (await res.json()).perdues as (Opportunite & { clotureeLe: string | null })[];
+}
+
+type CorpsOpportunite = {
+  titre: string;
+  montantEstime: number;
+  nature: NatureVente;
+  priorite: PrioriteOpportunite;
+  description: string;
+  clotureEstimeeLe: string | null;
+};
+
+export async function creerOpportunite(o: CorpsOpportunite & { clientId: string | null; clientNom: string }) {
+  const res = await authedFetch("/api/commercial/pipeline", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(o),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de l'enregistrement de l'affaire.");
+  return res.json() as Promise<Opportunite>;
+}
+
+export async function modifierOpportunite(id: string, o: CorpsOpportunite) {
+  const res = await authedFetch(`/api/commercial/pipeline/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(o),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la modification de l'affaire.");
+  return res.json() as Promise<Opportunite>;
+}
+
+/** Un motif est exigé pour une affaire perdue, le serveur le refuse sinon. */
+export async function deplacerOpportunite(
+  id: string,
+  etape: EtapePipeline,
+  extra: { motifPerte?: string; referenceCommande?: string } = {}
+) {
+  const res = await authedFetch(`/api/commercial/pipeline/${id}/etape`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ etape, ...extra }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors du déplacement de l'affaire.");
+  return res.json() as Promise<Opportunite>;
+}
+
+export async function supprimerOpportunite(id: string) {
+  const res = await authedFetch(`/api/commercial/pipeline/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
+  return res.json();
+}
+
 /* ----------------------------------------------- Prix d'achat à renseigner */
 
 export type LigneSansCout = {

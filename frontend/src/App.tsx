@@ -26,6 +26,7 @@ import PartenairesPage from "./pages/PartenairesPage";
 import CommercialPage from "./pages/CommercialPage";
 import VentesPage from "./pages/VentesPage";
 import CommissionsPage from "./pages/CommissionsPage";
+import PipelinePage from "./pages/PipelinePage";
 import ACoutPage from "./pages/ACoutPage";
 import PlanningPage from "./pages/PlanningPage";
 import CalendrierPage from "./pages/CalendrierPage";
@@ -159,6 +160,14 @@ export default function App() {
               element={
                 <RouteCommerciale>
                   <VentesPage />
+                </RouteCommerciale>
+              }
+            />
+            <Route
+              path="/pipeline"
+              element={
+                <RouteCommerciale>
+                  <PipelinePage />
                 </RouteCommerciale>
               }
             />

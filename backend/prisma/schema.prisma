@@ -40,6 +40,7 @@ model Client {
   saisiesTemps   SaisieTemps[]
   /// « notes » est déjà pris par le champ texte libre de la fiche, plus haut.
   pensesBetes    Note[]
+  opportunites   Opportunite[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -137,6 +138,7 @@ model Utilisateur {
 
   saisiesTemps    SaisieTemps[]        @relation("Temps")
   notesPosees     Note[]               @relation("Notes")
+  opportunites    Opportunite[]        @relation("Opportunites")
   objectifs       ObjectifCommercial[] @relation("Objectifs")
 
   clientsPossedes Client[]      @relation("Proprietaire")
@@ -1052,5 +1054,126 @@ model AjustementConge {
   createdAt DateTime @default(now())
 
   @@index([employeId, annee])
+  @@index([estDemo])
+}
+
+
+// ==========================================================================
+// Pipeline commercial
+// ==========================================================================
+
+/// Étape d'une opportunité dans le cycle de vente.
+///
+/// Liste fermée, contrairement aux activités des feuilles de temps : l'étape
+/// commande les colonnes du tableau, la probabilité de conclusion et les
+/// statistiques de transformation. Une valeur libre rendrait tout cela
+/// incalculable.
+///
+/// L'ordre de déclaration est celui du cycle, et il sert à ordonner les
+/// colonnes : le modifier réordonne le tableau.
+enum EtapePipeline {
+  /// Une piste identifiée, dont on ne sait pas encore si elle mène quelque part.
+  NOUVELLE
+
+  /// Le besoin est compris et le client a les moyens : l'affaire mérite du temps.
+  QUALIFIEE
+
+  /// Un devis est parti. Chez EasyTech il sort de Zoho.
+  DEVIS_ENVOYE
+
+  /// Le client discute le prix ou le périmètre. La signature se joue ici.
+  NEGOCIATION
+
+  /// Signée. L'opportunité reste au tableau pour que le commercial voie ce
+  /// qu'il a conclu dans la période, puis se range avec le temps.
+  GAGNEE
+
+  /// Perdue. Ne figure dans aucune colonne : une colonne de perdues se remplit
+  /// sans fin et chasse de l'écran celles qui appellent une action. Elles se
+  /// consultent à part, et c'est là qu'on analyse les motifs.
+  PERDUE
+}
+
+/// Degré d'urgence, posé par le commercial.
+///
+/// Distinct de la probabilité, qui découle de l'étape : une affaire peut être
+/// très probable et sans urgence, ou l'inverse.
+enum PrioriteOpportunite {
+  BASSE
+  MOYENNE
+  HAUTE
+}
+
+/// Une affaire en cours, avant qu'elle ne devienne une commande.
+///
+/// Le reste de l'outil ne connaît que les ventes conclues. Une vente dit ce qui
+/// s'est passé ; une opportunité dit ce qui est en train de se jouer, et c'est
+/// la seule matière sur laquelle un commercial peut encore agir.
+///
+/// Elle n'entre dans aucun chiffre d'affaires ni dans aucune commission tant
+/// qu'elle n'est pas devenue une commande : une affaire espérée n'est pas une
+/// affaire faite, et mélanger les deux donnerait un tableau de bord qui
+/// promet ce qui n'existe pas.
+model Opportunite {
+  id String @id @default(uuid())
+
+  /// Ce dont il s'agit, en une ligne. « Renouvellement du parc de serveurs ».
+  titre String
+
+  /// Le client ou prospect concerné. Le nom double la relation pour que
+  /// l'affaire reste lisible si la fiche disparaît.
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String
+
+  /// Le commercial qui la suit. Chacun ne voit que les siennes.
+  commercial   Utilisateur? @relation("Opportunites", fields: [commercialId], references: [id], onDelete: SetNull)
+  commercialId String?
+  commercialNom String
+
+  etape    EtapePipeline       @default(NOUVELLE)
+  priorite PrioriteOpportunite @default(MOYENNE)
+
+  /// Montant espéré, hors taxes. Une estimation, jamais un engagement.
+  montantEstime Decimal @db.Decimal(18, 2)
+
+  /// Matériel ou service, pour estimer la commission que l'affaire produirait.
+  nature NatureVente @default(MATERIEL)
+
+  description String?
+
+  /// Date à laquelle on espère conclure. C'est elle qui fait remonter une
+  /// affaire en tête de liste quand l'échéance approche.
+  clotureEstimeeLe DateTime? @db.Date
+
+  /// Depuis quand l'affaire est dans son étape actuelle.
+  ///
+  /// Le signal le plus utile d'un pipeline n'est pas le montant, c'est
+  /// l'immobilité : une affaire qui n'a pas bougé depuis trois semaines est en
+  /// train de se perdre, et rien d'autre ne le dit.
+  etapeDepuisLe DateTime @default(now())
+
+  /// Renseignés à la clôture.
+  clotureeLe  DateTime?
+  motifPerte  String?
+
+  /// Référence du document Zoho né de cette affaire, quand elle est gagnée.
+  /// Simple rappel textuel : une commande comporte plusieurs lignes, et une
+  /// clé étrangère vers l'une d'elles n'aurait pas de sens.
+  referenceCommande String?
+
+  /// Position dans la colonne, pour un ordre choisi à la main. Les affaires ne
+  /// se classent pas toujours par montant ni par date : le commercial met en
+  /// haut ce qu'il traite aujourd'hui.
+  ordre Int @default(0)
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commercialId, etape])
+  @@index([clientId])
+  @@index([etape])
   @@index([estDemo])
 }

@@ -10,6 +10,7 @@ import {
   IconCalendar,
   IconChevronLeft,
   IconCoins,
+  IconKanban,
   IconTag,
   IconChevronRight,
   IconClose,
@@ -39,6 +40,7 @@ const ICONES: Record<string, typeof IconDashboard> = {
   tag: IconTag,
   coins: IconCoins,
   calendar: IconCalendar,
+  kanban: IconKanban,
 };
 
 function initiales(nom: string) {

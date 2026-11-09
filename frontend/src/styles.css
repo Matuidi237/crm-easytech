@@ -7533,3 +7533,289 @@ td.col-actions {
 .td-date {
   white-space: nowrap;
 }
+
+/* =======================================================================
+   Pipeline commercial, en tableau d etapes
+   Les colonnes defilent horizontalement et chacune defile verticalement :
+   un pipeline deborde toujours, et c est la colonne encombree qu il faut
+   pouvoir parcourir sans perdre les autres de vue.
+   ======================================================================= */
+
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  /* Assez etroit pour que les cinq etapes tiennent ensemble sur un portable :
+     un pipeline dont la derniere colonne est hors ecran ne montre plus le
+     cycle, et c est le cycle qu on vient lire. */
+  grid-auto-columns: minmax(216px, 1fr);
+  gap: 14px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.kan-colonne {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+
+/* La colonne visee pendant un glissement. Sans ce retour, on lache a
+   l aveugle et une carte part dans la mauvaise etape. */
+.kan-colonne.cible {
+  border-color: var(--brand);
+  background: var(--brand-100);
+}
+
+.kan-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kan-titre {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.kan-compte {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La probabilite se lit sur la colonne : elle depend de l etape, donc elle
+   est la meme pour toutes ses cartes, et la repeter serait du bruit. */
+.kan-proba {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.kan-somme {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.kan-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 12px;
+  /* Haute mais bornee : une colonne a vingt affaires ne doit pas allonger la
+     page au point de cacher les autres colonnes. */
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.kan-vide {
+  margin: 4px 0 0;
+  padding: 14px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* La carte ---------------------------------------------------------- */
+
+.kan-carte {
+  position: relative;
+  padding: 10px 11px 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(32, 28, 27, 0.05);
+  cursor: grab;
+}
+
+.kan-carte:hover {
+  border-color: var(--brand);
+}
+
+.kan-carte.saisie {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+/* Une affaire immobile depuis trop longtemps porte un filet. Le danger d un
+   pipeline n est pas la petite affaire, c est le dossier que plus personne
+   ne regarde. */
+.kan-carte.stagne {
+  border-left: 3px solid #c07a00;
+}
+
+.kan-carte-haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.kan-jours {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kan-carte.stagne .kan-jours {
+  color: #8a5f05;
+  font-weight: 600;
+}
+
+.kan-carte-corps {
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.kan-carte-titre {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.kan-carte-client {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kan-carte-note {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.kan-carte-pied {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.kan-montant {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kan-echeance {
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Deplacer et supprimer n apparaissent qu au survol : une carte se lit bien
+   plus souvent qu elle ne se deplace au menu, et deux controles sur chaque
+   carte feraient du bruit sur toute la colonne. */
+.kan-carte-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  opacity: 0;
+}
+
+.kan-carte:hover .kan-carte-actions,
+.kan-carte:focus-within .kan-carte-actions {
+  opacity: 1;
+}
+
+.kan-deplacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.kan-deplacer select {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  font-family: var(--font);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+/* Pastilles de priorite. Teintes de statut, jamais la couleur seule : le mot
+   est toujours ecrit dedans. */
+.pill-priorite-haute {
+  background: #fcf2e0;
+  color: #8a5f05;
+}
+
+.pill-priorite-moyenne {
+  background: #e8f3fb;
+  color: #2a79ae;
+}
+
+.pill-priorite-basse {
+  background: #eceae9;
+  color: #6b6462;
+}
+
+@media (max-width: 900px) {
+  /* En dessous, le defilement horizontal de colonnes etroites devient
+     penible : on empile, et le menu « deplacer vers » reste visible puisque
+     le survol n existe pas au doigt. */
+  .kanban {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+  }
+
+  .kan-pile {
+    max-height: none;
+  }
+
+  .kan-carte-actions {
+    opacity: 1;
+  }
+}

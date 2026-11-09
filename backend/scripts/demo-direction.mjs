@@ -298,7 +298,8 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes] = await Promise.all([
+  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires] =
+    await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
     prisma.partenaire.count({ where: { estDemo: true } }),
@@ -310,12 +311,14 @@ async function compter() {
     prisma.saisieTemps.count({ where: { estDemo: true } }),
     prisma.objectifCommercial.count({ where: { estDemo: true } }),
     prisma.note.count({ where: { estDemo: true } }),
+    prisma.opportunite.count({ where: { estDemo: true } }),
   ]);
-  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes };
+  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes } = await compter();
+  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires } =
+    await compter();
   const totalVentes = await prisma.vente.count();
   if (
     ventes === 0 &&
@@ -332,7 +335,9 @@ async function etat() {
       `Présent : ${comptes} compte(s) « ${PREFIXE}… », ${ventes} vente(s), ${projets} projet(s) et ${partenaires} partenaire(s) de démonstration.`
     );
     console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
-    console.log(`  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s) et ${notes} note(s).`);
+    console.log(
+      `  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s), ${notes} note(s) et ${affaires} affaire(s).`
+    );
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
 }
@@ -350,6 +355,7 @@ async function supprimer({ silencieux = false } = {}) {
   const jalons = await prisma.jalonObjectif.deleteMany({ where: { estDemo: true } });
   const objectifs = await prisma.objectifCommercial.deleteMany({ where: { estDemo: true } });
   const notes = await prisma.note.deleteMany({ where: { estDemo: true } });
+  const affaires = await prisma.opportunite.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
@@ -365,7 +371,7 @@ async function supprimer({ silencieux = false } = {}) {
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
     console.log(
-      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s) et ${notes.count} note(s).`
+      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s), ${notes.count} note(s) et ${affaires.count} affaire(s).`
     );
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
@@ -663,6 +669,76 @@ async function creer() {
   }
   await prisma.note.createMany({ data: notes });
 
+  /* --- Pipeline ----------------------------------------------------------
+     Des affaires en cours, réparties sur les étapes. Certaines sont
+     volontairement immobiles depuis longtemps : sans elles, le signal
+     d'alerte du tableau ne se verrait jamais à la démonstration. */
+  const MODELES_AFFAIRES = [
+    { titre: "Renouvellement du parc de serveurs", nature: "MATERIEL", montant: 18000000 },
+    { titre: "Migration de la messagerie vers Microsoft 365", nature: "SERVICE", montant: 7500000 },
+    { titre: "Refonte de la sécurité périmétrique", nature: "MATERIEL", montant: 12000000 },
+    { titre: "Contrat de maintenance triennal", nature: "SERVICE", montant: 9800000 },
+    { titre: "Équipement du nouveau siège", nature: "MATERIEL", montant: 24000000 },
+    { titre: "Audit de l'infrastructure réseau", nature: "SERVICE", montant: 4200000 },
+    { titre: "Formation des équipes à la cybersécurité", nature: "SERVICE", montant: 3100000 },
+    { titre: "Renouvellement des postes de travail", nature: "MATERIEL", montant: 15500000 },
+  ];
+  const ETAPES_OUVERTES = ["NOUVELLE", "QUALIFIEE", "DEVIS_ENVOYE", "NEGOCIATION"];
+  const PRIORITES_AFFAIRE = ["BASSE", "MOYENNE", "HAUTE"];
+
+  const affaires = [];
+  for (const vendeur of VENDEURS) {
+    const vivier = portefeuilles.get(vendeur) ?? [];
+    const combien = 4 + Math.floor(alea() * 3);
+    for (let i = 0; i < combien; i++) {
+      const modele = MODELES_AFFAIRES[(VENDEURS.indexOf(vendeur) * 3 + i) % MODELES_AFFAIRES.length];
+      const client = vivier.length > 0 ? piocher(vivier) : null;
+      if (!client) continue;
+
+      /* Une affaire sur six est gagnée, une sur huit perdue : le reste est en
+         cours. Un tableau où tout est en cours ne montre pas ce qui arrive au
+         bout du tunnel. */
+      const tirage = alea();
+      const etape =
+        tirage < 0.14 ? "GAGNEE" : tirage < 0.26 ? "PERDUE" : piocher(ETAPES_OUVERTES);
+      const close = etape === "GAGNEE" || etape === "PERDUE";
+
+      /* Une affaire sur quatre n'a pas bougé depuis plus de trois semaines. */
+      const joursImmobile = alea() < 0.25 ? 24 + Math.floor(alea() * 20) : Math.floor(alea() * 14);
+      const etapeDepuis = new Date(maintenant);
+      etapeDepuis.setDate(etapeDepuis.getDate() - joursImmobile);
+
+      const cloture = new Date(maintenant);
+      cloture.setDate(cloture.getDate() + 10 + Math.floor(alea() * 60));
+
+      affaires.push({
+        titre: modele.titre,
+        clientId: client.id,
+        clientNom: client.nom,
+        commercialId: ids[vendeur],
+        commercialNom: COMPTES.find((c) => c.identifiant === vendeur).nomComplet,
+        etape,
+        priorite: piocher(PRIORITES_AFFAIRE),
+        montantEstime: Math.round((modele.montant * (0.7 + alea() * 0.6)) / 100000) * 100000,
+        nature: modele.nature,
+        description:
+          alea() < 0.6 ? "Interlocuteur : direction des systèmes d'information." : null,
+        clotureEstimeeLe: close ? null : jourCalendaire(cloture),
+        etapeDepuisLe: etapeDepuis,
+        clotureeLe: close ? etapeDepuis : null,
+        motifPerte: etape === "PERDUE" ? piocher([
+          "Budget reporte à l'exercice suivant",
+          "Concurrent moins cher",
+          "Projet abandonné par le client",
+          "Délai de livraison trop long",
+        ]) : null,
+        ordre: i,
+        estDemo: true,
+      });
+    }
+  }
+  await prisma.opportunite.createMany({ data: affaires });
+
   /* --- Objectifs ---------------------------------------------------------
      Le responsable fixe le mois, le trimestre et l'année de chacun. Les
      cibles sont calées sur ce que la personne réalise déjà, majoré de 15 % :
@@ -849,7 +925,7 @@ async function creer() {
     `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
     );
     console.log(
-      `  ${notes.length} note(s) posées sur les feuilles de temps.`
+      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline.`
   );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`

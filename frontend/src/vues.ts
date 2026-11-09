@@ -60,6 +60,9 @@ const NAV_DG: EntreeNav[] = [
  */
 const NAV_COMMERCIAL: EntreeNav[] = [
   { to: "/", cle: "nav.dashboard", icone: "dashboard", end: true },
+  /* Le pipeline avant le portefeuille : on regarde ce qui est en jeu avant
+     d'ouvrir la liste des clients, et c'est l'ecran de debut de journee. */
+  { to: "/pipeline", cle: "nav.pipeline", icone: "kanban" },
   { to: "/clients", cle: "nav.portefeuille", icone: "users" },
   { to: "/planning", cle: "nav.calendrier", icone: "calendar" },
 ];
