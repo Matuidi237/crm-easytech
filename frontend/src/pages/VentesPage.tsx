@@ -275,9 +275,14 @@ export default function VentesPage() {
           croie sa commission oubliée alors qu'elle n'est pas calculable. */}
       {sansCout > 0 && (
         <p className="remarque">
-          <strong>{t("ve.enAttenteDeCout", { n: nombre(sansCout) })}</strong>
+          {/* Le singulier a sa propre phrase : « 1 de vos lignes attendent »
+              est une faute, et une faute d'accord dans l'interface décrédibilise
+              les chiffres qui l'entourent. */}
+          <strong>
+            {sansCout === 1 ? t("ve.enAttenteDeCoutUne") : t("ve.enAttenteDeCout", { n: nombre(sansCout) })}
+          </strong>
           {". "}
-          {t("ve.enAttenteDeCoutAide")}
+          {sansCout === 1 ? t("ve.enAttenteDeCoutAideUne") : t("ve.enAttenteDeCoutAide")}
         </p>
       )}
 
@@ -508,7 +513,7 @@ export default function VentesPage() {
       <section className="panneau">
         <header className="panneau-tete">
           <h2>{t("ve.commandesTitre")}</h2>
-          <span className="panneau-note">{t("co.historiqueSousTitre", { n: nombre(ventes.length) })}</span>
+          <span className="panneau-note">{t("ve.nLignesListe", { n: nombre(ventes.length) })}</span>
         </header>
 
         {ventes.length === 0 ? (
@@ -550,7 +555,9 @@ export default function VentesPage() {
                       <td className="td-strong" data-label={t("ve.colReference")}>
                         {i === 0 ? c.reference ?? <span className="muted-3">—</span> : ""}
                       </td>
-                      <td data-label={t("fc.colDate")}>{i === 0 ? dateHeure(v.dateVente) : ""}</td>
+                      <td className="td-date" data-label={t("fc.colDate")}>
+                        {i === 0 ? date(v.dateVente) : ""}
+                      </td>
                       <td className="td-main" data-label={t("fc.colClient")}>
                         {i === 0 ? v.clientNom : ""}
                       </td>

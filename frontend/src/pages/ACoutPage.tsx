@@ -36,6 +36,10 @@ export default function ACoutPage() {
 
   useEffect(recharger, []);
 
+  /* La file est rendue de la plus ancienne à la plus récente par le serveur :
+     la première ligne est donc celle qui attend depuis le plus longtemps. */
+  const plusAncienne = file?.lignes[0]?.dateVente ?? null;
+
   const parCommande = useMemo(() => {
     const par = new Map<string, { reference: string | null; lignes: LigneSansCout[] }>();
     for (const l of file?.lignes ?? []) {
@@ -141,11 +145,18 @@ export default function ACoutPage() {
           <section className="panneau heros">
             <div className="heros-haut">
               <div className="heros-principal">
-                <span className="heros-contexte">{t("cout.nEnAttente", { n: nombre(file.total) })}</span>
+                <span className="heros-contexte">
+                  {file.total === 1 ? t("cout.nEnAttenteUne") : t("cout.nEnAttente", { n: nombre(file.total) })}
+                </span>
                 <span className="heros-chiffre" title={montant(file.caEnAttente)}>
                   {montantCompact(file.caEnAttente)}
                 </span>
-                <span className="heros-appui">{t("cout.caEnAttente", { montant: montant(file.caEnAttente) })}</span>
+                {/* La ligne d'appui dit depuis quand on attend, et non le même
+                    montant une seconde fois : c'est l'ancienneté qui appelle une
+                    action, puisqu'elle mesure une commission bloquée. */}
+                {plusAncienne && (
+                  <span className="heros-appui">{t("cout.depuisLe", { date: date(plusAncienne) })}</span>
+                )}
               </div>
             </div>
           </section>

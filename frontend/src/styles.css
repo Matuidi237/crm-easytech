@@ -7088,6 +7088,9 @@ td.col-actions {
 .table-nue td.num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  /* Un montant ne se coupe pas. « 2,8 M XAF » replié sur deux lignes se lit
+     comme deux nombres, et la colonne cesse de s'aligner. */
+  white-space: nowrap;
 }
 
 .table-nue th:last-child,
@@ -7523,4 +7526,10 @@ td.col-actions {
   .note-epingle {
     opacity: 1;
   }
+}
+
+/* Une date tient sur une ligne, comme un montant. Repliee, elle se lit comme
+   deux informations distinctes et la colonne perd son alignement. */
+.td-date {
+  white-space: nowrap;
 }
