@@ -165,6 +165,10 @@ cotationsRouter.get("/", async (req, res) => {
       fileGlobale: voitToutLeMonde(moi),
     },
     totaux: {
+      /* Le total soumis, closes comprises : c'est le volume d'activité du
+         circuit, et le compter sur la seule file courante le ferait baisser
+         chaque fois qu'un dossier se termine bien. */
+      soumises: pourMesure.length,
       enCircuit: enCircuit.length,
       nonTraitees: pourMesure.filter((d) => d.statut === "NON_TRAITEE").length,
       enCours: pourMesure.filter((d) => d.statut === "EN_COURS").length,

@@ -8393,10 +8393,13 @@ td.col-actions {
 
   .cot-outils {
     width: 100%;
+    flex-wrap: wrap;
   }
 
+  /* La recherche prend sa propre ligne : partagee avec le bouton, elle
+     tombe sous la centaine de pixels et son invite se coupe au milieu. */
   .champ-recherche {
-    flex: 1;
+    flex: 1 0 100%;
     min-width: 0;
   }
 

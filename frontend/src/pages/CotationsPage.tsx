@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../AuthContext";
 import { useLangue, type CleTraduction } from "../i18n";
 import ChampClient from "../components/ChampClient";
+import CarteIndicateur, { type Carte } from "../components/CarteIndicateur";
 import {
   IconAlert,
   IconCheck,
@@ -28,9 +29,11 @@ import {
   IconMore,
   IconPaperclip,
   IconPlus,
+  IconQuote,
   IconSearch,
   IconSend,
   IconTrash,
+  IconTrend,
 } from "../components/Icons";
 
 /** Date du jour au format attendu par un champ date, dans le fuseau local. */
@@ -515,6 +518,97 @@ export default function CotationsPage() {
   }
 
   const { totaux } = file;
+  const enAttente = totaux.nonTraitees + totaux.enCours;
+
+  /**
+   * Les quatre indicateurs de la page.
+   *
+   * Volume, attente, délai, tenue de la promesse. Dans cet ordre parce que
+   * c'est celui des questions qu'on se pose : combien de travail passe par ce
+   * circuit, combien en reste, en combien de temps il sort, et si le délai
+   * annoncé au commercial a été tenu.
+   *
+   * Aucune variation mois à mois : le circuit n'a pas encore d'historique, et
+   * une flèche calculée sur deux semaines de données dirait n'importe quoi.
+   */
+  const cartes: Carte[] = [
+    {
+      label: t("cot.kpiSoumises"),
+      valeur: nombre(totaux.soumises),
+      note:
+        totaux.cloturees === 0
+          ? t("cot.kpiSoumisesNoteAucune")
+          : totaux.cloturees === 1
+            ? t("cot.kpiSoumisesNoteUne")
+            : t("cot.kpiSoumisesNote", { n: nombre(totaux.cloturees) }),
+      icone: IconQuote,
+      fg: "#2a79ae",
+      bg: "#e8f3fb",
+    },
+    {
+      label: t("cot.kpiAttente"),
+      valeur: nombre(enAttente),
+      /* Le retard passe avant le détail du découpage : c'est lui qui appelle
+         une action, et il doit se lire sans avoir à comparer deux chiffres. */
+      note:
+        totaux.enRetard > 0
+          ? totaux.enRetard === 1
+            ? t("cot.uneEnRetard")
+            : t("cot.nEnRetard", { n: nombre(totaux.enRetard) })
+          : enAttente > 0
+            ? t("cot.kpiAttenteNote", { n: nombre(totaux.nonTraitees) })
+            : t("cot.aucunRetard"),
+      icone: IconClock,
+      fg: "#9e6b06",
+      bg: "#fcf2e0",
+    },
+    {
+      label: t("cot.kpiDelai"),
+      valeur: delai(totaux.heuresMoyennesTraitement),
+      /* Rendu en toutes lettres (« moins d'une heure », « 3 j ») : le corps
+         prévu pour un montant serait trop grand pour ce texte. */
+      valeurTexte: totaux.heuresMoyennesTraitement === null,
+      /* Sans cotation transmise, aucun délai n'est mesurable. Plutôt que
+         d'afficher un tiret muet, la note montre ce qui attend depuis le plus
+         longtemps, qui est la question du moment. */
+      note:
+        totaux.nbRendues === 0
+          ? attenteLaPlusAncienne !== null
+            ? t("cot.heroAppuiAttente", { valeur: delai(attenteLaPlusAncienne) })
+            : t("cot.heroAppuiAucun")
+          : totaux.nbRendues === 1
+            ? t("cot.kpiDelaiNoteUne")
+            : t("cot.kpiDelaiNote", { n: nombre(totaux.nbRendues) }),
+      icone: IconTrend,
+      fg: "#5b4bc4",
+      bg: "#eeebfa",
+    },
+    {
+      label: t("cot.kpiTenue"),
+      /* La valeur porte le compte et la jauge le pourcentage : y mettre le
+         pourcentage aussi l'écrirait deux fois sur la même carte. Le compte
+         dit en plus sur combien de dossiers le taux est calculé, ce qu'un
+         pourcentage seul cache. */
+      valeur:
+        totaux.nbRendues === 0
+          ? "—"
+          : `${nombre(totaux.nbDansLeDelai)} / ${nombre(totaux.nbRendues)}`,
+      note: totaux.nbRendues === 0 ? t("cot.tenueAucune") : t("cot.kpiTenueNote"),
+      icone: IconCheck,
+      fg: "#0c8074",
+      bg: "#e2f4f1",
+      /* La jauge remplace l'icône quand un pourcentage double utilement le
+         chiffre. Elle vire à l'ambre sous 80 % : une promesse tenue quatre
+         fois sur cinq n'est pas une bonne nouvelle. */
+      jauge:
+        totaux.tauxTenuePct === null
+          ? undefined
+          : {
+              valeurPct: totaux.tauxTenuePct,
+              couleur: totaux.tauxTenuePct < 80 ? "#c07a00" : "#0c8074",
+            },
+    },
+  ];
 
   return (
     <>
@@ -533,89 +627,19 @@ export default function CotationsPage() {
         </div>
       )}
 
-      {/* Le chiffre héros est un nombre de demandes, pas un montant : ce module
-          mesure de l'attente. La jauge en dessous dit si la promesse faite au
-          commercial a été tenue, seule mesure qu'un dossier précis reconnaît. */}
-      <section className="panneau heros">
-        <div className="heros-haut">
-          <div className="heros-principal">
-            <span className="heros-contexte">
-              {droits.fileGlobale ? t("cot.heroFileGlobale") : t("cot.heroFileMienne")}
-            </span>
-            <span className="heros-chiffre">{nombre(totaux.enCircuit)}</span>
-            {/* Tant qu'aucune cotation n'a été transmise, un délai moyen
-                n'existe pas. Plutôt que de l'annoncer deux fois (la jauge le
-                dit déjà juste en dessous), la ligne d'appui montre alors ce qui
-                attend depuis le plus longtemps. */}
-            <span className="heros-appui">
-              {totaux.heuresMoyennesTraitement !== null
-                ? t("cot.heroAppuiDelai", { valeur: delai(totaux.heuresMoyennesTraitement) })
-                : attenteLaPlusAncienne !== null
-                  ? t("cot.heroAppuiAttente", { valeur: delai(attenteLaPlusAncienne) })
-                  : t("cot.heroAppuiAucun")}
-            </span>
-          </div>
-          {totaux.enRetard > 0 && (
-            <span className="etat etat-alerte">
-              {totaux.enRetard === 1
-                ? t("cot.uneEnRetard")
-                : t("cot.nEnRetard", { n: nombre(totaux.enRetard) })}
-            </span>
-          )}
-        </div>
-
-        {totaux.tauxTenuePct === null ? (
-          <p className="panneau-note">{t("cot.tenueAucune")}</p>
-        ) : (
-          <>
-            <span className="mesure" aria-hidden>
-              <span
-                className={`mesure-remplie${totaux.tauxTenuePct < 80 ? " alerte" : ""}`}
-                style={{ width: `${totaux.tauxTenuePct}%` }}
-              />
-            </span>
-            <div className="mesure-pied">
-              <span>{t("cot.tenueTitre")}</span>
-              <span>
-                {nombre(totaux.tauxTenuePct)}%
-                {" · "}
-                {/* Une seule cotation transmise ne se dit pas « 1 cotations
-                    rendues sur 1 » : le compte se lit alors en toutes lettres. */}
-                {totaux.nbRendues === 1
-                  ? totaux.nbDansLeDelai === 1
-                    ? t("cot.tenueUneTenue")
-                    : t("cot.tenueUneRatee")
-                  : t("cot.tenueDetail", {
-                      n: nombre(totaux.nbDansLeDelai),
-                      total: nombre(totaux.nbRendues),
-                    })}
-              </span>
-            </div>
-          </>
-        )}
-      </section>
-
-      <section className="tuiles">
-        <div className="tuile">
-          <span className="tuile-libelle">{t("cot.tuileNonTraitees")}</span>
-          <span className="tuile-valeur">{nombre(totaux.nonTraitees)}</span>
-        </div>
-        <div className="tuile">
-          <span className="tuile-libelle">{t("cot.tuileEnCours")}</span>
-          <span className="tuile-valeur">{nombre(totaux.enCours)}</span>
-        </div>
-        <div className="tuile">
-          <span className="tuile-libelle">{t("cot.tuileAReceptionner")}</span>
-          <span className="tuile-valeur">{nombre(totaux.traitees)}</span>
-        </div>
-        {/* Le délai avant prise en charge et le délai de traitement accusent
-            deux choses différentes, la charge et la réactivité. Les confondre
-            empêcherait de savoir laquelle corriger. */}
-        <div className="tuile">
-          <span className="tuile-libelle">{t("cot.tuilePriseEnCharge")}</span>
-          <span className="tuile-valeur">{delai(totaux.heuresMoyennesPriseEnCharge)}</span>
-        </div>
-      </section>
+      {/* Les mêmes cartes que les tableaux de bord, et pour la même raison :
+          un chiffre sans intitulé ni note se lit de travers. Chacune dit ce
+          qu'elle compte, et la note en dessous dit sur quoi elle le compte. */}
+      <div className="stat-grid">
+        {cartes.map((c) => (
+          <CarteIndicateur
+            key={c.label}
+            {...c}
+            libelleVariation={t("dg.depuisMoisDernier")}
+            libelleSansVariation={t("dg.pasDeComparaison")}
+          />
+        ))}
+      </div>
 
       {/* La soumission au-dessus de la file : la fiche créée apparaît juste en
           dessous, là où on regarde déjà. */}

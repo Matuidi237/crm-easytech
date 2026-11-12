@@ -1355,6 +1355,8 @@ export type FileCotations = {
   demandes: DemandeCotation[];
   droits: { traiter: boolean; superviser: boolean; fileGlobale: boolean };
   totaux: {
+    /** Toutes les demandes du périmètre, closes comprises. */
+    soumises: number;
     enCircuit: number;
     nonTraitees: number;
     enCours: number;
