@@ -31,6 +31,13 @@ export const PERMISSIONS = [
   // ne connait pas le cout, et le lui ouvrir reviendrait a lui laisser fixer
   // sa propre remuneration.
   "ventes.cout",
+  // Prendre en charge et rendre les cotations demandées par les commerciaux.
+  // Capacité à part de « stats.globales » : traiter la file est un travail, la
+  // regarder est une surveillance, et les deux ne vont pas aux mêmes comptes.
+  "cotations.traiter",
+  // Voir la file de TOUT LE MONDE sans y répondre. Pour la direction, qui a
+  // besoin de savoir où ça bloque sans avoir à chiffrer quoi que ce soit.
+  "cotations.superviser",
   "utilisateurs.gerer", // créer et modifier des comptes
   "utilisateurs.gererAdmins", // toucher aux administrateurs et au super admin
   "permissions.gerer", // modifier la matrice elle-même
@@ -52,6 +59,8 @@ export const CATALOGUE_PERMISSIONS: { cle: Permission; groupe: string; libelle: 
   { cle: "newsletters.creer", groupe: "Campagnes", libelle: "Rédiger une campagne", detail: "Création et modification des brouillons." },
   { cle: "newsletters.envoyer", groupe: "Campagnes", libelle: "Envoyer une campagne", detail: "Déclenche l'envoi réel aux destinataires." },
   { cle: "stats.globales", groupe: "Pilotage", libelle: "Voir les statistiques", detail: "Chiffres du tableau de bord, limités au périmètre du compte." },
+  { cle: "cotations.traiter", groupe: "Cotations", libelle: "Traiter les demandes", detail: "Prendre en charge une demande de cotation et y répondre. Donne accès à la file complète." },
+  { cle: "cotations.superviser", groupe: "Cotations", libelle: "Superviser la file", detail: "Voir toutes les demandes et leurs délais, sans pouvoir y répondre." },
   { cle: "utilisateurs.gerer", groupe: "Administration", libelle: "Gérer les comptes", detail: "Créer, modifier et désactiver des comptes de rang inférieur." },
   { cle: "utilisateurs.gererAdmins", groupe: "Administration", libelle: "Gérer les administrateurs", detail: "Toucher aux comptes d'administration." },
   { cle: "permissions.gerer", groupe: "Administration", libelle: "Modifier les permissions", detail: "Accès à cet écran. À n'accorder qu'en connaissance de cause." },
@@ -129,6 +138,10 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
     "clients.coordonnees",
     "clients.exporter",
     "ventes.cout",
+    /* Le chef de projet EST le destinataire des demandes de cotation. Sans
+       cette capacité, la file lui serait invisible et le module ne servirait
+       à rien. */
+    "cotations.traiter",
     "newsletters.voir",
     "newsletters.creer",
     "newsletters.envoyer",
@@ -141,8 +154,13 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
    * Aucune capacité sur le CRM, et c'est voulu : la RH tient l'effectif et les
    * congés, elle n'a pas à lire le portefeuille clients ni les montants des
    * ventes. Ses propres capacités, nommées « rh.* », arriveront avec le module.
+   *
+   * Seule exception, la supervision des cotations : la file dit où le travail
+   * s'accumule et combien de temps il attend, ce qui est une question de
+   * charge et d'organisation avant d'être une question commerciale. Elle ne
+   * donne accès à aucun montant de vente.
    */
-  RH: [],
+  RH: ["cotations.superviser"],
 };
 
 /** Libellés affichés dans l'interface. */

@@ -28,6 +28,7 @@ const TEINTE_ROLE: Record<Role, string> = {
   RESPONSABLE_COMMERCIAL: "pill-brand",
   CHEF_DE_PROJET: "pill-warn",
   COMPTABLE: "pill-warn",
+  RH: "pill-warn",
   COMMERCIAL: "pill-neutral",
 };
 

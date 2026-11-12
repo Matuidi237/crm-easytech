@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
-import { estVueCommerciale, estVueDirection } from "./vues";
+import { estVueCommerciale, estVueDirection, estVueRH } from "./vues";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -27,6 +27,7 @@ import CommercialPage from "./pages/CommercialPage";
 import VentesPage from "./pages/VentesPage";
 import CommissionsPage from "./pages/CommissionsPage";
 import PipelinePage from "./pages/PipelinePage";
+import CotationsPage from "./pages/CotationsPage";
 import ACoutPage from "./pages/ACoutPage";
 import PlanningPage from "./pages/PlanningPage";
 import CalendrierPage from "./pages/CalendrierPage";
@@ -46,6 +47,10 @@ function Accueil() {
   const { utilisateur } = useAuth();
   if (estVueDirection(utilisateur?.role)) return <DirectionPage />;
   if (estVueCommerciale(utilisateur?.role)) return <CommercialPage />;
+  /* La DRH n'a aucun droit sur le CRM : le tableau de bord ne lui renverrait
+     que des refus. Tant que le module RH n'a pas ses écrans, elle ouvre sur la
+     seule chose qu'elle suit ici, la file des cotations. */
+  if (estVueRH(utilisateur?.role)) return <Navigate to="/cotations" replace />;
   return <DashboardPage />;
 }
 
@@ -85,6 +90,10 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Accueil />} />
             <Route path="/clients" element={<ClientsPage />} />
+            {/* Aucune capacité exigée : chacun y voit ses propres demandes, et
+                ce sont « cotations.traiter » et « cotations.superviser » qui
+                élargissent la file au travail de tout le monde. */}
+            <Route path="/cotations" element={<CotationsPage />} />
             <Route path="/import" element={<RouteProtegee requiert="clients.importer"><ImportPage /></RouteProtegee>} />
             <Route path="/newsletters" element={<RouteProtegee requiert="newsletters.voir"><NewslettersPage /></RouteProtegee>} />
             <Route path="/newsletters/:id" element={<RouteProtegee requiert="newsletters.voir"><NewsletterDetailPage /></RouteProtegee>} />

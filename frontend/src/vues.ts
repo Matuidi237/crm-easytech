@@ -30,7 +30,23 @@ const NAV_STANDARD: EntreeNav[] = [
   { to: "/clients", cle: "nav.clients", icone: "users" },
   { to: "/import", cle: "nav.import", icone: "import", requiert: "clients.importer" },
   { to: "/newsletters", cle: "nav.newsletters", icone: "mail", requiert: "newsletters.voir" },
+  /* La file des cotations, pour le chef de projet qui la traite. Elle vient
+     avant les écrans de pilotage : c'est du travail en attente, pas une
+     consultation, et un travail en attente se montre en premier. */
+  { to: "/cotations", cle: "nav.cotations", icone: "quote", requiert: "cotations.traiter" },
   { to: "/a-chiffrer", cle: "nav.aChiffrer", icone: "coins", requiert: "ventes.cout" },
+];
+
+/**
+ * Vue des ressources humaines.
+ *
+ * Le module RH n'a pas encore d'écran ; en attendant, la DRH n'ouvrait
+ * l'application que pour son profil. La file des cotations lui donne la seule
+ * chose qu'elle y suit aujourd'hui : où le travail s'accumule et depuis
+ * combien de temps il attend.
+ */
+const NAV_RH: EntreeNav[] = [
+  { to: "/cotations", cle: "nav.cotations", icone: "quote", requiert: "cotations.superviser" },
 ];
 
 /** Vue de la direction générale. */
@@ -40,6 +56,8 @@ const NAV_DG: EntreeNav[] = [
   { to: "/clients", cle: "nav.clients", icone: "users" },
   { to: "/campagnes", cle: "nav.campagnes", icone: "mail", requiert: "newsletters.voir" },
   { to: "/partenaires", cle: "nav.partenaires", icone: "handshake" },
+  /* Le DG ne traite pas les cotations, il regarde où elles s'arrêtent. */
+  { to: "/cotations", cle: "nav.cotations", icone: "quote", requiert: "cotations.superviser" },
   /* Les commandes dont le prix d'achat manque. L'onglet est visible pour qui
      peut le renseigner : sans lui, la file s'allongerait sans que personne
      ne la voie, et les commissions resteraient en suspens. */
@@ -64,12 +82,18 @@ const NAV_COMMERCIAL: EntreeNav[] = [
      d'ouvrir la liste des clients, et c'est l'ecran de debut de journee. */
   { to: "/pipeline", cle: "nav.pipeline", icone: "kanban" },
   { to: "/clients", cle: "nav.portefeuille", icone: "users" },
+  /* Les cotations après le portefeuille : une demande de cotation se fait
+     depuis une affaire en cours, donc après avoir regardé le pipeline, et ce
+     que le commercial vient y chercher le reste du temps est l'état de sa
+     file, pas un écran qu'il ouvre tous les matins. */
+  { to: "/cotations", cle: "nav.cotations", icone: "quote" },
   { to: "/planning", cle: "nav.calendrier", icone: "calendar" },
 ];
 
 export function navDe(role: Role | undefined): EntreeNav[] {
   if (role === "DG") return NAV_DG;
   if (role === "COMMERCIAL") return NAV_COMMERCIAL;
+  if (role === "RH") return NAV_RH;
   return NAV_STANDARD;
 }
 
@@ -90,6 +114,16 @@ export function estVueCommerciale(role: Role | undefined) {
 }
 
 /**
+ * La DRH, dont le parcours se limite pour l'instant à la file des cotations.
+ *
+ * À revoir quand le module RH aura ses écrans : c'est alors l'effectif qui
+ * deviendra sa page d'accueil.
+ */
+export function estVueRH(role: Role | undefined) {
+  return role === "RH";
+}
+
+/**
  * Comptes dont la barre latérale se réduit au profil et à la déconnexion.
  *
  * Rien à y cacher : un commercial n'a de toute façon ni la gestion des comptes
@@ -97,5 +131,5 @@ export function estVueCommerciale(role: Role | undefined) {
  * menu vide là où d'autres rôles ont des entrées.
  */
 export function piedDeMenuMinimal(role: Role | undefined) {
-  return role === "COMMERCIAL";
+  return role === "COMMERCIAL" || role === "RH";
 }

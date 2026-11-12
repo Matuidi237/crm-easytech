@@ -14,6 +14,9 @@ export const ROLES = [
   "COMMERCIAL",
   "COMPTABLE",
   "CHEF_DE_PROJET",
+  /* Présent côté serveur depuis l'amorce du module RH, il manquait ici : un
+     compte de ce rôle se serait présenté à l'interface sous un type inconnu. */
+  "RH",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -31,6 +34,10 @@ export type Permission =
      ne connait pas le cout, et le lui ouvrir reviendrait a lui laisser fixer
      sa propre remuneration. */
   | "ventes.cout"
+  /* Traiter la file des cotations, ou seulement la regarder. Deux capacités
+     distinctes : chiffrer est un travail, surveiller la file en est un autre,
+     et les deux ne vont pas aux mêmes comptes. */
+  | "cotations.traiter" | "cotations.superviser"
   | "utilisateurs.gerer" | "utilisateurs.gererAdmins" | "permissions.gerer";
 
 export type SessionUtilisateur = {
@@ -1295,6 +1302,153 @@ export async function supprimerOpportunite(id: string) {
   const res = await authedFetch(`/api/commercial/pipeline/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
   return res.json();
+}
+
+/* ------------------------------------------------- Cotations commercial/PM */
+
+export const STATUTS_COTATION = ["NON_TRAITEE", "EN_COURS", "TRAITEE", "CLOTUREE"] as const;
+export type StatutCotation = (typeof STATUTS_COTATION)[number];
+
+export type PieceCotation = {
+  id: string;
+  origine: "BESOIN" | "COTATION";
+  nomFichier: string;
+  typeMime: string;
+  taille: number;
+  deposeParNom: string;
+  createdAt: string;
+};
+
+export type DemandeCotation = {
+  id: string;
+  reference: string;
+  objet: string;
+  description: string | null;
+  clientId: string | null;
+  clientNom: string;
+  commercialId: string | null;
+  commercialNom: string;
+  statut: StatutCotation;
+  echeanceLe: string;
+  traiteParId: string | null;
+  traiteParNom: string | null;
+  priseEnChargeLe: string | null;
+  traiteeLe: string | null;
+  recueLe: string | null;
+  reponse: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pieces: PieceCotation[];
+  /** Déduits des dates par le serveur, pour que l'interface ne les recalcule pas. */
+  enRetard: boolean;
+  joursRestants: number;
+  enCircuit: boolean;
+  heuresAvantPriseEnCharge: number | null;
+  heuresDeTraitement: number | null;
+};
+
+export type FileCotations = {
+  demandes: DemandeCotation[];
+  droits: { traiter: boolean; superviser: boolean; fileGlobale: boolean };
+  totaux: {
+    enCircuit: number;
+    nonTraitees: number;
+    enCours: number;
+    traitees: number;
+    cloturees: number;
+    enRetard: number;
+    /** Null, et non zéro, quand rien n'est encore mesurable. */
+    heuresMoyennesPriseEnCharge: number | null;
+    heuresMoyennesTraitement: number | null;
+    nbRendues: number;
+    nbDansLeDelai: number;
+    tauxTenuePct: number | null;
+  };
+};
+
+export async function fetchCotations(historique = false) {
+  const res = await authedFetch(`/api/cotations${historique ? "?historique=1" : ""}`);
+  if (!res.ok) throw new Error("Erreur lors du chargement des cotations.");
+  return res.json() as Promise<FileCotations>;
+}
+
+/**
+ * Ouvre une demande.
+ *
+ * Cet appel a un effet pour un chef de projet : une demande encore non traitée
+ * passe « en cours » à sa première consultation. C'est voulu, un bouton
+ * « j'ai vu » ne serait jamais cliqué.
+ */
+export async function fetchCotation(id: string) {
+  const res = await authedFetch(`/api/cotations/${id}`);
+  if (!res.ok) throw new Error((await res.json()).error ?? "Demande introuvable.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+/* Les demandes partent en multipart et non en JSON : la pièce jointe voyage
+   avec le formulaire, et l'encoder en base64 dans un corps JSON gonflerait la
+   charge d'un tiers pour rien. */
+export async function creerCotation(champs: {
+  objet: string;
+  description: string;
+  clientId: string | null;
+  clientNom: string;
+  echeanceLe: string;
+  piece: File | null;
+}) {
+  const corps = new FormData();
+  corps.append("objet", champs.objet);
+  corps.append("description", champs.description);
+  corps.append("clientNom", champs.clientNom);
+  if (champs.clientId) corps.append("clientId", champs.clientId);
+  corps.append("echeanceLe", champs.echeanceLe);
+  if (champs.piece) corps.append("piece", champs.piece);
+
+  const res = await authedFetch("/api/cotations", { method: "POST", body: corps });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La demande n'a pas pu être envoyée.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+export async function repondreCotation(id: string, reponse: string, piece: File | null) {
+  const corps = new FormData();
+  corps.append("reponse", reponse);
+  if (piece) corps.append("piece", piece);
+
+  const res = await authedFetch(`/api/cotations/${id}/reponse`, { method: "POST", body: corps });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La cotation n'a pas pu être envoyée.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+export async function receptionnerCotation(id: string) {
+  const res = await authedFetch(`/api/cotations/${id}/reception`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La réception n'a pas pu être enregistrée.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+export async function supprimerCotation(id: string) {
+  const res = await authedFetch(`/api/cotations/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors du retrait de la demande.");
+  return res.json();
+}
+
+/**
+ * Télécharge une pièce jointe.
+ *
+ * Passe par fetch et non par un lien direct : la route exige le jeton, qu'une
+ * balise d'ancrage ne sait pas porter. Le nom du fichier vient d'ici plutôt
+ * que de l'en-tête, qu'on ne peut pas lire de façon fiable.
+ */
+export async function telechargerPieceCotation(piece: PieceCotation) {
+  const res = await authedFetch(`/api/cotations/pieces/${piece.id}`);
+  if (!res.ok) throw new Error("Cette pièce n'a pas pu être téléchargée.");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement("a");
+  lien.href = url;
+  lien.download = piece.nomFichier;
+  lien.click();
+  // Sans cette libération, le fichier reste en mémoire jusqu'au rechargement.
+  URL.revokeObjectURL(url);
 }
 
 /* ----------------------------------------------- Prix d'achat à renseigner */

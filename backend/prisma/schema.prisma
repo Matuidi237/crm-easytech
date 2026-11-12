@@ -41,6 +41,7 @@ model Client {
   /// « notes » est déjà pris par le champ texte libre de la fiche, plus haut.
   pensesBetes    Note[]
   opportunites   Opportunite[]
+  cotations      DemandeCotation[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -140,6 +141,12 @@ model Utilisateur {
   notesPosees     Note[]               @relation("Notes")
   opportunites    Opportunite[]        @relation("Opportunites")
   objectifs       ObjectifCommercial[] @relation("Objectifs")
+
+  /// Les deux bouts du circuit de cotation : ce compte en demande, ou il en
+  /// traite. Deux relations distinctes parce qu'un même compte peut faire les
+  /// deux, et qu'on veut pouvoir lire chaque file séparément.
+  cotationsDemandees DemandeCotation[] @relation("CotationsDemandees")
+  cotationsTraitees  DemandeCotation[] @relation("CotationsTraitees")
 
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
@@ -1176,4 +1183,119 @@ model Opportunite {
   @@index([clientId])
   @@index([etape])
   @@index([estDemo])
+}
+
+/// Où en est une demande de cotation dans le circuit commercial / PM.
+///
+/// Quatre états et pas trois : « traitée » dit que le chef de projet a rendu
+/// sa cotation, pas que le commercial l'a eue entre les mains. C'est cette
+/// dernière confirmation qui fait sortir la demande de la file, et c'est elle
+/// qui manquait au fonctionnement actuel, où personne ne savait si un envoi
+/// avait été reçu.
+enum StatutCotation {
+  NON_TRAITEE
+  EN_COURS
+  TRAITEE
+  CLOTUREE
+}
+
+/// Qui a déposé la pièce. Le besoin vient du commercial, la cotation du chef
+/// de projet : la même table porte les deux, et ce champ dit de quel côté du
+/// circuit chaque fichier se lit.
+enum OrigineePiece {
+  BESOIN
+  COTATION
+}
+
+/// Une demande de cotation, du commercial vers le chef de projet.
+///
+/// Le reste de l'outil suit ce qui est vendu ; cette table suit ce qui bloque
+/// avant la vente. Le grief des commerciaux n'était pas le délai en soi mais
+/// l'absence de trace : une demande partait par message ou de vive voix, et
+/// plus rien n'en disait l'état. Chaque transition est donc horodatée, et
+/// aucune ne se saisit à la main.
+model DemandeCotation {
+  id String @id @default(uuid())
+
+  /// Référence lisible, « COT-2026-0014 ». C'est par elle qu'on en parle en
+  /// réunion ou dans un message, l'identifiant technique n'étant pas citable.
+  reference String @unique
+
+  /// Ce que le client demande, en une ligne.
+  objet String
+
+  /// Le contexte utile au chiffrage. La pièce jointe porte le détail, ce champ
+  /// porte ce qu'on ne lira pas dans le PDF.
+  description String?
+
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+  clientNom String
+
+  /// Le demandeur. Le nom double la relation pour que la demande reste lisible
+  /// si le compte est fermé.
+  commercial    Utilisateur? @relation("CotationsDemandees", fields: [commercialId], references: [id], onDelete: SetNull)
+  commercialId  String?
+  commercialNom String
+
+  statut StatutCotation @default(NON_TRAITEE)
+
+  /// Date de réponse attendue, fixée par le commercial à la soumission.
+  ///
+  /// Elle est obligatoire, et c'est le cœur du module : sans échéance annoncée,
+  /// une file se trie par ancienneté, ce qui fait passer une demande sans
+  /// enjeu avant un appel d'offres qui ferme vendredi.
+  echeanceLe DateTime @db.Date
+
+  /// Le chef de projet qui s'en est saisi, renseigné à la prise en charge.
+  traitePar    Utilisateur? @relation("CotationsTraitees", fields: [traiteParId], references: [id], onDelete: SetNull)
+  traiteParId  String?
+  traiteParNom String?
+
+  /// Horodatage de chaque passage. Ce sont ces trois dates, et non le statut
+  /// seul, qui permettent de mesurer un délai de prise en charge et un délai
+  /// de traitement.
+  priseEnChargeLe DateTime?
+  traiteeLe       DateTime?
+  recueLe         DateTime?
+
+  /// Le mot du chef de projet en rendant la cotation : hypothèses retenues,
+  /// réserves, validité du prix.
+  reponse String?
+
+  pieces PieceCotation[]
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([commercialId, statut])
+  @@index([statut, echeanceLe])
+  @@index([clientId])
+  @@index([estDemo])
+}
+
+/// Un fichier attaché à une demande de cotation.
+///
+/// Le contenu est stocké en base plutôt que sur disque. Ce sont des PDF de
+/// quelques centaines de kilo-octets, et les garder en base leur fait suivre
+/// la sauvegarde et évite d'avoir à monter un volume persistant sur chaque
+/// instance : un volume oublié au déploiement perd les pièces sans rien dire.
+model PieceCotation {
+  id        String          @id @default(uuid())
+  demande   DemandeCotation @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  demandeId String
+
+  origine OrigineePiece
+
+  nomFichier String
+  typeMime   String
+  taille     Int
+  contenu    Bytes
+
+  deposeParNom String
+  createdAt    DateTime @default(now())
+
+  @@index([demandeId])
 }

@@ -298,7 +298,7 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires] =
+  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations] =
     await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
@@ -312,12 +312,13 @@ async function compter() {
     prisma.objectifCommercial.count({ where: { estDemo: true } }),
     prisma.note.count({ where: { estDemo: true } }),
     prisma.opportunite.count({ where: { estDemo: true } }),
+    prisma.demandeCotation.count({ where: { estDemo: true } }),
   ]);
-  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires };
+  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires } =
+  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations } =
     await compter();
   const totalVentes = await prisma.vente.count();
   if (
@@ -336,7 +337,7 @@ async function etat() {
     );
     console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
     console.log(
-      `  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s), ${notes} note(s) et ${affaires} affaire(s).`
+      `  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s), ${notes} note(s), ${affaires} affaire(s) et ${cotations} cotation(s).`
     );
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
@@ -356,6 +357,9 @@ async function supprimer({ silencieux = false } = {}) {
   const objectifs = await prisma.objectifCommercial.deleteMany({ where: { estDemo: true } });
   const notes = await prisma.note.deleteMany({ where: { estDemo: true } });
   const affaires = await prisma.opportunite.deleteMany({ where: { estDemo: true } });
+  /* Les pieces partent avec leur demande : la relation est en cascade, et
+     une piece orpheline ne serait de toute facon plus atteignable. */
+  const cotations = await prisma.demandeCotation.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
@@ -371,7 +375,7 @@ async function supprimer({ silencieux = false } = {}) {
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
     console.log(
-      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s), ${notes.count} note(s) et ${affaires.count} affaire(s).`
+      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s), ${notes.count} note(s), ${affaires.count} affaire(s) et ${cotations.count} cotation(s).`
     );
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
@@ -739,6 +743,111 @@ async function creer() {
   }
   await prisma.opportunite.createMany({ data: affaires });
 
+  /* --- Cotations ---------------------------------------------------------
+     La file des demandes du commercial vers le chef de projet. Les quatre
+     statuts sont représentés, et quelques demandes sont volontairement en
+     retard : sans elles, le signal d'alerte de la page ne se verrait jamais
+     à la démonstration.
+
+     Aucune pièce jointe n'est créée ici. Fabriquer de faux PDF ne montrerait
+     rien de plus que le circuit lui-même, et gonflerait la base de
+     démonstration pour rien. */
+  const MODELES_COTATIONS = [
+    "Fourniture de 12 postes de travail et de leurs licences",
+    "Mise en place d'un pare-feu et de la supervision",
+    "Refonte du câblage réseau du siège",
+    "Hébergement et sauvegarde externalisée sur trois ans",
+    "Renouvellement de 4 serveurs lames",
+    "Formation de 20 agents à la bureautique",
+    "Vidéosurveillance de deux agences",
+    "Contrat de maintenance imprimantes",
+    "Migration de la téléphonie vers la voix sur IP",
+    "Fourniture d'onduleurs et de leurs batteries",
+  ];
+  const MOTS_DU_PM = [
+    "Prix valables 30 jours. Délai fournisseur de 4 semaines à confirmer à la commande.",
+    "Chiffré sur la base du catalogue en cours. La pose n'est pas comprise.",
+    "Deux variantes proposées, l'écart tient au niveau de garantie retenu.",
+    "Sous réserve d'une visite sur site avant engagement.",
+  ];
+
+  const cotations = [];
+  let rangCotation = 0;
+  const anneeCotation = maintenant.getFullYear();
+
+  for (const vendeur of VENDEURS) {
+    const vivier = portefeuilles.get(vendeur) ?? [];
+    const combien = 2 + Math.floor(alea() * 3);
+    for (let i = 0; i < combien; i++) {
+      const client = vivier.length > 0 ? piocher(vivier) : null;
+      if (!client) continue;
+
+      /* Répartition volontairement déséquilibrée : une file réaliste a plus
+         de dossiers en attente que de dossiers finis, c'est précisément ce
+         dont les commerciaux se plaignaient. */
+      const tirage = alea();
+      const statut =
+        tirage < 0.3 ? "NON_TRAITEE"
+        : tirage < 0.55 ? "EN_COURS"
+        : tirage < 0.78 ? "TRAITEE"
+        : "CLOTUREE";
+
+      const soumiseIlYa = 1 + Math.floor(alea() * 20);
+      const creeLe = new Date(maintenant);
+      creeLe.setDate(creeLe.getDate() - soumiseIlYa);
+
+      /* L'échéance est annoncée à la soumission, entre deux jours et trois
+         semaines après. Certaines sont donc déjà dépassées aujourd'hui, et
+         c'est ce qui fait apparaître des retards. */
+      const echeance = new Date(creeLe);
+      echeance.setDate(echeance.getDate() + 2 + Math.floor(alea() * 19));
+
+      const chef = CHEFS[rangCotation % CHEFS.length];
+      const chefNom = COMPTES.find((c) => c.identifiant === chef).nomComplet;
+      const ouverte = statut === "NON_TRAITEE";
+
+      const priseEnCharge = new Date(creeLe);
+      priseEnCharge.setHours(priseEnCharge.getHours() + 3 + Math.floor(alea() * 60));
+
+      /* Une cotation sur trois est rendue après l'échéance annoncée. Sans
+         ces dépassements, la jauge afficherait 100 % de délais tenus et
+         l'indicateur n'apprendrait rien à la démonstration. */
+      const rendue = new Date(priseEnCharge);
+      if (alea() < 0.33) {
+        rendue.setTime(echeance.getTime());
+        rendue.setDate(rendue.getDate() + 1 + Math.floor(alea() * 5));
+      } else {
+        rendue.setHours(rendue.getHours() + 4 + Math.floor(alea() * 90));
+      }
+
+      const recue = new Date(rendue);
+      recue.setHours(recue.getHours() + 2 + Math.floor(alea() * 40));
+
+      rangCotation += 1;
+      cotations.push({
+        reference: `COT-${anneeCotation}-${String(rangCotation).padStart(4, "0")}`,
+        objet: MODELES_COTATIONS[(VENDEURS.indexOf(vendeur) * 2 + i) % MODELES_COTATIONS.length],
+        description:
+          alea() < 0.5 ? "Le client attend une réponse chiffrée avant son conseil d'administration." : null,
+        clientId: client.id,
+        clientNom: client.nom,
+        commercialId: ids[vendeur],
+        commercialNom: COMPTES.find((c) => c.identifiant === vendeur).nomComplet,
+        statut,
+        echeanceLe: jourCalendaire(echeance),
+        traiteParId: ouverte ? null : ids[chef],
+        traiteParNom: ouverte ? null : chefNom,
+        priseEnChargeLe: ouverte ? null : priseEnCharge,
+        traiteeLe: statut === "TRAITEE" || statut === "CLOTUREE" ? rendue : null,
+        recueLe: statut === "CLOTUREE" ? recue : null,
+        reponse: statut === "TRAITEE" || statut === "CLOTUREE" ? piocher(MOTS_DU_PM) : null,
+        createdAt: creeLe,
+        estDemo: true,
+      });
+    }
+  }
+  await prisma.demandeCotation.createMany({ data: cotations });
+
   /* --- Objectifs ---------------------------------------------------------
      Le responsable fixe le mois, le trimestre et l'année de chacun. Les
      cibles sont calées sur ce que la personne réalise déjà, majoré de 15 % :
@@ -925,7 +1034,7 @@ async function creer() {
     `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
     );
     console.log(
-      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline.`
+      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline, ${cotations.length} demande(s) de cotation.`
   );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`

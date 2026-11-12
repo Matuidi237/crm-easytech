@@ -24,6 +24,37 @@ export function IconKanban({ size = 19, strokeWidth = 1.7, className }: IconProp
   );
 }
 
+/** Une feuille chiffrée : le document de cotation. */
+export function IconQuote({ size = 19, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M14 2.75H6.5A1.75 1.75 0 0 0 4.75 4.5v15A1.75 1.75 0 0 0 6.5 21.25h11a1.75 1.75 0 0 0 1.75-1.75V8z" />
+      <path d="M14 2.75V8h5.25" />
+      <path d="M8.5 12.75h4.5" />
+      <path d="M8.5 16.25h7" />
+    </svg>
+  );
+}
+
+/** Une pièce jointe. */
+export function IconPaperclip({ size = 16, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <path d="M20.5 11.5 12 20a5.5 5.5 0 0 1-7.78-7.78l8.49-8.49a3.67 3.67 0 1 1 5.19 5.19l-8.5 8.49a1.83 1.83 0 1 1-2.59-2.6l7.78-7.77" />
+    </svg>
+  );
+}
+
+/** Un sablier : le temps qui court sur une demande. */
+export function IconClock({ size = 17, strokeWidth = 1.7, className }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className}>
+      <circle cx="12" cy="12" r="8.75" />
+      <path d="M12 7.25V12l3 1.75" />
+    </svg>
+  );
+}
+
 export function IconDashboard({ size = 19, strokeWidth = 1.7, className }: IconProps) {
   return (
     <svg {...base(size, strokeWidth)} className={className}>

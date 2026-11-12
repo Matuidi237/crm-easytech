@@ -7819,3 +7819,253 @@ td.col-actions {
     opacity: 1;
   }
 }
+
+/* =======================================================================
+   Cotations : la file des demandes du commercial vers le chef de projet
+   Rien de coloré pour le plaisir. Chaque teinte porte un statut, et le mot
+   est toujours écrit à côté : la couleur seule ne se lit pas, ni en noir et
+   blanc, ni par un daltonien.
+   ======================================================================= */
+
+/* Dépôt de pièce. Le champ natif est masqué et non supprimé : il reste la
+   seule façon d ouvrir le sélecteur de fichiers du système, et son rendu par
+   défaut ne ressemble a rien du reste de l interface. */
+.depot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.depot-champ {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.depot-nom {
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.depot-nom.vide {
+  color: var(--ink-3);
+}
+
+/* La file ----------------------------------------------------------- */
+
+.cot-table tbody tr {
+  cursor: pointer;
+}
+
+.cot-ligne:hover td {
+  background: var(--surface-2);
+}
+
+.cot-ligne.active td {
+  background: var(--brand-100);
+}
+
+.cot-ligne:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* Un filet et non un fond : la ligne en retard doit se repérer de loin sans
+   que la couleur mange la lisibilité du texte qu elle porte. */
+.cot-ligne.en-retard td:first-child {
+  box-shadow: inset 2px 0 0 #c07a00;
+}
+
+.cot-ref {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cot-sous-ligne {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.cot-trombone {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cot-retard {
+  color: #8a5f05;
+  font-weight: 600;
+}
+
+/* Le détail d une demande -------------------------------------------- */
+
+.cot-detail .panneau-tete h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cot-entete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cot-client {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.cot-texte {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+
+.cot-sous-titre {
+  display: block;
+  margin-top: 18px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Le fil du dossier. Horodatages alignés les uns sous les autres : c est leur
+   succession qui raconte, pas chacun pris isolément. */
+.cot-fil {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cot-fil li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.cot-fil li svg {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.cot-liste-pieces {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cot-piece {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cot-piece:hover {
+  border-color: var(--brand);
+}
+
+.cot-piece-nom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cot-piece-meta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.cot-action {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* L aide à gauche, le bouton à droite : expliquer ce que fait un bouton
+   irréversible juste à côté de lui vaut mieux qu une confirmation après coup. */
+.form-actions-entre {
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Pastilles de statut. Teintes de statut, jamais la couleur seule. */
+.pill-cot-non_traitee {
+  background: #f4e7e4;
+  color: #8f4336;
+}
+
+.pill-cot-en_cours {
+  background: #fcf2e0;
+  color: #8a5f05;
+}
+
+.pill-cot-traitee {
+  background: #e8f3fb;
+  color: #2a79ae;
+}
+
+.pill-cot-cloturee {
+  background: #e2f4f1;
+  color: #0c6b61;
+}
+
+.pill-piece-besoin {
+  background: #eceae9;
+  color: #6b6462;
+}
+
+.pill-piece-cotation {
+  background: #e8f3fb;
+  color: #2a79ae;
+}
+
+@media (max-width: 760px) {
+  /* Le demandeur et l échéance tiennent sur une ligne étroite ; l objet, lui,
+     a besoin de toute la largeur restante. */
+  .cot-piece-meta {
+    display: none;
+  }
+}

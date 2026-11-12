@@ -34,7 +34,8 @@ annoncer qu'une page fonctionne sans l'avoir regardée.
   capacité requise.
 - `backend/src/lib/` : les règles qui ne doivent exister qu'à un seul endroit.
   `commissions.ts` (barème), `ventes.ts` (marge et coût inconnu),
-  `permissions.ts` (matrice et périmètre), `periodes.ts`, `activites.ts`.
+  `permissions.ts` (matrice et périmètre), `periodes.ts`, `activites.ts`,
+  `pipeline.ts` (étapes et probabilités), `cotations.ts` (circuit et délais).
 - `frontend/src/api.ts` : tous les appels et tous les types partagés.
 - `frontend/src/vues.ts` : la navigation par rôle.
 - `frontend/src/i18n/fr.ts` et `en.ts` : le français est la référence, l'anglais
@@ -59,6 +60,25 @@ l'assiette chiffrée, seule base honnête d'un taux de marge. Voir
 **La référence du document Zoho est unique sur tout le système.** C'est par elle
 qu'une synchronisation automatique reconnaîtra un jour ce qui est déjà en base
 au lieu de le recréer et de doubler le chiffre d'affaires.
+
+**Une demande de cotation ne sort du circuit que sur confirmation du
+commercial.** Le chef de projet qui rend sa cotation la fait passer « traitée »,
+pas « terminée » : tant que le demandeur n'a pas confirmé l'avoir reçue, elle
+reste comptée comme en attente. C'est précisément cet angle mort qui a motivé
+le module. Le passage en « en traitement » se déclenche à la première
+consultation par un chef de projet, et non par un bouton : un bouton « j'ai vu »
+ne serait jamais cliqué. Voir `backend/src/lib/cotations.ts`.
+
+**L'échéance d'une cotation est obligatoire et fixée par le commercial.** C'est
+elle qui ordonne la file. Trier par date de soumission ferait passer une demande
+sans enjeu avant un appel d'offres qui ferme vendredi. Le retard n'est compté
+que tant que la cotation n'est pas rendue : le délai de réception appartient au
+commercial, pas au chef de projet.
+
+**Les pièces jointes des cotations sont stockées en base**, pas sur disque. Un
+volume persistant oublié au déploiement perdrait les fichiers sans rien dire, et
+la sauvegarde de la base les emporte avec elle. Liste fermée de types acceptés,
+rien d'exécutable, et servies en `attachment` avec `nosniff`.
 
 **Les activités des feuilles de temps sont du texte libre**, pas une
 énumération. Les libellés déjà employés sont reproposés à la saisie, ce qui
@@ -114,7 +134,12 @@ heures.
 
 ## Chantiers ouverts
 
-- Module RH commencé au niveau du schéma seulement, non migré.
+- Module RH commencé au niveau du schéma seulement, sans écran. En attendant,
+  la DRH ouvre l'application sur la file des cotations, seule chose qu'elle y
+  suit.
+- Le circuit de cotation ne prévient personne : ni courriel au chef de projet à
+  la soumission, ni au commercial quand sa cotation est rendue. La page se
+  rafraîchit d'elle-même, ce qui suppose qu'elle reste ouverte.
 - La nouvelle page Ventes et l'écran « À chiffrer » compilent mais n'ont pas
   encore été ouverts dans un navigateur.
 - Registre de modules activables, utile à la fois pour la RH et pour la revente.

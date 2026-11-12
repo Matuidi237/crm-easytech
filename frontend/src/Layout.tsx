@@ -22,6 +22,7 @@ import {
   IconMenu,
   IconSearch,
   IconKey,
+  IconQuote,
   IconShield,
   IconTeam,
   IconUserCircle,
@@ -41,6 +42,7 @@ const ICONES: Record<string, typeof IconDashboard> = {
   coins: IconCoins,
   calendar: IconCalendar,
   kanban: IconKanban,
+  quote: IconQuote,
 };
 
 function initiales(nom: string) {
