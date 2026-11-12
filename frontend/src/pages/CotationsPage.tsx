@@ -6,6 +6,7 @@ import {
   StatutCotation,
   SuggestionClient,
   creerCotation,
+  demanderRevisionCotation,
   fetchCotation,
   fetchCotations,
   receptionnerCotation,
@@ -22,9 +23,12 @@ import {
   IconClock,
   IconClose,
   IconDownload,
+  IconFile,
   IconInbox,
+  IconMore,
   IconPaperclip,
   IconPlus,
+  IconSearch,
   IconSend,
   IconTrash,
 } from "../components/Icons";
@@ -60,18 +64,24 @@ const PERIODE_RAFRAICHISSEMENT_MS = 30_000;
  *
  * Le reproche fait au fonctionnement précédent n'était pas le délai mais
  * l'absence de trace : une demande partait par message, et plus rien n'en
- * disait l'état. Trois choix en découlent, visibles à l'écran.
+ * disait l'état. Quatre choix en découlent, visibles à l'écran.
  *
- * La file se trie par échéance, jamais par date de saisie. L'échéance est le
- * seul renseignement qui dise ce qui est urgent ; trier par ancienneté ferait
- * passer une demande sans enjeu avant un appel d'offres qui ferme vendredi.
+ * La file se lit en fiches et non en tableau. Une demande de cotation est un
+ * dossier qu'on ouvre, pas une ligne qu'on compare à ses voisines : les trois
+ * renseignements qui décident d'y toucher ou non (le client, l'échéance, les
+ * pièces) tiennent sur la fiche, et le reste est à un clic.
  *
- * Une cotation rendue n'est pas une demande finie. Elle reste dans la file
- * jusqu'à ce que le commercial confirme l'avoir reçue, et c'est cette
- * confirmation qui manquait.
+ * Les fiches se trient par échéance, jamais par date de saisie. L'échéance est
+ * le seul renseignement qui dise ce qui est urgent ; trier par ancienneté
+ * ferait passer une demande sans enjeu avant un appel d'offres qui ferme
+ * vendredi.
  *
- * Le chiffre qui porte la page est le nombre de demandes en circuit, et non
- * un montant : ce module mesure de l'attente, pas de l'argent.
+ * Une cotation transmise n'est pas une demande finie. Elle reste dans la file
+ * jusqu'à ce que le commercial en accuse réception, ou la renvoie pour
+ * correction.
+ *
+ * Le chiffre qui porte la page est un nombre de demandes, et non un montant :
+ * ce module mesure de l'attente, pas de l'argent.
  */
 export default function CotationsPage() {
   const { t, nombre, date, dateHeure } = useLangue();
@@ -86,6 +96,7 @@ export default function CotationsPage() {
 
   const [historique, setHistorique] = useState(false);
   const [filtre, setFiltre] = useState<Filtre>("TOUTES");
+  const [recherche, setRecherche] = useState("");
 
   /* La demande ouverte au détail. Tenue à part de la file pour que le
      rafraîchissement automatique ne la referme pas sous les doigts. */
@@ -93,6 +104,14 @@ export default function CotationsPage() {
   const [reponse, setReponse] = useState("");
   const [pieceReponse, setPieceReponse] = useState<File | null>(null);
   const [envoiReponse, setEnvoiReponse] = useState(false);
+  /* La demande de correction se saisit dans l'application et non dans une
+     boîte du navigateur : celle-ci est dessinée par le système, sans rapport
+     avec l'écran, et ne laisse pas la place d'expliquer ce qu'on attend. */
+  const [revision, setRevision] = useState<DemandeCotation | null>(null);
+  const [motifRevision, setMotifRevision] = useState("");
+
+  /** Fiche dont le menu d'actions est déplié. Une seule à la fois. */
+  const [menu, setMenu] = useState<string | null>(null);
 
   const champBesoin = useRef<HTMLInputElement>(null);
   const champCotation = useRef<HTMLInputElement>(null);
@@ -114,19 +133,47 @@ export default function CotationsPage() {
      doigts de quelqu'un qui écrit ne lui apprend rien et risque de lui faire
      perdre le fil. */
   useEffect(() => {
-    if (ouvert || detail) return;
+    if (ouvert || detail || revision) return;
     const minuteur = window.setInterval(() => recharger(), PERIODE_RAFRAICHISSEMENT_MS);
     return () => window.clearInterval(minuteur);
-  }, [ouvert, detail, recharger]);
+  }, [ouvert, detail, revision, recharger]);
+
+  /* Un menu qui ne se referme qu'en rouvrant le même bouton finit toujours par
+     rester ouvert derrière un autre écran. */
+  useEffect(() => {
+    if (!menu) return;
+    const fermer = () => setMenu(null);
+    window.addEventListener("click", fermer);
+    return () => window.removeEventListener("click", fermer);
+  }, [menu]);
 
   const droits = file?.droits ?? { traiter: false, superviser: false, fileGlobale: false };
   /* Un compte qui ne fait que surveiller la file n'a rien à y soumettre. */
   const peutSoumettre = droits.traiter || !droits.superviser;
 
+  const toutes = file?.demandes ?? [];
+
   const demandes = useMemo(() => {
-    const toutes = file?.demandes ?? [];
-    return filtre === "TOUTES" ? toutes : toutes.filter((d) => d.statut === filtre);
-  }, [file, filtre]);
+    const q = recherche.trim().toLowerCase();
+    return toutes
+      .filter((d) => filtre === "TOUTES" || d.statut === filtre)
+      .filter(
+        (d) =>
+          q === "" ||
+          d.objet.toLowerCase().includes(q) ||
+          d.clientNom.toLowerCase().includes(q) ||
+          d.reference.toLowerCase().includes(q) ||
+          d.commercialNom.toLowerCase().includes(q)
+      );
+  }, [toutes, filtre, recherche]);
+
+  /* Les dossiers repartis pour correction, à part. Un chiffrage refait est du
+     travail payé deux fois, et c'est le seul endroit de la page où on peut
+     s'en apercevoir. */
+  const reprises = useMemo(
+    () => toutes.filter((d) => d.nbRevisions > 0 && d.enCircuit),
+    [toutes]
+  );
 
   /**
    * Heures d'attente de la demande qui attend depuis le plus longtemps, parmi
@@ -136,13 +183,11 @@ export default function CotationsPage() {
    * qu'on parle quand on regarde cet écran.
    */
   const attenteLaPlusAncienne = useMemo(() => {
-    const enAttente = (file?.demandes ?? []).filter(
-      (d) => d.statut === "NON_TRAITEE" || d.statut === "EN_COURS"
-    );
+    const enAttente = toutes.filter((d) => d.statut === "NON_TRAITEE" || d.statut === "EN_COURS");
     if (enAttente.length === 0) return null;
     const plusAncienne = Math.min(...enAttente.map((d) => new Date(d.createdAt).getTime()));
     return Math.round(((Date.now() - plusAncienne) / 3_600_000) * 10) / 10;
-  }, [file]);
+  }, [toutes]);
 
   /* ------------------------------------------------------- Soumission */
 
@@ -190,6 +235,7 @@ export default function CotationsPage() {
     setSucces(null);
     setReponse("");
     setPieceReponse(null);
+    setRevision(null);
     setDetail(d);
     try {
       const frais = await fetchCotation(d.id);
@@ -231,6 +277,30 @@ export default function CotationsPage() {
       const maj = await receptionnerCotation(d.id);
       setDetail(maj);
       setSucces(t("cot.receptionEnregistree", { reference: maj.reference }));
+      recharger();
+    } catch (err) {
+      setErreur((err as Error).message);
+    }
+  }
+
+  async function envoyerRevision(e: FormEvent) {
+    e.preventDefault();
+    if (!revision) return;
+    const motif = motifRevision.trim();
+    /* Un renvoi sans motif renvoie le chef de projet à la case départ sans lui
+       dire ce qu'il doit reprendre. Le serveur le refuse ; l'interface
+       l'empêche plutôt que de laisser l'utilisateur buter sur une erreur. */
+    if (motif === "") {
+      setErreur(t("cot.motifRevisionAide"));
+      return;
+    }
+    setErreur(null);
+    try {
+      const maj = await demanderRevisionCotation(revision.id, motif);
+      setRevision(null);
+      setMotifRevision("");
+      setDetail(maj);
+      setSucces(t("cot.revisionEnvoyee", { reference: maj.reference }));
       recharger();
     } catch (err) {
       setErreur((err as Error).message);
@@ -290,6 +360,124 @@ export default function CotationsPage() {
     return null;
   }
 
+  function nbDocuments(d: DemandeCotation): string {
+    if (d.pieces.length === 0) return t("cot.aucunDocument");
+    if (d.pieces.length === 1) return t("cot.unDocument");
+    return t("cot.nDocuments", { n: nombre(d.pieces.length) });
+  }
+
+  /* --------------------------------------------------------- Fiches */
+
+  /**
+   * Une fiche de la file.
+   *
+   * La fiche entière est cliquable, et le menu d'actions en est détaché pour
+   * que le clic ne le déclenche pas. Les trois lignes retenues sont celles qui
+   * décident d'ouvrir ou non le dossier ; le pied porte l'échéance, parce que
+   * c'est elle qui fait agir.
+   */
+  function Fiche({ d }: { d: DemandeCotation }) {
+    const sienne = d.commercialId === utilisateur?.id;
+    return (
+      <article
+        className={`cot-fiche${d.enRetard ? " en-retard" : ""}${detail?.id === d.id ? " active" : ""}`}
+      >
+        <header className="cot-fiche-haut">
+          <span className="cot-fiche-date">{dateHeure(d.createdAt)}</span>
+          <div className="cot-menu">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t("cot.actionsLigne")}
+              aria-expanded={menu === d.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenu((m) => (m === d.id ? null : d.id));
+              }}
+            >
+              <IconMore size={16} />
+            </button>
+            {menu === d.id && (
+              <div className="cot-menu-liste" role="menu" onClick={(e) => e.stopPropagation()}>
+                <button type="button" role="menuitem" onClick={() => { setMenu(null); ouvrirDetail(d); }}>
+                  {t("cot.ouvrirDossier")}
+                </button>
+                {d.statut === "TRAITEE" && sienne && (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { setMenu(null); confirmerReception(d); }}
+                    >
+                      {t("cot.confirmerReception")}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenu(null);
+                        setMotifRevision("");
+                        setDetail(null);
+                        setRevision(d);
+                      }}
+                    >
+                      {t("cot.demanderRevision")}
+                    </button>
+                  </>
+                )}
+                {d.statut === "NON_TRAITEE" && sienne && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    onClick={() => { setMenu(null); retirer(d); }}
+                  >
+                    {t("cot.retirer")}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        <button type="button" className="cot-fiche-corps" onClick={() => ouvrirDetail(d)}>
+          <span className="cot-fiche-ref">{t("cot.cotationN", { reference: d.reference })}</span>
+          <span className="cot-fiche-objet">{d.objet}</span>
+          {/* Une seule pastille par fiche : le statut. La reprise est dite en
+              texte gris, parce que ce n'est pas un état mais un antécédent. */}
+          <span className={`pill pill-cot-${d.statut.toLowerCase()}`}>{libelleStatut(d.statut)}</span>
+
+          <dl className="cot-fiche-lignes">
+            <div>
+              <dt>{t("ve.client")}</dt>
+              <dd>{d.clientNom}</dd>
+            </div>
+            {droits.fileGlobale && (
+              <div>
+                <dt>{t("cot.colDemandeur")}</dt>
+                <dd>{d.commercialNom}</dd>
+              </div>
+            )}
+            <div>
+              <dt>{t("cot.carteDocuments")}</dt>
+              <dd>{nbDocuments(d)}</dd>
+            </div>
+          </dl>
+
+          <div className="cot-fiche-pied">
+            <span className="cot-fiche-pied-libelle">
+              <IconClock size={15} />
+              {t("cot.carteEcheance")}
+            </span>
+            <span className={`cot-fiche-pied-valeur${d.enRetard ? " alerte" : ""}`}>
+              {echeanceTexte(d)}
+            </span>
+          </div>
+        </button>
+      </article>
+    );
+  }
+
   const entete = (
     <div className="page-head">
       <div>
@@ -297,7 +485,11 @@ export default function CotationsPage() {
       </div>
       <div className="head-actions">
         {peutSoumettre && (
-          <button className="btn btn-primary" onClick={() => { setOuvert(true); setDetail(null); }} disabled={ouvert}>
+          <button
+            className="btn btn-primary"
+            onClick={() => { setOuvert(true); setDetail(null); setRevision(null); }}
+            disabled={ouvert}
+          >
             <IconPlus size={16} />
             {t("cot.nouvelleDemande")}
           </button>
@@ -351,10 +543,10 @@ export default function CotationsPage() {
               {droits.fileGlobale ? t("cot.heroFileGlobale") : t("cot.heroFileMienne")}
             </span>
             <span className="heros-chiffre">{nombre(totaux.enCircuit)}</span>
-            {/* Tant qu'aucune cotation n'a été rendue, un délai moyen n'existe
-                pas. Plutôt que de l'annoncer deux fois (la jauge le dit déjà
-                juste en dessous), la ligne d'appui montre alors ce qui attend
-                depuis le plus longtemps, qui est la question du moment. */}
+            {/* Tant qu'aucune cotation n'a été transmise, un délai moyen
+                n'existe pas. Plutôt que de l'annoncer deux fois (la jauge le
+                dit déjà juste en dessous), la ligne d'appui montre alors ce qui
+                attend depuis le plus longtemps. */}
             <span className="heros-appui">
               {totaux.heuresMoyennesTraitement !== null
                 ? t("cot.heroAppuiDelai", { valeur: delai(totaux.heuresMoyennesTraitement) })
@@ -387,9 +579,8 @@ export default function CotationsPage() {
               <span>
                 {nombre(totaux.tauxTenuePct)}%
                 {" · "}
-                {/* Une seule cotation rendue ne se dit pas « 1 cotations
-                    rendues sur 1 » : le compte se lit alors en toutes
-                    lettres. */}
+                {/* Une seule cotation transmise ne se dit pas « 1 cotations
+                    rendues sur 1 » : le compte se lit alors en toutes lettres. */}
                 {totaux.nbRendues === 1
                   ? totaux.nbDansLeDelai === 1
                     ? t("cot.tenueUneTenue")
@@ -426,8 +617,8 @@ export default function CotationsPage() {
         </div>
       </section>
 
-      {/* La soumission au-dessus de la file : la demande créée apparaît juste
-          en dessous, là où on regarde déjà. */}
+      {/* La soumission au-dessus de la file : la fiche créée apparaît juste en
+          dessous, là où on regarde déjà. */}
       {ouvert && (
         <form className="panneau" onSubmit={soumettre}>
           <header className="panneau-tete">
@@ -540,11 +731,47 @@ export default function CotationsPage() {
         </form>
       )}
 
+      {/* La demande de correction, dans un panneau de l'application. */}
+      {revision && (
+        <form className="panneau" onSubmit={envoyerRevision}>
+          <header className="panneau-tete">
+            <h2>{t("cot.demanderRevision")}</h2>
+          </header>
+          <p className="panneau-note">
+            {t("cot.cotationN", { reference: revision.reference })} · {revision.objet}
+          </p>
+          <div className="field">
+            <label htmlFor="cot-motif">{t("cot.motifRevision")}</label>
+            <textarea
+              id="cot-motif"
+              rows={3}
+              value={motifRevision}
+              onChange={(e) => setMotifRevision(e.target.value)}
+              placeholder={t("cot.motifRevisionPlaceholder")}
+              autoFocus
+            />
+            <div className="field-hint">{t("cot.motifRevisionAide")}</div>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => setRevision(null)}>
+              <IconClose size={15} />
+              {t("commun.annuler")}
+            </button>
+            <button type="submit" className="btn btn-primary">
+              <IconSend size={15} />
+              {t("cot.demanderRevision")}
+            </button>
+          </div>
+        </form>
+      )}
+
       {detail && (
         <section className="panneau cot-detail">
           <header className="panneau-tete">
             <h2>
-              <span className="cot-ref">{detail.reference}</span>
+              <span className="cot-fiche-ref">
+                {t("cot.cotationN", { reference: detail.reference })}
+              </span>
               {detail.objet}
             </h2>
             <button
@@ -574,6 +801,7 @@ export default function CotationsPage() {
 
           {/* Le fil du dossier : qui l'a demandé, qui s'en est saisi, quand.
               C'est cette trace, et non le statut seul, qui manquait. */}
+          <span className="cot-sous-titre">{t("cot.suiviDossier")}</span>
           <ol className="cot-fil">
             <li>
               <IconClock size={15} />
@@ -592,6 +820,13 @@ export default function CotationsPage() {
               <li>
                 <IconCheck size={15} />
                 {t("cot.rendueLe", { date: dateHeure(detail.traiteeLe) })}
+              </li>
+            )}
+            {detail.revisionDemandeeLe && (
+              <li>
+                <IconAlert size={15} />
+                {t("cot.revisionDemandeeLe", { date: dateHeure(detail.revisionDemandeeLe) })}
+                {detail.motifRevision && <span className="cot-motif">{detail.motifRevision}</span>}
               </li>
             )}
             {detail.recueLe && (
@@ -637,17 +872,15 @@ export default function CotationsPage() {
             )}
           </div>
 
-          {/* Le chef de projet rend sa cotation. La pièce est facultative au
-              cas où la réponse tient en deux lignes, mais l'un des deux au
-              moins est exigé : une demande qui repasse « traitée » sans rien
-              de joint ni rien d'écrit ne renseigne personne. */}
+          {/* Le chef de projet transmet sa cotation. Le document est facultatif
+              au cas où la réponse tient en deux lignes, mais l'un des deux au
+              moins est exigé : une demande qui repasse « traitée » sans rien de
+              joint ni rien d'écrit ne renseigne personne. */}
           {droits.traiter && detail.statut !== "CLOTUREE" && (
             <form className="cot-action" onSubmit={envoyerReponse}>
               {/* Le formulaire reste ouvert après l'envoi, sous un autre
                   intitulé : une cotation se corrige, et refuser la correction
-                  obligerait à créer une seconde demande pour la même affaire.
-                  Mais inviter à « rendre la cotation » une demande déjà rendue
-                  laisserait croire que rien n'est parti. */}
+                  obligerait à créer une seconde demande pour la même affaire. */}
               <span className="cot-sous-titre">
                 {detail.statut === "TRAITEE" ? t("cot.corrigerCotation") : t("cot.rendreCotation")}
               </span>
@@ -695,16 +928,30 @@ export default function CotationsPage() {
             </form>
           )}
 
-          {/* La réception, réservée au demandeur. C'est elle qui fait sortir la
-              demande du circuit, et personne ne peut la déclarer à sa place. */}
+          {/* Les deux issues du demandeur. L'accusé de réception est l'action
+              principale ; demander une correction est l'autre chemin, et se
+              présente comme tel. */}
           {detail.statut === "TRAITEE" && detail.commercialId === utilisateur?.id && (
             <div className="cot-action">
               <div className="form-actions form-actions-entre">
                 <span className="field-hint">{t("cot.receptionAide")}</span>
-                <button type="button" className="btn btn-primary" onClick={() => confirmerReception(detail)}>
-                  <IconCheck size={15} />
-                  {t("cot.confirmerReception")}
-                </button>
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setMotifRevision("");
+                      setDetail(null);
+                      setRevision(detail);
+                    }}
+                  >
+                    {t("cot.demanderRevision")}
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={() => confirmerReception(detail)}>
+                    <IconCheck size={15} />
+                    {t("cot.confirmerReception")}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -720,115 +967,150 @@ export default function CotationsPage() {
         </section>
       )}
 
-      <section className="panneau">
-        <header className="panneau-tete">
-          <div className="segmente" role="group" aria-label={t("cot.colStatut")}>
-            {FILTRES.map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={filtre === f ? "on" : undefined}
-                onClick={() => setFiltre(f)}
-                aria-pressed={filtre === f}
-              >
-                {f === "TOUTES" ? t("cot.filtreToutes") : libelleStatut(f)}
-              </button>
-            ))}
+      {/* La file, en fiches. L'en-tête porte la recherche et les filtres, comme
+          partout ailleurs dans l'outil. */}
+      <section className="cot-section">
+        <header className="cot-section-tete">
+          <h2>{t("cot.sectionEnCours")}</h2>
+          <div className="cot-outils">
+            <div className="champ-recherche">
+              <IconSearch size={16} />
+              <input
+                type="search"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                placeholder={t("cot.recherche", { n: nombre(toutes.length) })}
+                aria-label={t("cot.recherche", { n: nombre(toutes.length) })}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                const suivant = !historique;
+                setHistorique(suivant);
+                recharger(suivant);
+              }}
+            >
+              {historique ? t("cot.masquerHistorique") : t("cot.voirHistorique")}
+            </button>
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => {
-              const suivant = !historique;
-              setHistorique(suivant);
-              recharger(suivant);
-            }}
-          >
-            {historique ? t("cot.masquerHistorique") : t("cot.voirHistorique")}
-          </button>
         </header>
 
+        <div className="segmente cot-filtres" role="group" aria-label={t("cot.colStatut")}>
+          {FILTRES.map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={filtre === f ? "on" : undefined}
+              onClick={() => setFiltre(f)}
+              aria-pressed={filtre === f}
+            >
+              {f === "TOUTES" ? t("cot.filtreToutes") : libelleStatut(f)}
+            </button>
+          ))}
+        </div>
+
         {demandes.length === 0 ? (
-          <div className="empty">
-            <div className="empty-icon">
-              <IconInbox />
+          <div className="panneau">
+            <div className="empty">
+              <div className="empty-icon">
+                <IconInbox />
+              </div>
+              <div className="empty-title">
+                {recherche.trim() !== "" ? t("cot.aucunResultat") : t("cot.videTitre")}
+              </div>
+              {recherche.trim() === "" && (
+                <p className="empty-text" style={{ margin: 0 }}>
+                  {droits.traiter
+                    ? t("cot.videTraitant")
+                    : droits.superviser
+                      ? t("cot.videSuperviseur")
+                      : t("cot.videCommercial")}
+                </p>
+              )}
+              {peutSoumettre && !ouvert && recherche.trim() === "" && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: 6 }}
+                  onClick={() => setOuvert(true)}
+                >
+                  <IconPlus size={15} />
+                  {t("cot.nouvelleDemande")}
+                </button>
+              )}
             </div>
-            <div className="empty-title">{t("cot.videTitre")}</div>
-            <p className="empty-text" style={{ margin: 0 }}>
-              {droits.traiter
-                ? t("cot.videTraitant")
-                : droits.superviser
-                  ? t("cot.videSuperviseur")
-                  : t("cot.videCommercial")}
-            </p>
-            {peutSoumettre && !ouvert && (
-              <button
-                className="btn btn-primary btn-sm"
-                style={{ marginTop: 6 }}
-                onClick={() => setOuvert(true)}
-              >
-                <IconPlus size={15} />
-                {t("cot.nouvelleDemande")}
-              </button>
-            )}
           </div>
         ) : (
-          <table className="table-nue cot-table">
-            <thead>
-              <tr>
-                <th>{t("cot.colReference")}</th>
-                <th>{t("cot.colObjet")}</th>
-                {/* La colonne du demandeur n'a de sens que sur une file qui en
-                    mélange plusieurs. Sur la sienne, elle répéterait son nom. */}
-                {droits.fileGlobale && <th>{t("cot.colDemandeur")}</th>}
-                <th className="td-date">{t("cot.colEcheance")}</th>
-                <th>{t("cot.colStatut")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {demandes.map((d) => (
-                <tr
-                  key={d.id}
-                  className={`cot-ligne${d.enRetard ? " en-retard" : ""}${detail?.id === d.id ? " active" : ""}`}
-                  onClick={() => ouvrirDetail(d)}
-                  tabIndex={0}
-                  role="button"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      ouvrirDetail(d);
-                    }
-                  }}
-                >
-                  <td className="cot-ref">{d.reference}</td>
-                  <td>
-                    <span className="td-strong">{d.objet}</span>
-                    <span className="cot-sous-ligne">
-                      {d.clientNom}
-                      {d.pieces.length > 0 && (
-                        <span className="cot-trombone" title={t("cot.piecesJointes")}>
-                          <IconPaperclip size={12} />
-                          {nombre(d.pieces.length)}
-                        </span>
-                      )}
-                    </span>
-                  </td>
-                  {droits.fileGlobale && <td>{d.commercialNom}</td>}
-                  <td className={`td-date${d.enRetard ? " cot-retard" : ""}`}>{echeanceTexte(d)}</td>
-                  <td>
-                    <span className={`pill pill-cot-${d.statut.toLowerCase()}`}>
-                      {libelleStatut(d.statut)}
-                    </span>
-                    {attente(d) && <span className="cot-sous-ligne">{attente(d)}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="cot-grille">
+            {demandes.map((d) => (
+              <Fiche key={d.id} d={d} />
+            ))}
+          </div>
         )}
-
-        <p className="panneau-note">{t("cot.majAuto")}</p>
       </section>
+
+      {/* Les dossiers repris. Section à part, et non une pastille de plus sur
+          la fiche : une reprise n'est pas un état du dossier, c'est un coût
+          pour l'entreprise, et il ne se voit qu'en les regroupant. */}
+      {reprises.length > 0 && (
+        <section className="cot-section">
+          <header className="cot-section-tete">
+            <h2>{t("cot.sectionRevision")}</h2>
+          </header>
+          <div className="panneau cot-reprises">
+            {reprises.map((d) => (
+              <article key={d.id} className="cot-reprise">
+                <div className="cot-reprise-haut">
+                  <span className="cot-reprise-motif">{d.motifRevision}</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => ouvrirDetail(d)}
+                  >
+                    {t("cot.ouvrirDossier")}
+                  </button>
+                </div>
+                <div className="cot-reprise-meta">
+                  <span>
+                    {d.revisionDemandeeLe
+                      ? t("cot.revisionDemandeeLe", { date: date(d.revisionDemandeeLe) })
+                      : ""}
+                  </span>
+                  <span className="cot-reprise-sep">·</span>
+                  <span>{t("cot.cotationN", { reference: d.reference })}</span>
+                  <span className="cot-reprise-sep">·</span>
+                  <span>
+                    {d.nbRevisions === 1
+                      ? t("cot.repriseUneFois")
+                      : t("cot.reprisesFois", { n: nombre(d.nbRevisions) })}
+                  </span>
+                </div>
+                <div className="cot-reprise-pied">
+                  <span className="cot-reprise-avatar">{d.commercialNom.slice(0, 1)}</span>
+                  <div className="cot-reprise-colonne">
+                    <span className="cot-reprise-nom">{d.commercialNom}</span>
+                    <span className="cot-reprise-detail">{d.clientNom}</span>
+                  </div>
+                  <div className="cot-reprise-colonne">
+                    <span className="cot-reprise-detail">{t("cot.colObjet")}</span>
+                    <span className="cot-reprise-nom">{d.objet}</span>
+                  </div>
+                  <div className="cot-reprise-colonne">
+                    <span className="cot-reprise-detail">{t("cot.chefDeProjet")}</span>
+                    <span className="cot-reprise-nom">{d.traiteParNom ?? "—"}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p className="cot-pied-page">
+        <IconFile size={14} />
+        {t("cot.majAuto")}
+      </p>
     </>
   );
 }

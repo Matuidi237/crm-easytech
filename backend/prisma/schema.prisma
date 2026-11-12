@@ -1263,6 +1263,19 @@ model DemandeCotation {
   /// réserves, validité du prix.
   reponse String?
 
+  /// Révision demandée par le commercial sur une cotation déjà rendue.
+  ///
+  /// Sans cette issue, un commercial qui reçoit un chiffrage erroné n'a que
+  /// deux choix : l'accepter ou laisser pourrir la demande. Le motif est
+  /// obligatoire, et c'est lui qui dit au chef de projet ce qu'il doit
+  /// reprendre.
+  ///
+  /// « traiteeLe » n'est pas effacée : la cotation A été rendue une fois, et
+  /// l'effacer retirerait du calcul de tenue des délais un dossier qui compte.
+  revisionDemandeeLe DateTime?
+  motifRevision      String?
+  nbRevisions        Int       @default(0)
+
   pieces PieceCotation[]
 
   estDemo Boolean @default(false)

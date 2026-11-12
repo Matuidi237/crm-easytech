@@ -772,8 +772,16 @@ async function creer() {
   ];
 
   const cotations = [];
-  let rangCotation = 0;
   const anneeCotation = maintenant.getFullYear();
+  /* La numerotation reprend apres le plus grand rang deja pris, et non apres
+     le nombre de demandes : une vraie demande soumise avant de rejouer la
+     demonstration porte un rang eleve que le compteur depasserait. */
+  const derniereCotation = await prisma.demandeCotation.findFirst({
+    where: { reference: { startsWith: `COT-${anneeCotation}-` } },
+    orderBy: { reference: "desc" },
+    select: { reference: true },
+  });
+  let rangCotation = derniereCotation ? parseInt(derniereCotation.reference.slice(-4), 10) : 0;
 
   for (const vendeur of VENDEURS) {
     const vivier = portefeuilles.get(vendeur) ?? [];
@@ -782,15 +790,21 @@ async function creer() {
       const client = vivier.length > 0 ? piocher(vivier) : null;
       if (!client) continue;
 
-      /* Répartition volontairement déséquilibrée : une file réaliste a plus
-         de dossiers en attente que de dossiers finis, c'est précisément ce
-         dont les commerciaux se plaignaient. */
-      const tirage = alea();
-      const statut =
-        tirage < 0.3 ? "NON_TRAITEE"
-        : tirage < 0.55 ? "EN_COURS"
-        : tirage < 0.78 ? "TRAITEE"
-        : "CLOTUREE";
+      /* Répartition fixe et non tirée au sort. Déséquilibrée à dessein, une
+         file réaliste comptant plus de dossiers en attente que de dossiers
+         finis ; mais surtout certaine, un tirage ayant produit une
+         démonstration où aucun dossier n'était en traitement. */
+      const CYCLE_STATUTS = [
+        "NON_TRAITEE",
+        "EN_COURS",
+        "NON_TRAITEE",
+        "TRAITEE",
+        "EN_COURS",
+        "CLOTUREE",
+        "NON_TRAITEE",
+        "EN_COURS",
+      ];
+      const statut = CYCLE_STATUTS[rangCotation % CYCLE_STATUTS.length];
 
       const soumiseIlYa = 1 + Math.floor(alea() * 20);
       const creeLe = new Date(maintenant);
@@ -823,6 +837,14 @@ async function creer() {
       const recue = new Date(rendue);
       recue.setHours(recue.getHours() + 2 + Math.floor(alea() * 40));
 
+      /* Un dossier en traitement sur trois y est revenu : le commercial a
+         renvoye la cotation. Sans eux, la section « renvoyees pour
+         correction » resterait vide a la demonstration, alors que c est
+         justement la qu on voit ce que les reprises coutent. */
+      const reprise = statut === "EN_COURS" && rangCotation % 3 === 1;
+      const revisionLe = new Date(priseEnCharge);
+      revisionLe.setHours(revisionLe.getHours() + 6 + Math.floor(alea() * 40));
+
       rangCotation += 1;
       cotations.push({
         reference: `COT-${anneeCotation}-${String(rangCotation).padStart(4, "0")}`,
@@ -838,9 +860,24 @@ async function creer() {
         traiteParId: ouverte ? null : ids[chef],
         traiteParNom: ouverte ? null : chefNom,
         priseEnChargeLe: ouverte ? null : priseEnCharge,
-        traiteeLe: statut === "TRAITEE" || statut === "CLOTUREE" ? rendue : null,
         recueLe: statut === "CLOTUREE" ? recue : null,
-        reponse: statut === "TRAITEE" || statut === "CLOTUREE" ? piocher(MOTS_DU_PM) : null,
+        reponse:
+          statut === "TRAITEE" || statut === "CLOTUREE" || reprise ? piocher(MOTS_DU_PM) : null,
+        /* « traiteeLe » reste renseignee sur un dossier repris : la cotation A
+           ete transmise une fois, et l effacer retirerait du calcul de tenue
+           des delais un dossier qui compte. */
+        traiteeLe:
+          statut === "TRAITEE" || statut === "CLOTUREE" ? rendue : reprise ? revisionLe : null,
+        revisionDemandeeLe: reprise ? revisionLe : null,
+        motifRevision: reprise
+          ? piocher([
+              "Les quantites ne correspondent pas au besoin exprime par le client.",
+              "La reference du modele est absente, le client ne peut pas comparer.",
+              "Prix hors marche sur la ligne des licences, a revoir avec le fournisseur.",
+              "Le transport et l installation ne sont pas chiffres.",
+            ])
+          : null,
+        nbRevisions: reprise ? 1 + Math.floor(alea() * 2) : 0,
         createdAt: creeLe,
         estDemo: true,
       });

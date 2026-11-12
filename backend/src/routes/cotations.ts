@@ -58,6 +58,9 @@ const SELECT_DEMANDE = {
   traiteeLe: true,
   recueLe: true,
   reponse: true,
+  revisionDemandeeLe: true,
+  motifRevision: true,
+  nbRevisions: true,
   createdAt: true,
   updatedAt: true,
   pieces: { select: SELECT_PIECE, orderBy: { createdAt: "asc" } },
@@ -144,6 +147,7 @@ cotationsRouter.get("/", async (req, res) => {
       createdAt: true,
       priseEnChargeLe: true,
       traiteeLe: true,
+      nbRevisions: true,
     },
   });
 
@@ -167,6 +171,10 @@ cotationsRouter.get("/", async (req, res) => {
       traitees: pourMesure.filter((d) => d.statut === "TRAITEE").length,
       cloturees: pourMesure.filter((d) => d.statut === "CLOTUREE").length,
       enRetard: enCircuit.filter((d) => estEnRetard(d.statut, d.echeanceLe)).length,
+      /* Les dossiers repartis pour correction. Un chiffrage refait est du
+         travail payé deux fois : c'est l'indicateur qui dit si le besoin est
+         mal exprimé au départ ou mal lu à l'arrivée. */
+      enRevision: enCircuit.filter((d) => d.nbRevisions > 0).length,
       /* Null et non zéro quand rien n'est mesurable : un délai moyen de zéro
          heure se lirait comme une performance parfaite alors qu'il signifie
          seulement qu'aucune demande n'a encore été traitée. */
@@ -240,16 +248,20 @@ cotationsRouter.get("/:id", async (req, res) => {
 /**
  * Référence lisible de la demande.
  *
- * Numérotée dans la transaction qui crée la demande : deux soumissions
- * simultanées tomberaient sinon sur le même rang. La contrainte d'unicité en
- * base reste le dernier mot, et l'appelant retente.
+ * Numérotée à partir du plus grand rang déjà pris, et non du nombre de
+ * demandes : une demande retirée ferait retomber le compteur sur une
+ * référence déjà utilisée, et la création échouerait sur la contrainte
+ * d'unicité. Celle-ci reste le dernier mot, et l'appelant retente.
  */
 async function prochaineReference(tx: Prisma.TransactionClient): Promise<string> {
   const annee = new Date().getFullYear();
-  const dejaCetteAnnee = await tx.demandeCotation.count({
+  const derniere = await tx.demandeCotation.findFirst({
     where: { reference: { startsWith: `COT-${annee}-` } },
+    orderBy: { reference: "desc" },
+    select: { reference: true },
   });
-  return referenceCotation(annee, dejaCetteAnnee + 1);
+  const rang = derniere ? parseInt(derniere.reference.slice(-4), 10) : 0;
+  return referenceCotation(annee, (Number.isNaN(rang) ? 0 : rang) + 1);
 }
 
 cotationsRouter.post("/", upload.single("piece"), async (req, res) => {
@@ -459,6 +471,45 @@ cotationsRouter.post("/:id/reception", async (req, res) => {
   const maj = await prisma.demandeCotation.update({
     where: { id: demande.id },
     data: { statut: "CLOTUREE", recueLe: new Date() },
+    select: SELECT_DEMANDE,
+  });
+  res.json(enrichir(maj));
+});
+
+/**
+ * Le commercial renvoie la cotation pour révision.
+ *
+ * Sans cette issue, celui qui reçoit un chiffrage erroné n'a le choix qu'entre
+ * l'accepter et laisser pourrir la demande, ce qui est exactement le genre de
+ * silence que ce module doit faire cesser. Le dossier retourne au chef de
+ * projet avec le motif, et le compteur de retard reprend.
+ */
+cotationsRouter.post("/:id/revision", async (req, res) => {
+  const moi = req.utilisateur!;
+  const demande = await prisma.demandeCotation.findFirst({
+    where: { id: req.params.id, commercialId: moi.id },
+    select: { id: true, statut: true, nbRevisions: true },
+  });
+  if (!demande) return res.status(404).json({ error: "Demande de cotation introuvable." });
+  if (demande.statut !== "TRAITEE") {
+    return res.status(409).json({ error: "Aucune cotation n'est en attente de votre accord." });
+  }
+
+  const motif = (req.body?.motif as string | undefined)?.trim();
+  /* Un renvoi sans motif renvoie le chef de projet à la case départ sans lui
+     dire ce qu'il doit reprendre, et lui fait refaire le même travail. */
+  if (!motif) {
+    return res.status(400).json({ error: "Indiquez ce qui doit être revu dans cette cotation." });
+  }
+
+  const maj = await prisma.demandeCotation.update({
+    where: { id: demande.id },
+    data: {
+      statut: "EN_COURS",
+      revisionDemandeeLe: new Date(),
+      motifRevision: motif,
+      nbRevisions: demande.nbRevisions + 1,
+    },
     select: SELECT_DEMANDE,
   });
   res.json(enrichir(maj));

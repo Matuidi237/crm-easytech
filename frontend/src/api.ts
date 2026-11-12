@@ -1336,6 +1336,10 @@ export type DemandeCotation = {
   traiteeLe: string | null;
   recueLe: string | null;
   reponse: string | null;
+  /** Renseignés quand le commercial a renvoyé la cotation pour correction. */
+  revisionDemandeeLe: string | null;
+  motifRevision: string | null;
+  nbRevisions: number;
   createdAt: string;
   updatedAt: string;
   pieces: PieceCotation[];
@@ -1357,6 +1361,7 @@ export type FileCotations = {
     traitees: number;
     cloturees: number;
     enRetard: number;
+    enRevision: number;
     /** Null, et non zéro, quand rien n'est encore mesurable. */
     heuresMoyennesPriseEnCharge: number | null;
     heuresMoyennesTraitement: number | null;
@@ -1422,6 +1427,17 @@ export async function repondreCotation(id: string, reponse: string, piece: File 
 export async function receptionnerCotation(id: string) {
   const res = await authedFetch(`/api/cotations/${id}/reception`, { method: "POST" });
   if (!res.ok) throw new Error((await res.json()).error ?? "La réception n'a pas pu être enregistrée.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+/** Renvoie une cotation rendue au chef de projet. Le motif est exigé. */
+export async function demanderRevisionCotation(id: string, motif: string) {
+  const res = await authedFetch(`/api/cotations/${id}/revision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ motif }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La demande de révision a échoué.");
   return res.json() as Promise<DemandeCotation>;
 }
 

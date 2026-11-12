@@ -75,6 +75,17 @@ sans enjeu avant un appel d'offres qui ferme vendredi. Le retard n'est compté
 que tant que la cotation n'est pas rendue : le délai de réception appartient au
 commercial, pas au chef de projet.
 
+**Une cotation rendue peut être renvoyée pour correction**, avec un motif
+obligatoire. Sans cette issue, le commercial qui reçoit un chiffrage erroné n'a
+le choix qu'entre l'accepter et laisser pourrir la demande. Le dossier retourne
+au chef de projet et le compteur de retard reprend, mais `traiteeLe` n'est pas
+effacée : la cotation A été transmise une fois, et l'effacer retirerait du
+calcul de tenue des délais un dossier qui compte.
+
+**Les références de cotation se numérotent sur le plus grand rang pris**, jamais
+sur le nombre de lignes : une demande retirée ferait retomber le compteur sur
+une référence déjà utilisée.
+
 **Les pièces jointes des cotations sont stockées en base**, pas sur disque. Un
 volume persistant oublié au déploiement perdrait les fichiers sans rien dire, et
 la sauvegarde de la base les emporte avec elle. Liste fermée de types acceptés,
