@@ -35,6 +35,11 @@ export const PERMISSIONS = [
   // Capacité à part de « stats.globales » : traiter la file est un travail, la
   // regarder est une surveillance, et les deux ne vont pas aux mêmes comptes.
   "cotations.traiter",
+  // Changer le responsable d'une demande. Séparée de « traiter » : tout chef
+  // de projet chiffre, mais arbitrer qui fait quoi est une décision
+  // d'encadrement, et se réattribuer soi-même les dossiers faciles n'en est
+  // pas une.
+  "cotations.affecter",
   // Voir la file de TOUT LE MONDE sans y répondre. Pour la direction, qui a
   // besoin de savoir où ça bloque sans avoir à chiffrer quoi que ce soit.
   "cotations.superviser",
@@ -60,6 +65,7 @@ export const CATALOGUE_PERMISSIONS: { cle: Permission; groupe: string; libelle: 
   { cle: "newsletters.envoyer", groupe: "Campagnes", libelle: "Envoyer une campagne", detail: "Déclenche l'envoi réel aux destinataires." },
   { cle: "stats.globales", groupe: "Pilotage", libelle: "Voir les statistiques", detail: "Chiffres du tableau de bord, limités au périmètre du compte." },
   { cle: "cotations.traiter", groupe: "Cotations", libelle: "Traiter les demandes", detail: "Prendre en charge une demande de cotation et y répondre. Donne accès à la file complète." },
+  { cle: "cotations.affecter", groupe: "Cotations", libelle: "Réaffecter une demande", detail: "Changer le chef de projet responsable d'une demande, avec motif obligatoire." },
   { cle: "cotations.superviser", groupe: "Cotations", libelle: "Superviser la file", detail: "Voir toutes les demandes et leurs délais, sans pouvoir y répondre." },
   { cle: "utilisateurs.gerer", groupe: "Administration", libelle: "Gérer les comptes", detail: "Créer, modifier et désactiver des comptes de rang inférieur." },
   { cle: "utilisateurs.gererAdmins", groupe: "Administration", libelle: "Gérer les administrateurs", detail: "Toucher aux comptes d'administration." },

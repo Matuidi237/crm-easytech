@@ -73,6 +73,36 @@ export function heuresEntre(debut: Date, fin: Date): number {
   return Math.round(((fin.getTime() - debut.getTime()) / 3_600_000) * 10) / 10;
 }
 
+/**
+ * Degré d'urgence d'une demande, déduit de son échéance.
+ *
+ * Déduit et jamais saisi. Un champ de priorité libre finit toujours par
+ * refléter l'humeur du demandeur plutôt que l'enjeu réel : tout le monde coche
+ * « haute » et la colonne cesse de trier quoi que ce soit. L'échéance, elle,
+ * engage celui qui l'annonce et se vérifie toute seule au fil des jours.
+ */
+export type UrgenceCotation = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
+
+/**
+ * Renvoie null quand la demande n'attend plus le chef de projet.
+ *
+ * Une cotation déjà transmise n'a plus de degré d'urgence : le travail est
+ * fait, et lui en afficher un ferait croire qu'il reste quelque chose à
+ * chiffrer. La colonne montre alors un tiret.
+ */
+export function urgenceDe(
+  statut: StatutCotation,
+  echeance: Date,
+  maintenant = new Date()
+): UrgenceCotation | null {
+  if (!attendLePM(statut)) return null;
+  const restants = joursRestants(echeance, maintenant);
+  if (restants < 0) return "CRITIQUE";
+  if (restants <= 1) return "HAUTE";
+  if (restants <= 5) return "MOYENNE";
+  return "BASSE";
+}
+
 /** Au-delà de ce nombre de jours sans échéance explicite, on refuse la saisie. */
 export const ECHEANCE_MAX_JOURS = 180;
 

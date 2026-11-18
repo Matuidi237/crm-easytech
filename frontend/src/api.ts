@@ -37,7 +37,7 @@ export type Permission =
   /* Traiter la file des cotations, ou seulement la regarder. Deux capacités
      distinctes : chiffrer est un travail, surveiller la file en est un autre,
      et les deux ne vont pas aux mêmes comptes. */
-  | "cotations.traiter" | "cotations.superviser"
+  | "cotations.traiter" | "cotations.affecter" | "cotations.superviser"
   | "utilisateurs.gerer" | "utilisateurs.gererAdmins" | "permissions.gerer";
 
 export type SessionUtilisateur = {
@@ -1309,6 +1309,23 @@ export async function supprimerOpportunite(id: string) {
 export const STATUTS_COTATION = ["NON_TRAITEE", "EN_COURS", "TRAITEE", "CLOTUREE"] as const;
 export type StatutCotation = (typeof STATUTS_COTATION)[number];
 
+/** Déduite de l'échéance par le serveur, jamais saisie. */
+export type UrgenceCotation = "CRITIQUE" | "HAUTE" | "MOYENNE" | "BASSE";
+
+/** Un compte en mesure de traiter une cotation. */
+export type Traitant = { id: string; nomComplet: string };
+
+/** Une ligne de l'historique d'affectation. */
+export type AffectationCotation = {
+  id: string;
+  ancienResponsableNom: string | null;
+  nouveauResponsableNom: string;
+  motif: string | null;
+  parNom: string | null;
+  automatique: boolean;
+  createdAt: string;
+};
+
 export type PieceCotation = {
   id: string;
   origine: "BESOIN" | "COTATION";
@@ -1340,6 +1357,11 @@ export type DemandeCotation = {
   revisionDemandeeLe: string | null;
   motifRevision: string | null;
   nbRevisions: number;
+  /** Le chef de projet responsable, désigné dès la soumission. */
+  responsableId: string | null;
+  responsableNom: string | null;
+  affecteeLe: string | null;
+  affectations: AffectationCotation[];
   createdAt: string;
   updatedAt: string;
   pieces: PieceCotation[];
@@ -1347,13 +1369,21 @@ export type DemandeCotation = {
   enRetard: boolean;
   joursRestants: number;
   enCircuit: boolean;
+  /** Null quand la demande n'attend plus le chef de projet. */
+  urgence: UrgenceCotation | null;
+  /** Affectée, mais personne n'a encore commencé. */
+  enAttenteDePriseEnCharge: boolean;
   heuresAvantPriseEnCharge: number | null;
   heuresDeTraitement: number | null;
 };
 
 export type FileCotations = {
   demandes: DemandeCotation[];
-  droits: { traiter: boolean; superviser: boolean; fileGlobale: boolean };
+  droits: { traiter: boolean; affecter: boolean; superviser: boolean; fileGlobale: boolean };
+  /** Vide pour qui ne voit pas la file entière : un commercial n'a pas à
+      recevoir l'organigramme des chefs de projet. */
+  traitants: Traitant[];
+  moiId: string;
   totaux: {
     /** Toutes les demandes du périmètre, closes comprises. */
     soumises: number;
@@ -1363,7 +1393,14 @@ export type FileCotations = {
     traitees: number;
     cloturees: number;
     enRetard: number;
+    /** Le retard ventilé selon l'étape où il se produit. */
+    enRetardAttente: number;
+    enRetardEnCours: number;
     enRevision: number;
+    /** Ce que le compte connecté doit personnellement, en tant que responsable. */
+    mesDemandes: number;
+    aPrendreEnCharge: number;
+    nonAffectees: number;
     /** Null, et non zéro, quand rien n'est encore mesurable. */
     heuresMoyennesPriseEnCharge: number | null;
     heuresMoyennesTraitement: number | null;
@@ -1373,19 +1410,23 @@ export type FileCotations = {
   };
 };
 
-export async function fetchCotations(historique = false) {
-  const res = await authedFetch(`/api/cotations${historique ? "?historique=1" : ""}`);
+/**
+ * La file.
+ *
+ * « responsable » vaut un identifiant, « moi » pour ses propres dossiers, ou
+ * « aucun » pour ceux que la répartition n'a pu attribuer.
+ */
+export async function fetchCotations(historique = false, responsable = "") {
+  const parametres = new URLSearchParams();
+  if (historique) parametres.set("historique", "1");
+  if (responsable) parametres.set("responsable", responsable);
+  const suffixe = parametres.toString();
+  const res = await authedFetch(`/api/cotations${suffixe ? `?${suffixe}` : ""}`);
   if (!res.ok) throw new Error("Erreur lors du chargement des cotations.");
   return res.json() as Promise<FileCotations>;
 }
 
-/**
- * Ouvre une demande.
- *
- * Cet appel a un effet pour un chef de projet : une demande encore non traitée
- * passe « en cours » à sa première consultation. C'est voulu, un bouton
- * « j'ai vu » ne serait jamais cliqué.
- */
+/** Ouvre une demande. Lecture pure : consulter n'est pas prendre en charge. */
 export async function fetchCotation(id: string) {
   const res = await authedFetch(`/api/cotations/${id}`);
   if (!res.ok) throw new Error((await res.json()).error ?? "Demande introuvable.");
@@ -1429,6 +1470,24 @@ export async function repondreCotation(id: string, reponse: string, piece: File 
 export async function receptionnerCotation(id: string) {
   const res = await authedFetch(`/api/cotations/${id}/reception`, { method: "POST" });
   if (!res.ok) throw new Error((await res.json()).error ?? "La réception n'a pas pu être enregistrée.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+/** Le responsable déclare commencer le chiffrage. */
+export async function prendreEnChargeCotation(id: string) {
+  const res = await authedFetch(`/api/cotations/${id}/prise-en-charge`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La prise en charge a échoué.");
+  return res.json() as Promise<DemandeCotation>;
+}
+
+/** Change le responsable d'une demande. Le motif est exigé. */
+export async function reaffecterCotation(id: string, responsableId: string, motif: string) {
+  const res = await authedFetch(`/api/cotations/${id}/reaffectation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ responsableId, motif }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "La réaffectation a échoué.");
   return res.json() as Promise<DemandeCotation>;
 }
 

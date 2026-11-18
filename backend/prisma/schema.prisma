@@ -148,6 +148,14 @@ model Utilisateur {
   cotationsDemandees DemandeCotation[] @relation("CotationsDemandees")
   cotationsTraitees  DemandeCotation[] @relation("CotationsTraitees")
 
+  /// Les demandes dont ce compte est responsable.
+  ///
+  /// Distincte de « cotationsTraitees » : l'affectation désigne qui DOIT
+  /// traiter, la prise en charge constate qui A commencé. Confondre les deux
+  /// rendrait impossible de voir ce qui est attribué mais pas encore entamé,
+  /// qui est précisément ce dont on veut surveiller l'accumulation.
+  cotationsAffectees DemandeCotation[] @relation("CotationsAffectees")
+
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
   ventes          Vente[]       @relation("Vendeur")
@@ -1276,6 +1284,20 @@ model DemandeCotation {
   motifRevision      String?
   nbRevisions        Int       @default(0)
 
+  /// Le chef de projet RESPONSABLE du dossier, désigné dès la soumission.
+  ///
+  /// À ne pas confondre avec « traitePar », qui constate qui a effectivement
+  /// commencé le chiffrage. Une demande est affectée bien avant d'être prise
+  /// en charge, et c'est entre ces deux moments que se loge l'attente qu'on
+  /// veut mesurer. Nullable parce qu'aucun compte ne porte la capacité de
+  /// traiter dans une instance toute neuve.
+  responsable    Utilisateur? @relation("CotationsAffectees", fields: [responsableId], references: [id], onDelete: SetNull)
+  responsableId  String?
+  responsableNom String?
+  affecteeLe     DateTime?
+
+  affectations AffectationCotation[]
+
   pieces PieceCotation[]
 
   estDemo Boolean @default(false)
@@ -1311,4 +1333,36 @@ model PieceCotation {
   createdAt    DateTime @default(now())
 
   @@index([demandeId])
+}
+
+/// Une ligne de l'historique d'affectation d'une demande de cotation.
+///
+/// Table à part et non quelques colonnes de plus sur la demande : une
+/// réaffectation ne remplace pas la précédente, elle s'y ajoute. Écraser
+/// l'ancien responsable effacerait la trace de ce qu'il a fait, ce qui est
+/// exactement ce que le cahier des charges interdit.
+model AffectationCotation {
+  id        String          @id @default(uuid())
+  demande   DemandeCotation @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  demandeId String
+
+  /// Nul sur la première affectation : la demande ne venait de personne.
+  ancienResponsableId  String?
+  ancienResponsableNom String?
+
+  nouveauResponsableId  String?
+  nouveauResponsableNom String
+
+  /// Exigé sur une réaffectation. Une demande qui change de main sans raison
+  /// écrite laisse les deux responsables se renvoyer la faute six mois après.
+  motif String?
+
+  /// Qui a décidé. Vrai quand c'est la répartition automatique, auquel cas
+  /// personne n'a tranché et il ne faut pas laisser croire le contraire.
+  parNom      String?
+  automatique Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([demandeId, createdAt])
 }

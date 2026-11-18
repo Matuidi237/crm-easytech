@@ -27,6 +27,47 @@ const PREFIXE = "demo-";
    à Douala, et les créneaux du lundi se rangeraient au dimanche. */
 const jourCalendaire = (d) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
+/**
+ * Un PDF d'une page, lisible, fabrique a la main.
+ *
+ * Les pieces jointes de demonstration ne peuvent pas rester vides : une file
+ * ou chaque dossier affiche « Documents : aucun » ne montre pas le circuit
+ * qu'on veut montrer, et le telechargement ne se verifie pas. Une dependance
+ * de generation de PDF pour quelques centaines d'octets serait disproportionnee,
+ * d'ou cet assemblage direct, avec sa table de references calculee.
+ *
+ * Encode en latin1 : c'est le jeu attendu par la police Helvetica standard du
+ * PDF, et les accents francais y tiennent.
+ */
+function pdfDemo(lignes) {
+  const echappe = (t) => String(t).replace(/[\\()]/g, "\\$&");
+  const texte = lignes
+    .map((l, i) => `BT /F1 ${i === 0 ? 15 : 10.5} Tf 60 ${770 - i * 26} Td (${echappe(l)}) Tj ET`)
+    .join("\n");
+
+  const objets = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${Buffer.byteLength(texte, "latin1")} >>\nstream\n${texte}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+  ];
+
+  let corps = "%PDF-1.4\n";
+  const decalages = [];
+  objets.forEach((o, i) => {
+    decalages.push(Buffer.byteLength(corps, "latin1"));
+    corps += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+
+  const debutXref = Buffer.byteLength(corps, "latin1");
+  corps += `xref\n0 ${objets.length + 1}\n0000000000 65535 f \n`;
+  for (const d of decalages) corps += `${String(d).padStart(10, "0")} 00000 n \n`;
+  corps += `trailer\n<< /Size ${objets.length + 1} /Root 1 0 R >>\nstartxref\n${debutXref}\n%%EOF\n`;
+
+  return Buffer.from(corps, "latin1");
+}
+
 /* Aucun compte ne porte de taux négocié : la règle d'EasyTech est le barème
    par nature, 3 % sur le matériel et 5 % sur le service (voir
    src/lib/commissions.ts). Un taux personnel remplacerait ce barème et le
@@ -749,9 +790,10 @@ async function creer() {
      retard : sans elles, le signal d'alerte de la page ne se verrait jamais
      à la démonstration.
 
-     Aucune pièce jointe n'est créée ici. Fabriquer de faux PDF ne montrerait
-     rien de plus que le circuit lui-même, et gonflerait la base de
-     démonstration pour rien. */
+     Les pièces jointes sont de vrais PDF d'une page, fabriqués par
+     « pdfDemo ». Une file où chaque dossier affiche « Documents : aucun » ne
+     montre pas le circuit qu'on veut montrer, et le téléchargement ne se
+     vérifie pas. Ils pèsent moins d'un kilo-octet pièce. */
   const MODELES_COTATIONS = [
     "Fourniture de 12 postes de travail et de leurs licences",
     "Mise en place d'un pare-feu et de la supervision",
@@ -763,12 +805,39 @@ async function creer() {
     "Contrat de maintenance imprimantes",
     "Migration de la téléphonie vers la voix sur IP",
     "Fourniture d'onduleurs et de leurs batteries",
+    "Climatisation de la salle serveurs",
+    "Licences antivirus pour 150 postes",
+    "Contrôle d'accès par badge sur trois sites",
+    "Fourniture de 8 imprimantes multifonctions",
+    "Audit de sécurité du système d'information",
+    "Déploiement d'un ERP de gestion commerciale",
+    "Liaison fibre dédiée entre le siège et l'entrepôt",
+    "Fourniture de 40 tablettes pour les équipes terrain",
+    "Sauvegarde et plan de reprise d'activité",
+    "Refonte du site institutionnel",
+    "Parc de 25 téléphones de bureau",
+    "Maintenance préventive des groupes électrogènes",
+    "Équipement audiovisuel de deux salles de réunion",
+    "Portail intranet et messagerie collaborative",
+  ];
+  const DESCRIPTIONS_COTATIONS = [
+    "Le client attend une réponse chiffrée avant son conseil d'administration.",
+    "Trois concurrents sont consultés, le prix fera la différence.",
+    "Installation à prévoir hors heures ouvrées, site occupé en journée.",
+    "Le client impose la marque, la variante n'est pas négociable.",
+    "Besoin exprimé oralement, le cahier des charges suivra.",
+    "Reconduction d'un marché existant, les volumes sont connus.",
+    "Livraison attendue en deux phases, siège puis agences.",
   ];
   const MOTS_DU_PM = [
     "Prix valables 30 jours. Délai fournisseur de 4 semaines à confirmer à la commande.",
     "Chiffré sur la base du catalogue en cours. La pose n'est pas comprise.",
     "Deux variantes proposées, l'écart tient au niveau de garantie retenu.",
     "Sous réserve d'une visite sur site avant engagement.",
+    "Remise de 8 % obtenue auprès du distributeur sur l'ensemble des lignes.",
+    "Le transport est inclus, l'installation fait l'objet d'une ligne à part.",
+    "Garantie constructeur de trois ans, extension possible sur demande.",
+    "Références en rupture chez le fournisseur principal, équivalent proposé.",
   ];
 
   const cotations = [];
@@ -785,7 +854,7 @@ async function creer() {
 
   for (const vendeur of VENDEURS) {
     const vivier = portefeuilles.get(vendeur) ?? [];
-    const combien = 2 + Math.floor(alea() * 3);
+    const combien = 6 + Math.floor(alea() * 5);
     for (let i = 0; i < combien; i++) {
       const client = vivier.length > 0 ? piocher(vivier) : null;
       if (!client) continue;
@@ -806,7 +875,13 @@ async function creer() {
       ];
       const statut = CYCLE_STATUTS[rangCotation % CYCLE_STATUTS.length];
 
-      const soumiseIlYa = 1 + Math.floor(alea() * 20);
+      /* Étalées sur dix semaines pour les dossiers finis, sur quinze jours
+         pour ceux encore en circuit. Les étaler tous également donnerait une
+         file dont presque tout est en retard, ce qui est spectaculaire mais
+         faux : une file réelle a une poignée de dossiers en souffrance au
+         milieu de dossiers récents. */
+      const close = statut === "TRAITEE" || statut === "CLOTUREE";
+      const soumiseIlYa = close ? 10 + Math.floor(alea() * 60) : 1 + Math.floor(alea() * 16);
       const creeLe = new Date(maintenant);
       creeLe.setDate(creeLe.getDate() - soumiseIlYa);
 
@@ -814,7 +889,7 @@ async function creer() {
          semaines après. Certaines sont donc déjà dépassées aujourd'hui, et
          c'est ce qui fait apparaître des retards. */
       const echeance = new Date(creeLe);
-      echeance.setDate(echeance.getDate() + 2 + Math.floor(alea() * 19));
+      echeance.setDate(echeance.getDate() + 3 + Math.floor(alea() * 18));
 
       const chef = CHEFS[rangCotation % CHEFS.length];
       const chefNom = COMPTES.find((c) => c.identifiant === chef).nomComplet;
@@ -849,14 +924,20 @@ async function creer() {
       cotations.push({
         reference: `COT-${anneeCotation}-${String(rangCotation).padStart(4, "0")}`,
         objet: MODELES_COTATIONS[(VENDEURS.indexOf(vendeur) * 2 + i) % MODELES_COTATIONS.length],
-        description:
-          alea() < 0.5 ? "Le client attend une réponse chiffrée avant son conseil d'administration." : null,
+        description: alea() < 0.72 ? piocher(DESCRIPTIONS_COTATIONS) : null,
         clientId: client.id,
         clientNom: client.nom,
         commercialId: ids[vendeur],
         commercialNom: COMPTES.find((c) => c.identifiant === vendeur).nomComplet,
         statut,
         echeanceLe: jourCalendaire(echeance),
+        /* Le responsable est designe des la soumission, meme sur un dossier
+           que personne n a encore ouvert : c est tout l interet de separer
+           l affectation de la prise en charge, et une demonstration ou tout
+           dossier affecte serait deja entame ne le montrerait pas. */
+        responsableId: ids[chef],
+        responsableNom: chefNom,
+        affecteeLe: creeLe,
         traiteParId: ouverte ? null : ids[chef],
         traiteParNom: ouverte ? null : chefNom,
         priseEnChargeLe: ouverte ? null : priseEnCharge,
@@ -884,6 +965,135 @@ async function creer() {
     }
   }
   await prisma.demandeCotation.createMany({ data: cotations });
+
+  /* Les pieces se creent apres coup : « createMany » ne sait pas creer de
+     relations imbriquees, et il faut donc les identifiants des demandes. */
+  const idsCotations = new Map(
+    (
+      await prisma.demandeCotation.findMany({
+        where: { estDemo: true },
+        select: { id: true, reference: true },
+      })
+    ).map((d) => [d.reference, d.id])
+  );
+
+  /* L historique d affectation. Chaque dossier a au moins sa ligne d origine,
+     et un sur sept a change de main : sans eux, la fiche detaillee ne
+     montrerait jamais a quoi ressemble une reaffectation. */
+  const affectationsCotations = [];
+  const piecesCotations = [];
+  cotations.forEach((c, rang) => {
+    const id = idsCotations.get(c.reference);
+    if (!id) return;
+
+    const repasse = rang % 7 === 3 && CHEFS.length > 1;
+    if (repasse) {
+      const precedent = CHEFS[(rang + 1) % CHEFS.length];
+      const precedentNom = COMPTES.find((x) => x.identifiant === precedent).nomComplet;
+      const bascule = new Date(c.createdAt);
+      bascule.setHours(bascule.getHours() + 20);
+      affectationsCotations.push({
+        demandeId: id,
+        nouveauResponsableId: ids[precedent],
+        nouveauResponsableNom: precedentNom,
+        automatique: true,
+        createdAt: c.createdAt,
+      });
+      affectationsCotations.push({
+        demandeId: id,
+        ancienResponsableId: ids[precedent],
+        ancienResponsableNom: precedentNom,
+        nouveauResponsableId: c.responsableId,
+        nouveauResponsableNom: c.responsableNom,
+        motif: piocher([
+          "Surcharge du responsable initial sur la semaine.",
+          "Competence reseau requise sur ce chiffrage.",
+          "Absence du responsable initial jusqu a la fin du mois.",
+          "Dossier rattache au portefeuille de ce chef de projet.",
+        ]),
+        parNom: "Direction generale",
+        createdAt: bascule,
+      });
+    } else {
+      affectationsCotations.push({
+        demandeId: id,
+        nouveauResponsableId: c.responsableId,
+        nouveauResponsableNom: c.responsableNom,
+        automatique: true,
+        createdAt: c.createdAt,
+      });
+    }
+
+    /* Une demande sur six part sans cahier des charges : cela arrive, et la
+       fiche doit pouvoir afficher « Aucun » sans que ce soit un bug. */
+    if (rang % 6 !== 4) {
+      piecesCotations.push({
+        demandeId: id,
+        origine: "BESOIN",
+        nomFichier: `Besoin ${c.reference} - ${c.clientNom.slice(0, 28)}.pdf`,
+        typeMime: "application/pdf",
+        contenu: pdfDemo([
+          `Expression de besoin ${c.reference}`,
+          `Client : ${c.clientNom}`,
+          `Objet : ${c.objet}`,
+          `Demandeur : ${c.commercialNom}`,
+          "",
+          "Document de demonstration. Le cahier des charges reel du client",
+          "prend ici la place de ces quelques lignes.",
+        ]),
+        deposeParNom: c.commercialNom,
+        createdAt: c.createdAt,
+      });
+    }
+
+    // Une demande sur cinq porte une piece de plus, envoyee apres coup.
+    if (rang % 5 === 2) {
+      const complement = new Date(c.createdAt);
+      complement.setHours(complement.getHours() + 5);
+      piecesCotations.push({
+        demandeId: id,
+        origine: "BESOIN",
+        nomFichier: `Plan des locaux - ${c.clientNom.slice(0, 24)}.pdf`,
+        typeMime: "application/pdf",
+        contenu: pdfDemo([
+          "Plan des locaux",
+          `Client : ${c.clientNom}`,
+          "",
+          "Document de demonstration.",
+        ]),
+        deposeParNom: c.commercialNom,
+        createdAt: complement,
+      });
+    }
+
+    // La cotation elle-meme, des qu'elle a ete transmise une fois.
+    if (c.traiteeLe && c.traiteParNom) {
+      piecesCotations.push({
+        demandeId: id,
+        origine: "COTATION",
+        nomFichier: `Cotation ${c.reference}.pdf`,
+        typeMime: "application/pdf",
+        contenu: pdfDemo([
+          `Cotation ${c.reference}`,
+          `Client : ${c.clientNom}`,
+          `Objet : ${c.objet}`,
+          `Etablie par : ${c.traiteParNom}`,
+          "",
+          c.reponse ?? "",
+          "",
+          "Document de demonstration. Le chiffrage detaille prend ici la place",
+          "de ces quelques lignes.",
+        ]),
+        deposeParNom: c.traiteParNom,
+        createdAt: c.traiteeLe,
+      });
+    }
+  });
+
+  await prisma.affectationCotation.createMany({ data: affectationsCotations });
+  await prisma.pieceCotation.createMany({
+    data: piecesCotations.map((p) => ({ ...p, taille: p.contenu.length })),
+  });
 
   /* --- Objectifs ---------------------------------------------------------
      Le responsable fixe le mois, le trimestre et l'année de chacun. Les
@@ -1071,7 +1281,7 @@ async function creer() {
     `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
     );
     console.log(
-      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline, ${cotations.length} demande(s) de cotation.`
+      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline, ${cotations.length} demande(s) de cotation et ${piecesCotations.length} piece(s) jointe(s).`
   );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`

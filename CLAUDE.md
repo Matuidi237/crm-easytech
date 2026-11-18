@@ -61,13 +61,30 @@ l'assiette chiffrée, seule base honnête d'un taux de marge. Voir
 qu'une synchronisation automatique reconnaîtra un jour ce qui est déjà en base
 au lieu de le recréer et de doubler le chiffre d'affaires.
 
+**Affecter et prendre en charge sont deux opérations distinctes.** Toute
+demande reçoit un responsable dès la soumission, par répartition automatique au
+moins chargé (`backend/src/lib/affectation.ts`) ; la prise en charge est un
+bouton, et c'est entre les deux que se loge l'attente qu'on veut mesurer.
+Consulter une demande ne vaut pas prise de responsabilité. Les comptes de
+supervision (DG, administrateurs) sont écartés de la répartition : ils peuvent
+traiter une cotation, on ne leur en affecte jamais.
+
+**Un seul responsable à la fois, et seul lui transmet la cotation.** Sans cette
+règle, deux chefs de projet transmettent deux chiffrages du même dossier et le
+commercial reçoit deux prix. Une réaffectation exige un motif, conserve
+l'historique complet (`AffectationCotation`) et remet le dossier à prendre en
+charge : garder « en traitement » laisserait croire que quelqu'un y travaille.
+
 **Une demande de cotation ne sort du circuit que sur confirmation du
 commercial.** Le chef de projet qui rend sa cotation la fait passer « traitée »,
 pas « terminée » : tant que le demandeur n'a pas confirmé l'avoir reçue, elle
 reste comptée comme en attente. C'est précisément cet angle mort qui a motivé
-le module. Le passage en « en traitement » se déclenche à la première
-consultation par un chef de projet, et non par un bouton : un bouton « j'ai vu »
-ne serait jamais cliqué. Voir `backend/src/lib/cotations.ts`.
+le module. Voir `backend/src/lib/cotations.ts`.
+
+**L'urgence d'une cotation se déduit de son échéance, elle ne se saisit pas.**
+Critique au-delà de l'échéance, Haute à un jour ou moins, Moyenne jusqu'à cinq
+jours, Basse ensuite. Un champ de priorité libre finit coché « haute » par tout
+le monde et cesse de trier quoi que ce soit.
 
 **L'échéance d'une cotation est obligatoire et fixée par le commercial.** C'est
 elle qui ordonne la file. Trier par date de soumission ferait passer une demande
@@ -148,9 +165,16 @@ heures.
 - Module RH commencé au niveau du schéma seulement, sans écran. En attendant,
   la DRH ouvre l'application sur la file des cotations, seule chose qu'elle y
   suit.
-- Le circuit de cotation ne prévient personne : ni courriel au chef de projet à
-  la soumission, ni au commercial quand sa cotation est rendue. La page se
-  rafraîchit d'elle-même, ce qui suppose qu'elle reste ouverte.
+- **Aucun système de notification dans l'outil** : pas de modèle en base, pas
+  de cloche. Le circuit de cotation ne prévient donc personne, ni le chef de
+  projet d'une affectation, ni le commercial d'une cotation rendue. La page se
+  rafraîchit d'elle-même, ce qui suppose qu'elle reste ouverte, et la carte
+  « Mes demandes » tient lieu de signal. Un module de notification servirait
+  toute l'ERP et reste à arbitrer.
+- La capacité `cotations.affecter` n'est pas accordée au rôle Chef de projet
+  par défaut, seulement à la direction et aux administrateurs. Le cahier des
+  charges parle d'un « PM habilité » : une case à cocher dans l'écran des
+  permissions suffit à la donner.
 - La nouvelle page Ventes et l'écran « À chiffrer » compilent mais n'ont pas
   encore été ouverts dans un navigateur.
 - Registre de modules activables, utile à la fois pour la RH et pour la revente.
