@@ -1445,6 +1445,7 @@ export const en: Record<keyof typeof fr, string> = {
   "cot.statut.CLOTUREE": "Received",
   "cot.nouvelleDemande": "New request",
   "cot.titreFormulaire": "New quotation request",
+  "cot.titreFormulaireAide": "The project manager in charge is assigned automatically on submission.",
   "cot.objet": "Request subject",
   "cot.objetPlaceholder": "Supply and installation of 12 workstations",
   "cot.objetAide": "A short title, shown in the project manager's queue.",

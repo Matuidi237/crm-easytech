@@ -6503,7 +6503,12 @@ td.col-actions {
 
 /* Fiche client ---------------------------------------------------------- */
 
-.modal-client {
+/* Gabarit commun des fenetres a formulaire : fiche client, demande de
+   cotation, et celles qui viendront. Tete et pied fixes, corps defilant.
+   Nomme « forme » et non d apres un module : une seconde copie par ecran
+   finirait par diverger, et deux fenetres qui ne se ressemblent plus laissent
+   croire qu elles ne font pas la meme chose. */
+.modal-forme {
   width: 100%;
   max-width: 640px;
   max-height: calc(100vh - 48px);
@@ -6518,7 +6523,7 @@ td.col-actions {
 
 /* Tete et pied fixes, corps defilant : le bouton d enregistrement reste
    atteignable sans avoir a remonter toute la fiche. */
-.modal-client-tete {
+.modal-forme-tete {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -6527,23 +6532,23 @@ td.col-actions {
   border-bottom: 1px solid var(--border);
 }
 
-.modal-client-tete h3 {
+.modal-forme-tete h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 650;
   color: var(--ink);
 }
 
-.modal-client-tete .modal-sub {
+.modal-forme-tete .modal-sub {
   margin: 3px 0 0;
 }
 
-.modal-client-corps {
+.modal-forme-corps {
   padding: 18px 22px;
   overflow-y: auto;
 }
 
-.modal-client-pied {
+.modal-forme-pied {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
@@ -6591,9 +6596,9 @@ td.col-actions {
 }
 
 @media (max-width: 760px) {
-  .modal-client-tete,
-  .modal-client-corps,
-  .modal-client-pied {
+  .modal-forme-tete,
+  .modal-forme-corps,
+  .modal-forme-pied {
     padding-left: 16px;
     padding-right: 16px;
   }

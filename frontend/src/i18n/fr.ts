@@ -1447,6 +1447,7 @@ export const fr = {
   "cot.statut.CLOTUREE": "Réceptionnée",
   "cot.nouvelleDemande": "Nouvelle demande",
   "cot.titreFormulaire": "Nouvelle demande de cotation",
+  "cot.titreFormulaireAide": "Le chef de projet responsable est désigné automatiquement dès l’envoi.",
   "cot.objet": "Objet de la demande",
   "cot.objetPlaceholder": "Fourniture et installation de 12 postes de travail",
   "cot.objetAide": "Intitulé synthétique, repris dans la file du chef de projet.",

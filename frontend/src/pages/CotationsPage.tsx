@@ -163,6 +163,25 @@ export default function CotationsPage() {
       .catch((e) => setErreur((e as Error).message));
   }, [demandeVisee]);
 
+  /** Ferme la fenêtre de soumission et vide ce qui y avait été saisi. */
+  function fermerFormulaire() {
+    setOuvert(false);
+    setForm(VIDE);
+    if (champBesoin.current) champBesoin.current.value = "";
+  }
+
+  /* Échap ferme la fenêtre. C'est le réflexe de tout le monde devant une
+     fenêtre modale, et ne pas y répondre donne l'impression d'être coincé. */
+  useEffect(() => {
+    if (!ouvert) return;
+    function auClavier(e: KeyboardEvent) {
+      if (e.key === "Escape") fermerFormulaire();
+    }
+    window.addEventListener("keydown", auClavier);
+    return () => window.removeEventListener("keydown", auClavier);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ouvert]);
+
   /** Ferme la fiche, et retire de l'adresse le dossier qu'elle visait. */
   function fermerDetail() {
     setDetail(null);
@@ -677,118 +696,138 @@ export default function CotationsPage() {
         {ligneQualite}
       </p>
 
-      {/* La soumission au-dessus de la liste : la ligne créée apparaît juste en
-          dessous, là où on regarde déjà. */}
+      {/* La soumission dans une fenêtre. En panneau au fil de la page, elle
+          poussait la liste vers le bas et laissait croire qu'on pouvait
+          continuer à travailler à côté, alors qu'on est en train de rédiger
+          une demande. La fenêtre pose la question une bonne fois. */}
       {ouvert && (
-        <form className="panneau" onSubmit={soumettre}>
-          <header className="panneau-tete">
-            <h2>{t("cot.titreFormulaire")}</h2>
-          </header>
-
-          <div className="field">
-            <label htmlFor="cot-objet">{t("cot.objet")}</label>
-            <input
-              id="cot-objet"
-              value={form.objet}
-              onChange={(e) => setForm((f) => ({ ...f, objet: e.target.value }))}
-              placeholder={t("cot.objetPlaceholder")}
-              maxLength={150}
-              autoFocus
-              required
-            />
-            <div className="field-hint">{t("cot.objetAide")}</div>
-          </div>
-
-          <div className="form-grid">
-            <div className="field">
-              <label htmlFor="vente-client">{t("ve.client")}</label>
-              <ChampClient
-                valeur={form.clientNom}
-                onChange={(nom) => setForm((f) => ({ ...f, clientNom: nom, clientId: null }))}
-                onChoisir={(c: SuggestionClient) =>
-                  setForm((f) => ({ ...f, clientNom: c.nom, clientId: c.id }))
-                }
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="cot-echeance">{t("cot.echeance")}</label>
-              <input
-                id="cot-echeance"
-                type="date"
-                value={form.echeanceLe}
-                min={aujourdhui()}
-                onChange={(e) => setForm((f) => ({ ...f, echeanceLe: e.target.value }))}
-                required
-              />
-              <div className="field-hint">{t("cot.echeanceAide")}</div>
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="cot-description">{t("cot.description")}</label>
-            <textarea
-              id="cot-description"
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder={t("cot.descriptionPlaceholder")}
-            />
-            <div className="field-hint">{t("cot.descriptionAide")}</div>
-          </div>
-
-          <div className="field">
-            <span className="label-bloc">{t("cot.piece")}</span>
-            <div className="depot">
-              <input
-                ref={champBesoin}
-                type="file"
-                className="depot-champ"
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc"
-                onChange={(e) => setForm((f) => ({ ...f, piece: e.target.files?.[0] ?? null }))}
-              />
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => champBesoin.current?.click()}>
-                <IconPaperclip size={15} />
-                {form.piece ? t("cot.remplacerFichier") : t("cot.choisirFichier")}
+        <div
+          className="modal-backdrop"
+          onClick={fermerFormulaire}
+          role="presentation"
+        >
+          <form
+            className="modal modal-forme"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={soumettre}
+            role="dialog"
+            aria-modal
+            aria-label={t("cot.titreFormulaire")}
+          >
+            <header className="modal-forme-tete">
+              <div>
+                <h3>{t("cot.titreFormulaire")}</h3>
+                <p className="modal-sub">{t("cot.titreFormulaireAide")}</p>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={fermerFormulaire}
+                aria-label={t("commun.fermer")}
+              >
+                <IconClose size={18} />
               </button>
-              <span className={form.piece ? "depot-nom" : "depot-nom vide"}>
-                {form.piece ? form.piece.name : t("cot.aucunFichier")}
-              </span>
-              {form.piece && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  onClick={() => {
-                    setForm((f) => ({ ...f, piece: null }));
-                    if (champBesoin.current) champBesoin.current.value = "";
-                  }}
-                  aria-label={t("cot.retirerPiece")}
-                  title={t("cot.retirerPiece")}
-                >
-                  <IconClose size={15} />
-                </button>
-              )}
-            </div>
-            <div className="field-hint">{t("cot.pieceAide")}</div>
-          </div>
+            </header>
 
-          <div className="form-actions">
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => {
-                setOuvert(false);
-                setForm(VIDE);
-              }}
-            >
-              <IconClose size={15} />
-              {t("commun.annuler")}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={envoi || !complet}>
-              <IconSend size={15} />
-              {envoi ? t("cot.envoiEnCours") : t("cot.soumettre")}
-            </button>
-          </div>
-        </form>
+            <div className="modal-forme-corps">
+              <div className="field">
+                <label htmlFor="cot-objet">{t("cot.objet")}</label>
+                <input
+                  id="cot-objet"
+                  value={form.objet}
+                  onChange={(e) => setForm((f) => ({ ...f, objet: e.target.value }))}
+                  placeholder={t("cot.objetPlaceholder")}
+                  maxLength={150}
+                  autoFocus
+                  required
+                />
+                <div className="field-hint">{t("cot.objetAide")}</div>
+              </div>
+
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="vente-client">{t("ve.client")}</label>
+                  <ChampClient
+                    valeur={form.clientNom}
+                    onChange={(nom) => setForm((f) => ({ ...f, clientNom: nom, clientId: null }))}
+                    onChoisir={(c: SuggestionClient) =>
+                      setForm((f) => ({ ...f, clientNom: c.nom, clientId: c.id }))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="cot-echeance">{t("cot.echeance")}</label>
+                  <input
+                    id="cot-echeance"
+                    type="date"
+                    value={form.echeanceLe}
+                    min={aujourdhui()}
+                    onChange={(e) => setForm((f) => ({ ...f, echeanceLe: e.target.value }))}
+                    required
+                  />
+                  <div className="field-hint">{t("cot.echeanceAide")}</div>
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="cot-description">{t("cot.description")}</label>
+                <textarea
+                  id="cot-description"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder={t("cot.descriptionPlaceholder")}
+                />
+                <div className="field-hint">{t("cot.descriptionAide")}</div>
+              </div>
+
+              <div className="field">
+                <span className="label-bloc">{t("cot.piece")}</span>
+                <div className="depot">
+                  <input
+                    ref={champBesoin}
+                    type="file"
+                    className="depot-champ"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc"
+                    onChange={(e) => setForm((f) => ({ ...f, piece: e.target.files?.[0] ?? null }))}
+                  />
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => champBesoin.current?.click()}>
+                    <IconPaperclip size={15} />
+                    {form.piece ? t("cot.remplacerFichier") : t("cot.choisirFichier")}
+                  </button>
+                  <span className={form.piece ? "depot-nom" : "depot-nom vide"}>
+                    {form.piece ? form.piece.name : t("cot.aucunFichier")}
+                  </span>
+                  {form.piece && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, piece: null }));
+                        if (champBesoin.current) champBesoin.current.value = "";
+                      }}
+                      aria-label={t("cot.retirerPiece")}
+                      title={t("cot.retirerPiece")}
+                    >
+                      <IconClose size={15} />
+                    </button>
+                  )}
+                </div>
+                <div className="field-hint">{t("cot.pieceAide")}</div>
+              </div>
+            </div>
+
+            <div className="modal-forme-pied">
+              <button type="button" className="btn btn-ghost" onClick={fermerFormulaire}>
+                {t("commun.annuler")}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={envoi || !complet}>
+                <IconSend size={15} />
+                {envoi ? t("cot.envoiEnCours") : t("cot.soumettre")}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {/* La réaffectation, dans un panneau de l'application. */}

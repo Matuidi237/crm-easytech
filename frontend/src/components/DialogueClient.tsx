@@ -105,8 +105,8 @@ export default function DialogueClient({
 
   return (
     <div className="modal-backdrop" onClick={onFermer}>
-      <form className="modal modal-client" onClick={(e) => e.stopPropagation()} onSubmit={envoyer}>
-        <header className="modal-client-tete">
+      <form className="modal modal-forme" onClick={(e) => e.stopPropagation()} onSubmit={envoyer}>
+        <header className="modal-forme-tete">
           <div>
             <h3>{modification ? t("clients.modifierTitre") : t("clients.nouveauTitre")}</h3>
             <p className="modal-sub">
@@ -118,7 +118,7 @@ export default function DialogueClient({
           </button>
         </header>
 
-        <div className="modal-client-corps">
+        <div className="modal-forme-corps">
           {erreur && (
             <div className="alert alert-error">
               <IconAlert />
@@ -277,7 +277,7 @@ export default function DialogueClient({
           )}
         </div>
 
-        <footer className="modal-client-pied">
+        <footer className="modal-forme-pied">
           <button type="button" className="btn btn-ghost" onClick={onFermer}>
             {t("commun.annuler")}
           </button>
