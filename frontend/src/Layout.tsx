@@ -5,6 +5,7 @@ import { useLangue, useLibelles } from "./i18n";
 import { navDe, piedDeMenuMinimal } from "./vues";
 import { ContexteEntete, type FilAriane } from "./ContexteEntete";
 import SelecteurLangue from "./components/SelecteurLangue";
+import Notifications from "./components/Notifications";
 import {
   IconArrowLeft,
   IconCalendar,
@@ -289,6 +290,10 @@ export default function Layout() {
 
           <div className="topbar-right">
             <SelecteurLangue />
+
+            {/* La cloche entre la langue et le compte : c'est du courrier
+                adressé à la personne, elle a sa place du côté de son nom. */}
+            <Notifications />
 
             <span className="topbar-sep" aria-hidden />
 

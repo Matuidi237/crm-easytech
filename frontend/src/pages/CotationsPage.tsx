@@ -147,6 +147,31 @@ export default function CotationsPage() {
     recharger();
   }, [recharger]);
 
+  /* Ouverture directe sur un dossier, « /cotations?demande=... ». C'est ce que
+     vise le clic sur une notification : atterrir sur la file sans savoir
+     laquelle des quarante lignes a motivé l'avis ne servirait à rien.
+     L'identifiant reste dans l'adresse, de sorte que le lien se recharge et se
+     transmet ; un drapeau évite seulement de rouvrir le même dossier si la
+     personne vient de le fermer. */
+  const demandeVisee = adresse.get("demande");
+  const dejaOuverte = useRef<string | null>(null);
+  useEffect(() => {
+    if (!demandeVisee || dejaOuverte.current === demandeVisee) return;
+    dejaOuverte.current = demandeVisee;
+    fetchCotation(demandeVisee)
+      .then(setDetail)
+      .catch((e) => setErreur((e as Error).message));
+  }, [demandeVisee]);
+
+  /** Ferme la fiche, et retire de l'adresse le dossier qu'elle visait. */
+  function fermerDetail() {
+    setDetail(null);
+    if (!adresse.has("demande")) return;
+    const suivant = new URLSearchParams(adresse);
+    suivant.delete("demande");
+    setAdresse(suivant, { replace: true });
+  }
+
   /* Le rafraîchissement s'interrompt pendant une saisie : recharger sous les
      doigts de quelqu'un qui écrit ne lui apprend rien et risque de lui faire
      perdre le fil. */
@@ -859,7 +884,7 @@ export default function CotationsPage() {
             <button
               type="button"
               className="icon-btn"
-              onClick={() => setDetail(null)}
+              onClick={fermerDetail}
               aria-label={t("commun.fermer")}
               title={t("commun.fermer")}
             >

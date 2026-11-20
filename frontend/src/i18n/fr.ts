@@ -1508,4 +1508,15 @@ export const fr = {
   "cot.videCommercial": "Soumettez un besoin à chiffrer et suivez son avancement ici.",
   "cot.videTraitant": "Aucun chiffrage en attente. Les demandes apparaissent ici dès leur soumission.",
   "cot.videSuperviseur": "Aucune demande de cotation n'est en attente.",
+  /* ---------------------------------------------------- Notifications */
+  "notif.titre": "Notifications",
+  "notif.aucun": "Aucune notification",
+  "notif.toutMarquer": "Tout marquer comme lu",
+  "notif.nNonLus": "{n} notifications non lues",
+  "notif.cotation.affectee": "Nouvelle demande de cotation « {objet} » pour {client}, soumise par {nom}.",
+  "notif.cotation.reaffectee": "{nom} vous confie la cotation « {objet} ». Motif : {motif}",
+  "notif.cotation.retiree": "La cotation « {objet} » passe à {nom}. Motif : {motif}",
+  "notif.cotation.transmise": "{nom} a transmis la cotation de « {objet} ».",
+  "notif.cotation.revision": "{nom} demande une correction sur « {objet} ». Motif : {motif}",
+  "notif.cotation.receptionnee": "{nom} a accusé réception de la cotation « {objet} ».",
 };

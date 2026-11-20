@@ -13,6 +13,7 @@ import { campagnesRouter } from "./routes/campagnes.js";
 import { commercialRouter } from "./routes/commercial.js";
 import { planningRouter } from "./routes/planning.js";
 import { cotationsRouter } from "./routes/cotations.js";
+import { notificationsRouter } from "./routes/notifications.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
 const app = express();
@@ -61,6 +62,10 @@ app.use("/api/planning", requireAuth, planningRouter);
    élargissent la vue à la file de tout le monde, et la route les vérifie
    elle-même puisque la réponse en dépend ligne par ligne. */
 app.use("/api/cotations", requireAuth, cotationsRouter);
+/* Aucune capacité : chacun ne lit que les avis qui lui sont adressés, et le
+   destinataire vient du jeton. Exiger un droit pour consulter son propre
+   courrier n'aurait pas de sens. */
+app.use("/api/notifications", requireAuth, notificationsRouter);
 
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 

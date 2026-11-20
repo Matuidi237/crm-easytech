@@ -339,7 +339,7 @@ function suiteAleatoire(graine) {
 }
 
 async function compter() {
-  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations] =
+  const [ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations, avis] =
     await Promise.all([
     prisma.vente.count({ where: { estDemo: true } }),
     prisma.projet.count({ where: { estDemo: true } }),
@@ -354,12 +354,13 @@ async function compter() {
     prisma.note.count({ where: { estDemo: true } }),
     prisma.opportunite.count({ where: { estDemo: true } }),
     prisma.demandeCotation.count({ where: { estDemo: true } }),
+    prisma.notification.count({ where: { estDemo: true } }),
   ]);
-  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations };
+  return { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations, avis };
 }
 
 async function etat() {
-  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations } =
+  const { ventes, projets, partenaires, comptes, clientsRattaches, temps, objectifs, notes, affaires, cotations, avis } =
     await compter();
   const totalVentes = await prisma.vente.count();
   if (
@@ -378,7 +379,7 @@ async function etat() {
     );
     console.log(`  ${clientsRattaches} fiche(s) client confiées à ces comptes (libérées au retrait, jamais supprimées).`);
     console.log(
-      `  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s), ${notes} note(s), ${affaires} affaire(s) et ${cotations} cotation(s).`
+      `  ${temps} créneau(x) de feuille de temps, ${objectifs} objectif(s), ${notes} note(s), ${affaires} affaire(s), ${cotations} cotation(s) et ${avis} notification(s).`
     );
     console.log(`  Sur ${totalVentes} vente(s) au total. Retrait : --supprimer`);
   }
@@ -401,6 +402,7 @@ async function supprimer({ silencieux = false } = {}) {
   /* Les pieces partent avec leur demande : la relation est en cascade, et
      une piece orpheline ne serait de toute facon plus atteignable. */
   const cotations = await prisma.demandeCotation.deleteMany({ where: { estDemo: true } });
+  const avis = await prisma.notification.deleteMany({ where: { estDemo: true } });
   // Les conditions partent avec leur partenaire, la relation étant en cascade.
   const partenaires = await prisma.partenaire.deleteMany({ where: { estDemo: true } });
   /* Les fiches confiées à ces comptes se libèrent d'elles-mêmes : la relation
@@ -416,7 +418,7 @@ async function supprimer({ silencieux = false } = {}) {
       `Supprimé : ${users.count} compte(s), ${ventes.count} vente(s), ${projets.count} projet(s), ${partenaires.count} partenaire(s) de démonstration.`
     );
     console.log(
-      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s), ${notes.count} note(s), ${affaires.count} affaire(s) et ${cotations.count} cotation(s).`
+      `  Plus ${temps.count} créneau(x) de feuille de temps, ${objectifs.count} objectif(s), ${jalons.count} jalon(s), ${notes.count} note(s), ${affaires.count} affaire(s), ${cotations.count} cotation(s) et ${avis.count} notification(s).`
     );
     console.log(`  ${rattaches} fiche(s) client libérées de leur propriétaire de démonstration, aucune supprimée.`);
     const c = await compter();
@@ -1091,6 +1093,70 @@ async function creer() {
   });
 
   await prisma.affectationCotation.createMany({ data: affectationsCotations });
+
+  /* --- Notifications -----------------------------------------------------
+     La cloche de la barre du haut. Sans ces avis elle serait vide a la
+     demonstration, et on ne verrait ni le compteur ni le non-lu, qui sont
+     justement ce qu il y a a montrer.
+
+     Le texte n est pas stocke : un type stable et ses valeurs, l interface
+     compose la phrase dans la langue du lecteur. */
+  const avisDemo = [];
+  cotations.forEach((c, rang) => {
+    const id = idsCotations.get(c.reference);
+    if (!id) return;
+
+    /* Les avis d affectation restent non lus sur les dossiers que personne n a
+       encore pris en charge : c est exactement la situation ou le chef de
+       projet n a pas vu passer le travail. */
+    avisDemo.push({
+      destinataireId: c.responsableId,
+      type: "cotation.affectee",
+      donnees: {
+        reference: c.reference,
+        objet: c.objet,
+        client: c.clientNom,
+        nom: c.commercialNom,
+      },
+      lien: `/cotations?demande=${id}`,
+      lueLe: c.priseEnChargeLe ?? null,
+      createdAt: c.createdAt,
+      estDemo: true,
+    });
+
+    if (c.traiteeLe) {
+      avisDemo.push({
+        destinataireId: c.commercialId,
+        type: "cotation.transmise",
+        donnees: { reference: c.reference, objet: c.objet, nom: c.responsableNom },
+        lien: `/cotations?demande=${id}`,
+        lueLe: c.recueLe ?? null,
+        createdAt: c.traiteeLe,
+        estDemo: true,
+      });
+    }
+
+    if (c.revisionDemandeeLe) {
+      avisDemo.push({
+        destinataireId: c.responsableId,
+        type: "cotation.revision",
+        donnees: {
+          reference: c.reference,
+          objet: c.objet,
+          nom: c.commercialNom,
+          motif: c.motifRevision,
+        },
+        lien: `/cotations?demande=${id}`,
+        lueLe: null,
+        createdAt: c.revisionDemandeeLe,
+        estDemo: true,
+      });
+    }
+
+    void rang;
+  });
+
+  await prisma.notification.createMany({ data: avisDemo });
   await prisma.pieceCotation.createMany({
     data: piecesCotations.map((p) => ({ ...p, taille: p.contenu.length })),
   });
@@ -1281,7 +1347,7 @@ async function creer() {
     `  Portefeuilles : ${TAILLE_PORTEFEUILLE} clients par commercial, ${regees} vente(s) sur ${ventes.length} avec commission versée.`
     );
     console.log(
-      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline, ${cotations.length} demande(s) de cotation et ${piecesCotations.length} piece(s) jointe(s).`
+      `  ${notes.length} note(s) posées sur les feuilles de temps, ${affaires.length} affaire(s) au pipeline, ${cotations.length} demande(s) de cotation et ${piecesCotations.length} piece(s) jointe(s), ${avisDemo.length} notification(s).`
   );
   console.log(
     `  ${COMPTES.length} comptes, ${ventes.length} ventes sur 12 mois, ${projets.length} projets, ${PARTENAIRES.length} partenaires.`

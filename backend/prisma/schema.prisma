@@ -156,6 +156,8 @@ model Utilisateur {
   /// qui est précisément ce dont on veut surveiller l'accumulation.
   cotationsAffectees DemandeCotation[] @relation("CotationsAffectees")
 
+  notifications Notification[] @relation("Notifications")
+
   clientsPossedes Client[]      @relation("Proprietaire")
   accesAccordes   AccesClient[] @relation("Beneficiaire")
   ventes          Vente[]       @relation("Vendeur")
@@ -1365,4 +1367,42 @@ model AffectationCotation {
   createdAt DateTime @default(now())
 
   @@index([demandeId, createdAt])
+}
+
+/// Un avis destiné à une personne, émis par n'importe quel module.
+///
+/// Table générale et non propre aux cotations : la RH annoncera des congés à
+/// valider, le pipeline des affaires immobiles, et une seconde table par
+/// module donnerait autant de cloches à surveiller.
+///
+/// Le texte n'est PAS stocké. On garde un type stable et ses données, et
+/// l'interface compose la phrase dans la langue du lecteur. Stocker
+/// « Vous avez reçu la demande COT-2026-0041 » figerait le français au moment
+/// de l'émission, alors que l'outil se lit aussi en anglais.
+model Notification {
+  id             String      @id @default(uuid())
+  destinataire   Utilisateur @relation("Notifications", fields: [destinataireId], references: [id], onDelete: Cascade)
+  destinataireId String
+
+  /// Identifiant stable de l'événement, « cotation.affectee ». Texte libre et
+  /// non énumération : un module ajouté plus tard ne doit pas imposer une
+  /// migration de schéma pour annoncer quelque chose de nouveau.
+  type String
+
+  /// Les valeurs qui remplissent la phrase : référence, nom, objet.
+  donnees Json?
+
+  /// Où mène le clic, en route interne. Nul quand l'avis ne mène nulle part.
+  lien String?
+
+  /// Renseigné à la lecture. Null tant que l'avis n'a pas été vu, ce qui est
+  /// aussi le critère du compteur.
+  lueLe DateTime?
+
+  estDemo Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([destinataireId, lueLe])
+  @@index([destinataireId, createdAt])
 }

@@ -1304,6 +1304,42 @@ export async function supprimerOpportunite(id: string) {
   return res.json();
 }
 
+/* ---------------------------------------------------------- Notifications */
+
+/**
+ * Un avis adressé au compte connecté.
+ *
+ * Le texte n'est pas transmis : le serveur envoie un type stable et ses
+ * valeurs, et l'interface compose la phrase dans la langue du lecteur par la
+ * clé « notif.<type> ».
+ */
+export type Notification = {
+  id: string;
+  type: string;
+  donnees: Record<string, string> | null;
+  lien: string | null;
+  lueLe: string | null;
+  createdAt: string;
+};
+
+export async function fetchNotifications() {
+  const res = await authedFetch("/api/notifications");
+  if (!res.ok) throw new Error("Erreur lors du chargement des notifications.");
+  return res.json() as Promise<{ avis: Notification[]; nonLus: number }>;
+}
+
+export async function marquerAvisLu(id: string) {
+  const res = await authedFetch(`/api/notifications/${id}/lu`, { method: "POST" });
+  if (!res.ok) throw new Error("Erreur lors de la mise à jour.");
+  return res.json();
+}
+
+export async function marquerTousAvisLus() {
+  const res = await authedFetch("/api/notifications/lues", { method: "POST" });
+  if (!res.ok) throw new Error("Erreur lors de la mise à jour.");
+  return res.json();
+}
+
 /* ------------------------------------------------- Cotations commercial/PM */
 
 export const STATUTS_COTATION = ["NON_TRAITEE", "EN_COURS", "TRAITEE", "CLOTUREE"] as const;

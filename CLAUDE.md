@@ -81,6 +81,15 @@ pas « terminée » : tant que le demandeur n'a pas confirmé l'avoir reçue, el
 reste comptée comme en attente. C'est précisément cet angle mort qui a motivé
 le module. Voir `backend/src/lib/cotations.ts`.
 
+**Une notification ne stocke jamais son texte.** La table `Notification` est
+générale et sert tous les modules ; elle garde un type stable (`cotation.affectee`)
+et les valeurs qui rempliront la phrase, et l'interface la compose par la clé
+`notif.<type>`. Écrire la phrase en base figerait le français au moment de
+l'émission, alors que l'outil se lit aussi en anglais. Émission par `notifier()`
+dans `backend/src/lib/notifications.ts`, qui ne lève jamais : un module ne doit
+pas échouer parce que l'avis qui l'accompagne n'a pas pu s'écrire. Personne ne
+s'avertit de ce qu'il vient de faire lui-même.
+
 **L'urgence d'une cotation se déduit de son échéance, elle ne se saisit pas.**
 Critique au-delà de l'échéance, Haute à un jour ou moins, Moyenne jusqu'à cinq
 jours, Basse ensuite. Un champ de priorité libre finit coché « haute » par tout
@@ -165,12 +174,6 @@ heures.
 - Module RH commencé au niveau du schéma seulement, sans écran. En attendant,
   la DRH ouvre l'application sur la file des cotations, seule chose qu'elle y
   suit.
-- **Aucun système de notification dans l'outil** : pas de modèle en base, pas
-  de cloche. Le circuit de cotation ne prévient donc personne, ni le chef de
-  projet d'une affectation, ni le commercial d'une cotation rendue. La page se
-  rafraîchit d'elle-même, ce qui suppose qu'elle reste ouverte, et la carte
-  « Mes demandes » tient lieu de signal. Un module de notification servirait
-  toute l'ERP et reste à arbitrer.
 - La capacité `cotations.affecter` n'est pas accordée au rôle Chef de projet
   par défaut, seulement à la direction et aux administrateurs. Le cahier des
   charges parle d'un « PM habilité » : une case à cocher dans l'écran des

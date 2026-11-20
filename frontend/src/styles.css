@@ -8460,3 +8460,167 @@ td.col-actions {
   flex: none;
   color: var(--ink-3);
 }
+
+/* =======================================================================
+   Notifications
+   Une cloche et sa liste, dans la barre du haut. Le compteur porte un
+   nombre et non une simple pastille : « trois avis » et « un avis »
+   n appellent pas le meme empressement.
+   ======================================================================= */
+
+.avis {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.avis-cloche {
+  position: relative;
+}
+
+.avis-compteur {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #a3372a;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  /* Un liseré de la couleur de la barre, pour que le compteur se detache de
+     l icone qu il chevauche. */
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.avis-panneau {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  box-shadow: 0 14px 38px rgba(32, 28, 27, 0.16);
+  overflow: hidden;
+}
+
+.avis-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.avis-titre {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.avis-tout-lu {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand);
+  cursor: pointer;
+}
+
+.avis-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Bornee : au-dela, la liste couvrirait l ecran et cesserait d etre un
+     panneau pour devenir une page. */
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.avis-liste li + li .avis-ligne {
+  border-top: 1px solid var(--border);
+}
+
+.avis-ligne {
+  display: block;
+  width: 100%;
+  padding: 11px 14px;
+  text-align: left;
+  background: none;
+  border: 0;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.avis-ligne:hover {
+  background: var(--surface-2);
+}
+
+/* Un filet et un fond tres pale : le non-lu doit se voir sans que la liste
+   ressemble a un sapin de Noel. */
+.avis-ligne.non-lu {
+  background: var(--brand-100);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.avis-ligne.non-lu:hover {
+  background: var(--brand-100);
+}
+
+.avis-texte {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.avis-ligne.non-lu .avis-texte {
+  font-weight: 550;
+}
+
+.avis-date {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.avis-vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 26px 14px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+@media (max-width: 560px) {
+  /* Ancre sur l ecran et non sur la cloche. Suspendu sous un bouton qui n est
+     pas au bord droit, un panneau de 340 px depasse par la gauche et son
+     texte se coupe. */
+  .avis-panneau {
+    position: fixed;
+    top: 78px;
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+  }
+}

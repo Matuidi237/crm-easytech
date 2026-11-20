@@ -1506,4 +1506,15 @@ export const en: Record<keyof typeof fr, string> = {
   "cot.videCommercial": "Submit a requirement to be priced and follow its progress here.",
   "cot.videTraitant": "No pricing pending. Requests appear here as soon as they are submitted.",
   "cot.videSuperviseur": "No quotation request is pending.",
+  /* ---------------------------------------------------- Notifications */
+  "notif.titre": "Notifications",
+  "notif.aucun": "No notification",
+  "notif.toutMarquer": "Mark all as read",
+  "notif.nNonLus": "{n} unread notifications",
+  "notif.cotation.affectee": "New quotation request “{objet}” for {client}, submitted by {nom}.",
+  "notif.cotation.reaffectee": "{nom} has assigned you the quotation “{objet}”. Reason: {motif}",
+  "notif.cotation.retiree": "The quotation “{objet}” now belongs to {nom}. Reason: {motif}",
+  "notif.cotation.transmise": "{nom} has sent the quotation for “{objet}”.",
+  "notif.cotation.revision": "{nom} is asking for a correction on “{objet}”. Reason: {motif}",
+  "notif.cotation.receptionnee": "{nom} has acknowledged receipt of the quotation “{objet}”.",
 };

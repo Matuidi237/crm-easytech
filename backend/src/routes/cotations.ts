@@ -19,6 +19,12 @@ import {
   urgenceDe,
 } from "../lib/cotations.js";
 import { choisirResponsable, traitantsDisponibles } from "../lib/affectation.js";
+import { notifier } from "../lib/notifications.js";
+
+/** Où mène le clic depuis un avis : la file, ouverte sur le dossier visé. */
+function lienVers(id: string): string {
+  return `/cotations?demande=${id}`;
+}
 
 export const cotationsRouter = Router();
 
@@ -472,6 +478,25 @@ cotationsRouter.post("/:id/reaffectation", async (req, res) => {
     });
   });
 
+  /* Les deux côtés sont prévenus. Le nouveau parce qu'il hérite du travail,
+     l'ancien parce qu'on vient de lui retirer un dossier qu'il croyait peut-
+     être encore sien : l'apprendre en constatant sa disparition de la file
+     serait la pire façon de le savoir. */
+  await notifier({
+    destinataireId: nouveau.id,
+    acteurId: moi.id,
+    type: "cotation.reaffectee",
+    donnees: { reference: maj.reference, objet: maj.objet, nom: moi.nomComplet, motif },
+    lien: lienVers(maj.id),
+  });
+  await notifier({
+    destinataireId: demande.responsableId,
+    acteurId: moi.id,
+    type: "cotation.retiree",
+    donnees: { reference: maj.reference, objet: maj.objet, nom: nouveau.nomComplet, motif },
+    lien: lienVers(maj.id),
+  });
+
   res.json(enrichir(maj));
 });
 
@@ -593,6 +618,22 @@ cotationsRouter.post("/", upload.single("piece"), async (req, res) => {
       });
     });
 
+    /* Le chef de projet est prévenu de ce qui vient de lui tomber dessus. Sans
+       cet avis, l'affectation automatique serait muette et il faudrait ouvrir
+       la file pour découvrir qu'on a du travail. */
+    await notifier({
+      destinataireId: creee.responsableId,
+      acteurId: moi.id,
+      type: "cotation.affectee",
+      donnees: {
+        reference: creee.reference,
+        objet: creee.objet,
+        client: creee.clientNom,
+        nom: creee.commercialNom,
+      },
+      lien: lienVers(creee.id),
+    });
+
     res.status(201).json(enrichir(creee));
   } catch (err) {
     res.status(400).json({ error: "La demande n'a pas pu être enregistrée.", details: String(err) });
@@ -699,6 +740,17 @@ cotationsRouter.post("/:id/reponse", upload.single("piece"), async (req, res) =>
     select: SELECT_DEMANDE,
   });
 
+  /* Le commercial apprend que sa cotation est arrivée. C'est l'avis le plus
+     attendu des six : jusqu'ici il rouvrait la page pour voir si elle était
+     là. */
+  await notifier({
+    destinataireId: maj.commercialId,
+    acteurId: moi.id,
+    type: "cotation.transmise",
+    donnees: { reference: maj.reference, objet: maj.objet, nom: moi.nomComplet },
+    lien: lienVers(maj.id),
+  });
+
   res.json(enrichir(maj));
 });
 
@@ -734,6 +786,18 @@ cotationsRouter.post("/:id/reception", async (req, res) => {
     data: { statut: "CLOTUREE", recueLe: new Date() },
     select: SELECT_DEMANDE,
   });
+
+  /* Le chef de projet apprend que son travail est accepté. Sans cet avis, la
+     seule façon de savoir qu'un dossier est clos serait de constater qu'il a
+     disparu de la file, ce qui ressemble plus à une perte qu'à une fin. */
+  await notifier({
+    destinataireId: maj.responsableId,
+    acteurId: moi.id,
+    type: "cotation.receptionnee",
+    donnees: { reference: maj.reference, objet: maj.objet, nom: moi.nomComplet },
+    lien: lienVers(maj.id),
+  });
+
   res.json(enrichir(maj));
 });
 
@@ -773,6 +837,15 @@ cotationsRouter.post("/:id/revision", async (req, res) => {
     },
     select: SELECT_DEMANDE,
   });
+
+  await notifier({
+    destinataireId: maj.responsableId,
+    acteurId: moi.id,
+    type: "cotation.revision",
+    donnees: { reference: maj.reference, objet: maj.objet, nom: moi.nomComplet, motif },
+    lien: lienVers(maj.id),
+  });
+
   res.json(enrichir(maj));
 });
 
