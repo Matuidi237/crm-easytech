@@ -170,17 +170,22 @@ export default function CotationsPage() {
     if (champBesoin.current) champBesoin.current.value = "";
   }
 
-  /* Échap ferme la fenêtre. C'est le réflexe de tout le monde devant une
-     fenêtre modale, et ne pas y répondre donne l'impression d'être coincé. */
+  /* Échap ferme la fenêtre ouverte, quelle qu'elle soit. C'est le réflexe de
+     tout le monde devant une fenêtre modale, et ne pas y répondre donne
+     l'impression d'être coincé. Les trois ne s'ouvrent jamais ensemble, ouvrir
+     l'une refermant les autres. */
   useEffect(() => {
-    if (!ouvert) return;
+    if (!ouvert && !reaffectation && !revision) return;
     function auClavier(e: KeyboardEvent) {
-      if (e.key === "Escape") fermerFormulaire();
+      if (e.key !== "Escape") return;
+      if (ouvert) fermerFormulaire();
+      else if (reaffectation) setReaffectation(null);
+      else setRevision(null);
     }
     window.addEventListener("keydown", auClavier);
     return () => window.removeEventListener("keydown", auClavier);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ouvert]);
+  }, [ouvert, reaffectation, revision]);
 
   /** Ferme la fiche, et retire de l'adresse le dossier qu'elle visait. */
   function fermerDetail() {
@@ -648,10 +653,12 @@ export default function CotationsPage() {
             <button
               type="button"
               className="btn btn-ghost btn-sm"
+              /* La fiche reste ouverte derrière la fenêtre : on y revient
+                 juste après, et la refermer ferait perdre le dossier qu'on
+                 était en train de lire. */
               onClick={() => {
                 setNouveauResponsable("");
                 setMotifReaffectation("");
-                setDetail(null);
                 setReaffectation(d);
               }}
             >
@@ -830,87 +837,132 @@ export default function CotationsPage() {
         </div>
       )}
 
-      {/* La réaffectation, dans un panneau de l'application. */}
+      {/* La réaffectation, en fenêtre comme les deux autres saisies : on est
+          en train de retirer un dossier à quelqu'un, pas de régler un filtre
+          en passant. */}
       {reaffectation && (
-        <form className="panneau" onSubmit={envoyerReaffectation}>
-          <header className="panneau-tete">
-            <h2>{t("cot.reaffecterTitre")}</h2>
-          </header>
-          <p className="panneau-note">
-            {t("cot.cotationN", { reference: reaffectation.reference })} · {reaffectation.objet}
-            {reaffectation.responsableNom
-              ? ` · ${t("cot.responsableActuel", { nom: reaffectation.responsableNom })}`
-              : ""}
-          </p>
+        <div className="modal-backdrop" onClick={() => setReaffectation(null)} role="presentation">
+          <form
+            className="modal modal-forme"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={envoyerReaffectation}
+            role="dialog"
+            aria-modal
+            aria-label={t("cot.reaffecterTitre")}
+          >
+            <header className="modal-forme-tete">
+              <div>
+                <h3>{t("cot.reaffecterTitre")}</h3>
+                <p className="modal-sub">
+                  {t("cot.cotationN", { reference: reaffectation.reference })} ·{" "}
+                  {reaffectation.objet}
+                  {reaffectation.responsableNom
+                    ? ` · ${t("cot.responsableActuel", { nom: reaffectation.responsableNom })}`
+                    : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setReaffectation(null)}
+                aria-label={t("commun.fermer")}
+              >
+                <IconClose size={18} />
+              </button>
+            </header>
 
-          <div className="field">
-            <label htmlFor="cot-nouveau-responsable">{t("cot.nouveauResponsable")}</label>
-            <ListeDeroulante
-              id="cot-nouveau-responsable"
-              valeur={nouveauResponsable}
-              options={traitants.map((x) => x.nomComplet)}
-              onChange={setNouveauResponsable}
-              placeholder={t("cot.choisirResponsable")}
-            />
-          </div>
+            <div className="modal-forme-corps">
+              <div className="field">
+                <label htmlFor="cot-nouveau-responsable">{t("cot.nouveauResponsable")}</label>
+                <ListeDeroulante
+                  id="cot-nouveau-responsable"
+                  valeur={nouveauResponsable}
+                  options={traitants.map((x) => x.nomComplet)}
+                  onChange={setNouveauResponsable}
+                  placeholder={t("cot.choisirResponsable")}
+                />
+              </div>
 
-          <div className="field">
-            <label htmlFor="cot-motif-reaffectation">{t("cot.motifReaffectation")}</label>
-            <textarea
-              id="cot-motif-reaffectation"
-              rows={2}
-              value={motifReaffectation}
-              onChange={(e) => setMotifReaffectation(e.target.value)}
-              placeholder={t("cot.motifReaffectationPlaceholder")}
-            />
-            <div className="field-hint">{t("cot.motifReaffectationAide")}</div>
-          </div>
+              <div className="field">
+                <label htmlFor="cot-motif-reaffectation">{t("cot.motifReaffectation")}</label>
+                <textarea
+                  id="cot-motif-reaffectation"
+                  rows={3}
+                  value={motifReaffectation}
+                  onChange={(e) => setMotifReaffectation(e.target.value)}
+                  placeholder={t("cot.motifReaffectationPlaceholder")}
+                />
+                <div className="field-hint">{t("cot.motifReaffectationAide")}</div>
+              </div>
+            </div>
 
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setReaffectation(null)}>
-              <IconClose size={15} />
-              {t("commun.annuler")}
-            </button>
-            <button type="submit" className="btn btn-primary">
-              <IconSend size={15} />
-              {t("cot.reaffecter")}
-            </button>
-          </div>
-        </form>
+            <div className="modal-forme-pied">
+              <button type="button" className="btn btn-ghost" onClick={() => setReaffectation(null)}>
+                {t("commun.annuler")}
+              </button>
+              <button type="submit" className="btn btn-primary">
+                <IconSend size={15} />
+                {t("cot.reaffecter")}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
-      {/* La demande de correction, dans un panneau de l'application. */}
+      {/* La demande de correction, en fenêtre elle aussi. */}
       {revision && (
-        <form className="panneau" onSubmit={envoyerRevision}>
-          <header className="panneau-tete">
-            <h2>{t("cot.demanderRevision")}</h2>
-          </header>
-          <p className="panneau-note">
-            {t("cot.cotationN", { reference: revision.reference })} · {revision.objet}
-          </p>
-          <div className="field">
-            <label htmlFor="cot-motif">{t("cot.motifRevision")}</label>
-            <textarea
-              id="cot-motif"
-              rows={3}
-              value={motifRevision}
-              onChange={(e) => setMotifRevision(e.target.value)}
-              placeholder={t("cot.motifRevisionPlaceholder")}
-              autoFocus
-            />
-            <div className="field-hint">{t("cot.motifRevisionAide")}</div>
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setRevision(null)}>
-              <IconClose size={15} />
-              {t("commun.annuler")}
-            </button>
-            <button type="submit" className="btn btn-primary">
-              <IconSend size={15} />
-              {t("cot.demanderRevision")}
-            </button>
-          </div>
-        </form>
+        <div className="modal-backdrop" onClick={() => setRevision(null)} role="presentation">
+          <form
+            className="modal modal-forme"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={envoyerRevision}
+            role="dialog"
+            aria-modal
+            aria-label={t("cot.demanderRevision")}
+          >
+            <header className="modal-forme-tete">
+              <div>
+                <h3>{t("cot.demanderRevision")}</h3>
+                <p className="modal-sub">
+                  {t("cot.cotationN", { reference: revision.reference })} · {revision.objet}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setRevision(null)}
+                aria-label={t("commun.fermer")}
+              >
+                <IconClose size={18} />
+              </button>
+            </header>
+
+            <div className="modal-forme-corps">
+              <div className="field">
+                <label htmlFor="cot-motif">{t("cot.motifRevision")}</label>
+                <textarea
+                  id="cot-motif"
+                  rows={4}
+                  value={motifRevision}
+                  onChange={(e) => setMotifRevision(e.target.value)}
+                  placeholder={t("cot.motifRevisionPlaceholder")}
+                  autoFocus
+                />
+                <div className="field-hint">{t("cot.motifRevisionAide")}</div>
+              </div>
+            </div>
+
+            <div className="modal-forme-pied">
+              <button type="button" className="btn btn-ghost" onClick={() => setRevision(null)}>
+                {t("commun.annuler")}
+              </button>
+              <button type="submit" className="btn btn-primary">
+                <IconSend size={15} />
+                {t("cot.demanderRevision")}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {detail && (
@@ -1111,7 +1163,6 @@ export default function CotationsPage() {
                     className="btn btn-ghost"
                     onClick={() => {
                       setMotifRevision("");
-                      setDetail(null);
                       setRevision(detail);
                     }}
                   >
