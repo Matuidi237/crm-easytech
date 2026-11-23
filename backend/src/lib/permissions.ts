@@ -64,6 +64,10 @@ export const CATALOGUE_PERMISSIONS: { cle: Permission; groupe: string; libelle: 
   { cle: "newsletters.creer", groupe: "Campagnes", libelle: "Rédiger une campagne", detail: "Création et modification des brouillons." },
   { cle: "newsletters.envoyer", groupe: "Campagnes", libelle: "Envoyer une campagne", detail: "Déclenche l'envoi réel aux destinataires." },
   { cle: "stats.globales", groupe: "Pilotage", libelle: "Voir les statistiques", detail: "Chiffres du tableau de bord, limités au périmètre du compte." },
+  /* Oubliée du catalogue lors de sa création : la capacité existait, mais sans
+     case à cocher, donc impossible à accorder ou à retirer depuis l'écran des
+     permissions. Un rôle surchargé qui ne l'avait pas la perdait sans recours. */
+  { cle: "ventes.cout", groupe: "Ventes", libelle: "Renseigner le prix d'achat", detail: "Voir et saisir le coût d'une commande, donc la marge et la commission qu'elle produit. À ne pas accorder aux commerciaux : ils en déduiraient leur propre rémunération." },
   { cle: "cotations.traiter", groupe: "Cotations", libelle: "Traiter les demandes", detail: "Prendre en charge une demande de cotation et y répondre. Donne accès à la file complète." },
   { cle: "cotations.affecter", groupe: "Cotations", libelle: "Réaffecter une demande", detail: "Changer le chef de projet responsable d'une demande, avec motif obligatoire." },
   { cle: "cotations.superviser", groupe: "Cotations", libelle: "Superviser la file", detail: "Voir toutes les demandes et leurs délais, sans pouvoir y répondre." },
