@@ -726,6 +726,8 @@ export const en: Record<keyof typeof fr, string> = {
   "permGroupe.Accès": "Access",
   "permGroupe.Campagnes": "Campaigns",
   "permGroupe.Pilotage": "Reporting",
+  "permGroupe.Ventes": "Sales",
+  "permGroupe.Cotations": "Quotations",
   "permGroupe.Administration": "Administration",
 
   "perm.clients.voirTous.libelle": "See the whole database",
@@ -753,6 +755,18 @@ export const en: Record<keyof typeof fr, string> = {
   "perm.newsletters.envoyer.detail": "Triggers the actual send to recipients.",
   "perm.stats.globales.libelle": "See the statistics",
   "perm.stats.globales.detail": "Dashboard figures, limited to the account's scope.",
+  "perm.ventes.cout.libelle": "Enter the purchase price",
+  "perm.ventes.cout.detail":
+    "View and enter the cost of an order, hence the margin and the commission it produces. Not for salespeople: they would work out their own pay from it.",
+  "perm.cotations.traiter.libelle": "Handle requests",
+  "perm.cotations.traiter.detail":
+    "Pick up a quotation request and answer it. Gives access to the whole queue and puts the account into the automatic distribution.",
+  "perm.cotations.affecter.libelle": "Reassign a request",
+  "perm.cotations.affecter.detail":
+    "Change the project manager in charge of a request, with a mandatory reason.",
+  "perm.cotations.superviser.libelle": "Supervise the queue",
+  "perm.cotations.superviser.detail":
+    "See every request and its lead time, without answering. A supervising account stays out of the automatic distribution.",
   "perm.utilisateurs.gerer.libelle": "Manage accounts",
   "perm.utilisateurs.gerer.detail": "Create, edit and disable accounts of a lower rank.",
   "perm.utilisateurs.gererAdmins.libelle": "Manage administrators",

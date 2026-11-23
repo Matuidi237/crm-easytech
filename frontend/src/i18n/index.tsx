@@ -1,6 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { fr } from "./fr";
 import { en } from "./en";
+import type { Permission } from "../api";
+
+/**
+ * Garde-fou : toute capacité doit porter son libellé et son explication.
+ *
+ * L'écran des permissions traduit les clés techniques du serveur par
+ * « perm.<clé>.libelle » et « perm.<clé>.detail ». Une capacité ajoutée sans
+ * ces deux clés s'affichait jusqu'ici en clé brute au milieu du tableau, et
+ * personne ne s'en apercevait avant la production.
+ *
+ * Cette ligne ne sert qu'à la compilation : si une clé manque, le type ne
+ * s'assigne plus et `tsc` refuse de passer.
+ */
+type ClesDUneCapacite = `perm.${Permission}.libelle` | `perm.${Permission}.detail`;
+const _toutesLesCapacitesOntLeurLibelle: Record<ClesDUneCapacite, string> = fr;
+void _toutesLesCapacitesOntLeurLibelle;
 
 /**
  * Traduction de l'interface.

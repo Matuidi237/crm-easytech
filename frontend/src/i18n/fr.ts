@@ -728,6 +728,8 @@ export const fr = {
   "permGroupe.Accès": "Accès",
   "permGroupe.Campagnes": "Campagnes",
   "permGroupe.Pilotage": "Pilotage",
+  "permGroupe.Ventes": "Ventes",
+  "permGroupe.Cotations": "Cotations",
   "permGroupe.Administration": "Administration",
 
   "perm.clients.voirTous.libelle": "Voir toute la base",
@@ -755,6 +757,18 @@ export const fr = {
   "perm.newsletters.envoyer.detail": "Déclenche l'envoi réel aux destinataires.",
   "perm.stats.globales.libelle": "Voir les statistiques",
   "perm.stats.globales.detail": "Chiffres du tableau de bord, limités au périmètre du compte.",
+  "perm.ventes.cout.libelle": "Renseigner le prix d'achat",
+  "perm.ventes.cout.detail":
+    "Voir et saisir le coût d'une commande, donc la marge et la commission qu'elle produit. À ne pas accorder aux commerciaux : ils en déduiraient leur propre rémunération.",
+  "perm.cotations.traiter.libelle": "Traiter les demandes",
+  "perm.cotations.traiter.detail":
+    "Prendre en charge une demande de cotation et y répondre. Donne accès à la file complète et place le compte dans la répartition automatique.",
+  "perm.cotations.affecter.libelle": "Réaffecter une demande",
+  "perm.cotations.affecter.detail":
+    "Changer le chef de projet responsable d'une demande, avec motif obligatoire.",
+  "perm.cotations.superviser.libelle": "Superviser la file",
+  "perm.cotations.superviser.detail":
+    "Voir toutes les demandes et leurs délais, sans y répondre. Un compte qui supervise n'entre pas dans la répartition automatique.",
   "perm.utilisateurs.gerer.libelle": "Gérer les comptes",
   "perm.utilisateurs.gerer.detail": "Créer, modifier et désactiver des comptes de rang inférieur.",
   "perm.utilisateurs.gererAdmins.libelle": "Gérer les administrateurs",

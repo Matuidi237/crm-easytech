@@ -248,7 +248,9 @@ export async function fetchOptionsComptes() {
 
 /* ------------------------------------------------------ Matrice des permissions */
 
-export type LignePermission = { cle: Permission; groupe: string; libelle: string; detail: string };
+/** Le serveur n'envoie que la clé et le groupe : les textes sont dans l'i18n,
+    sous « perm.<clé>.libelle » et « perm.<clé>.detail ». */
+export type LignePermission = { cle: Permission; groupe: string };
 
 export type RolePermissions = {
   role: Role;

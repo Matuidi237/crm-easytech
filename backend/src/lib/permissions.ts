@@ -50,30 +50,41 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** Description de chaque droit, pour que l'écran de réglage soit compréhensible. */
-export const CATALOGUE_PERMISSIONS: { cle: Permission; groupe: string; libelle: string; detail: string }[] = [
-  { cle: "clients.voirTous", groupe: "Clients", libelle: "Voir toute la base", detail: "Sans cette case, le compte ne voit que ses propres fiches et celles qu'on lui a ouvertes." },
-  { cle: "clients.creer", groupe: "Clients", libelle: "Ajouter un client", detail: "Le créateur devient propriétaire de la fiche." },
-  { cle: "clients.modifier", groupe: "Clients", libelle: "Modifier une fiche", detail: "Uniquement dans les limites de son périmètre." },
-  { cle: "clients.supprimer", groupe: "Clients", libelle: "Supprimer une fiche", detail: "Vaut aussi pour la suppression d'un fichier importé." },
-  { cle: "clients.importer", groupe: "Clients", libelle: "Importer un fichier", detail: "Donne accès à la page Importer." },
-  { cle: "clients.exporter", groupe: "Clients", libelle: "Exporter en CSV", detail: "N'exporte que ce que le compte peut déjà voir." },
-  { cle: "clients.coordonnees", groupe: "Clients", libelle: "Voir les coordonnées", detail: "Sans cette case, emails et téléphones sont masqués." },
-  { cle: "acces.accorder", groupe: "Accès", libelle: "Ouvrir l'accès à des clients", detail: "Permet de désigner les fiches qu'un commercial peut consulter." },
-  { cle: "newsletters.voir", groupe: "Campagnes", libelle: "Consulter les campagnes", detail: "Donne accès à la page Newsletters." },
-  { cle: "newsletters.creer", groupe: "Campagnes", libelle: "Rédiger une campagne", detail: "Création et modification des brouillons." },
-  { cle: "newsletters.envoyer", groupe: "Campagnes", libelle: "Envoyer une campagne", detail: "Déclenche l'envoi réel aux destinataires." },
-  { cle: "stats.globales", groupe: "Pilotage", libelle: "Voir les statistiques", detail: "Chiffres du tableau de bord, limités au périmètre du compte." },
-  /* Oubliée du catalogue lors de sa création : la capacité existait, mais sans
-     case à cocher, donc impossible à accorder ou à retirer depuis l'écran des
-     permissions. Un rôle surchargé qui ne l'avait pas la perdait sans recours. */
-  { cle: "ventes.cout", groupe: "Ventes", libelle: "Renseigner le prix d'achat", detail: "Voir et saisir le coût d'une commande, donc la marge et la commission qu'elle produit. À ne pas accorder aux commerciaux : ils en déduiraient leur propre rémunération." },
-  { cle: "cotations.traiter", groupe: "Cotations", libelle: "Traiter les demandes", detail: "Prendre en charge une demande de cotation et y répondre. Donne accès à la file complète." },
-  { cle: "cotations.affecter", groupe: "Cotations", libelle: "Réaffecter une demande", detail: "Changer le chef de projet responsable d'une demande, avec motif obligatoire." },
-  { cle: "cotations.superviser", groupe: "Cotations", libelle: "Superviser la file", detail: "Voir toutes les demandes et leurs délais, sans pouvoir y répondre." },
-  { cle: "utilisateurs.gerer", groupe: "Administration", libelle: "Gérer les comptes", detail: "Créer, modifier et désactiver des comptes de rang inférieur." },
-  { cle: "utilisateurs.gererAdmins", groupe: "Administration", libelle: "Gérer les administrateurs", detail: "Toucher aux comptes d'administration." },
-  { cle: "permissions.gerer", groupe: "Administration", libelle: "Modifier les permissions", detail: "Accès à cet écran. À n'accorder qu'en connaissance de cause." },
+/**
+ * Ce que l'écran de réglage affiche, et dans quel ordre.
+ *
+ * Seuls la clé et le groupe vivent ici. Les libellés et les explications
+ * sont dans `frontend/src/i18n`, sous « perm.<clé>.libelle » et
+ * « perm.<clé>.detail », parce que l'écran se lit en deux langues et que le
+ * serveur n'a pas à choisir laquelle.
+ *
+ * Les avoir eus aux deux endroits a coûté une capacité invisible en
+ * production : le texte écrit ici donnait l'illusion que le travail était
+ * fait, et l'écran affichait la clé brute.
+ *
+ * Toute capacité ajoutée à PERMISSIONS doit apparaître ici ET porter ses
+ * deux clés de traduction, sinon elle n'a pas de case à cocher.
+ */
+export const CATALOGUE_PERMISSIONS: { cle: Permission; groupe: string }[] = [
+  { cle: "clients.voirTous", groupe: "Clients" },
+  { cle: "clients.creer", groupe: "Clients" },
+  { cle: "clients.modifier", groupe: "Clients" },
+  { cle: "clients.supprimer", groupe: "Clients" },
+  { cle: "clients.importer", groupe: "Clients" },
+  { cle: "clients.exporter", groupe: "Clients" },
+  { cle: "clients.coordonnees", groupe: "Clients" },
+  { cle: "acces.accorder", groupe: "Accès" },
+  { cle: "newsletters.voir", groupe: "Campagnes" },
+  { cle: "newsletters.creer", groupe: "Campagnes" },
+  { cle: "newsletters.envoyer", groupe: "Campagnes" },
+  { cle: "stats.globales", groupe: "Pilotage" },
+  { cle: "ventes.cout", groupe: "Ventes" },
+  { cle: "cotations.traiter", groupe: "Cotations" },
+  { cle: "cotations.affecter", groupe: "Cotations" },
+  { cle: "cotations.superviser", groupe: "Cotations" },
+  { cle: "utilisateurs.gerer", groupe: "Administration" },
+  { cle: "utilisateurs.gererAdmins", groupe: "Administration" },
+  { cle: "permissions.gerer", groupe: "Administration" },
 ];
 
 const TOUTES = [...PERMISSIONS];
