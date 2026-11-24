@@ -1,5 +1,7 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { avec, perimetreVendeurs, perimetreVentes } from "../lib/perimetreVentes.js";
 import { requirePermission } from "../lib/auth.js";
 import { margeDe, montantDe } from "../lib/ventes.js";
 import {
@@ -47,8 +49,13 @@ function variation(actuel: number, precedent: number): number | null {
   return Math.round(((actuel - precedent) / precedent) * 100);
 }
 
-directionRouter.get("/tableau-de-bord", async (_req, res) => {
-  const nbVentes = await prisma.vente.count();
+directionRouter.get("/tableau-de-bord", async (req, res) => {
+  /* Le responsable commercial ne voit que son équipe : ses indicateurs
+     répondent à « où en est mon équipe », pas à « où en est l'entreprise ».
+     Null pour la direction, qui voit tout. */
+  const perimetre = await perimetreVentes(req.utilisateur!);
+  const ou = perimetre ?? undefined;
+  const nbVentes = await prisma.vente.count({ where: ou });
 
   if (nbVentes === 0) {
     // Aucune vente : on le dit, plutôt que de renvoyer des zéros qui se
@@ -67,6 +74,7 @@ directionRouter.get("/tableau-de-bord", async (_req, res) => {
   }
 
   const ventes = await prisma.vente.findMany({
+    where: ou,
     select: {
       clientId: true,
       vendeurId: true,
@@ -218,8 +226,9 @@ function replier<T extends { label: string }>(lignes: T[], garder: number, libel
  * la table des ventes est petite, la recalculer intégralement coûte moins
  * cher qu'une requête par dimension.
  */
-directionRouter.get("/analyses", async (_req, res) => {
+directionRouter.get("/analyses", async (req, res) => {
   const ventes = await prisma.vente.findMany({
+    where: (await perimetreVentes(req.utilisateur!)) ?? undefined,
     select: {
       produit: true,
       quantite: true,
@@ -382,8 +391,9 @@ directionRouter.get("/analyses", async (_req, res) => {
  * recompose donc ligne à ligne. La table des ventes reste petite et cette
  * lecture sert plusieurs vues, autant la factoriser.
  */
-async function agregatsParVendeur() {
+async function agregatsParVendeur(perimetre: Prisma.VenteWhereInput | null = null) {
   const lignes = await prisma.vente.findMany({
+    where: perimetre ?? undefined,
     select: {
       vendeurId: true,
       nature: true,
@@ -444,17 +454,23 @@ const ROLES_PROJET = ["CHEF_DE_PROJET"] as const;
  * propre route : charger toutes les ventes de tout le monde pour dessiner deux
  * vignettes serait du gaspillage.
  */
-directionRouter.get("/equipes", async (_req, res) => {
+directionRouter.get("/equipes", async (req, res) => {
+  /* Pour un responsable commercial, « l'équipe commerciale » est la sienne.
+     La vignette de l'équipe projet reste celle de l'entreprise : il ne
+     l'encadre pas, mais savoir qui chiffre ses dossiers lui sert. */
+  const perimetre = await perimetreVentes(req.utilisateur!);
+  const vendeurs = await perimetreVendeurs(req.utilisateur!);
+
   const [commerciaux, chefsProjet, agregats, projetsTousChefs] = await Promise.all([
     prisma.utilisateur.findMany({
-      where: { role: { in: [...ROLES_COMMERCIALE] } },
+      where: avec({ role: { in: [...ROLES_COMMERCIALE] } }, vendeurs),
       select: { id: true, actif: true, pays: true },
     }),
     prisma.utilisateur.findMany({
       where: { role: { in: [...ROLES_PROJET] } },
       select: { id: true, actif: true, pays: true },
     }),
-    agregatsParVendeur(),
+    agregatsParVendeur(perimetre),
     prisma.projet.findMany({ select: SELECT_BILAN }),
   ]);
 
@@ -512,9 +528,15 @@ directionRouter.get("/equipe-commerciale", async (req, res) => {
     ];
   }
 
+  /* Le responsable commercial ne liste que les siens, et les facettes du
+     filtre suivent : lui proposer un pays où il n'a personne donnerait une
+     liste vide sans qu'il comprenne pourquoi. */
+  const perimetre = await perimetreVentes(req.utilisateur!);
+  const vendeurs = await perimetreVendeurs(req.utilisateur!);
+
   const [membres, tousPays, agregats] = await Promise.all([
     prisma.utilisateur.findMany({
-      where: filtres,
+      where: avec(filtres as Prisma.UtilisateurWhereInput, vendeurs),
       select: {
         id: true,
         nomComplet: true,
@@ -531,12 +553,15 @@ directionRouter.get("/equipe-commerciale", async (req, res) => {
        courant, sinon choisir un pays effacerait les autres choix de la liste
        et on ne pourrait plus en changer. */
     prisma.utilisateur.findMany({
-      where: { role: { in: [...ROLES_COMMERCIALE] }, pays: { not: null } },
+      where: avec(
+        { role: { in: [...ROLES_COMMERCIALE] }, pays: { not: null } },
+        vendeurs
+      ),
       select: { pays: true },
       distinct: ["pays"],
       orderBy: { pays: "asc" },
     }),
-    agregatsParVendeur(),
+    agregatsParVendeur(perimetre),
   ]);
 
   const lignes = membres
@@ -674,8 +699,13 @@ directionRouter.patch("/ventes/:id/cout", requirePermission("ventes.cout"), asyn
 
 /** Fiche d'un commercial : ce qu'il a réalisé, et le détail de ses ventes. */
 directionRouter.get("/commercial/:id", async (req, res) => {
+  /* Hors de son équipe, la fiche est introuvable et non refusée : confirmer
+     l'existence d'un collègue qu'on n'encadre pas n'apporte rien. */
   const membre = await prisma.utilisateur.findFirst({
-    where: { id: req.params.id, role: { in: [...ROLES_COMMERCIALE] } },
+    where: avec(
+      { id: req.params.id, role: { in: [...ROLES_COMMERCIALE] } },
+      await perimetreVendeurs(req.utilisateur!)
+    ),
     select: {
       id: true,
       nomComplet: true,
@@ -1066,13 +1096,18 @@ directionRouter.get("/chef-projet/:id", async (req, res) => {
  * catalogue produit modélisé ; c'est approximatif et assumé, mais cela vaut
  * mieux qu'un champ saisi à la main qui se périmerait en silence.
  */
-directionRouter.get("/partenaires", async (_req, res) => {
+directionRouter.get("/partenaires", async (req, res) => {
+  /* Les partenaires sont ceux de l'entreprise, mais le volume qu'on leur
+     attribue suit le périmètre du lecteur : un responsable commercial dont le
+     tableau de bord annonce cinquante millions ne doit pas lire deux cents
+     millions sur cette page. */
   const [partenaires, ventes] = await Promise.all([
     prisma.partenaire.findMany({
       orderBy: { nom: "asc" },
       include: { conditions: { orderBy: { ordre: "asc" } } },
     }),
     prisma.vente.findMany({
+      where: (await perimetreVentes(req.utilisateur!)) ?? undefined,
       select: { produit: true, prixVente: true, prixAchat: true, quantite: true, dateVente: true },
     }),
   ]);

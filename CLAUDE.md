@@ -122,6 +122,14 @@ rien d'exécutable, et servies en `attachment` avec `nosniff`.
 regroupe les statistiques sans rien interdire. Même principe pour les postes et
 les services côté RH.
 
+**Le responsable commercial ne voit que son équipe dans les indicateurs.**
+Son périmètre est lui-même plus les comptes dont il est le responsable
+hiérarchique (`responsableId`), et il s'applique à toutes les routes de
+`/api/direction`. Voir `backend/src/lib/perimetreVentes.ts`, qui teste le rôle
+et non une capacité : une surcharge de permissions REMPLACE la matrice par
+défaut, donc une capacité nouvelle n'atteindrait jamais les rôles déjà
+surchargés en production et leurs tableaux de bord se videraient.
+
 **Les colonnes `@db.Date` tronquent sur UTC.** Y écrire un minuit local décale
 la date d'un jour à Douala. Toujours passer par `jourCalendaire()`, à l'écriture
 comme à la lecture.
