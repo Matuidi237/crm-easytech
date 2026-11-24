@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { avec, perimetreVendeurs, perimetreVentes } from "../lib/perimetreVentes.js";
+import { estEnRetard, jourCalendaire } from "../lib/cotations.js";
 import { requirePermission } from "../lib/auth.js";
 import { margeDe, montantDe } from "../lib/ventes.js";
 import {
@@ -1203,4 +1204,120 @@ directionRouter.get("/partenaires", async (req, res) => {
   });
 
   res.json({ partenaires: lignes });
+});
+
+/* ==========================================================================
+   Suivi d'un commercial par son encadrement
+   ========================================================================== */
+
+/**
+ * Tout ce qu'un responsable veut savoir d'un de ses commerciaux, hors chiffre
+ * d'affaires qui vit déjà dans la fiche.
+ *
+ * Un seul appel pour quatre questions. Quatre routes auraient été plus
+ * propres sur le papier, mais la page les affiche ensemble et les demander
+ * séparément ferait clignoter l'écran quatre fois.
+ *
+ * Lecture seule : rien ne se modifie ici. Fixer un objectif passe par
+ * « POST /api/planning/objectifs » avec « pourUtilisateurId », qui vérifie
+ * lui-même l'appartenance à l'équipe.
+ */
+directionRouter.get("/commercial/:id/suivi", async (req, res) => {
+  const membre = await prisma.utilisateur.findFirst({
+    where: avec(
+      { id: req.params.id, role: { in: [...ROLES_COMMERCIALE] } },
+      await perimetreVendeurs(req.utilisateur!)
+    ),
+    select: { id: true, nomComplet: true },
+  });
+  if (!membre) return res.status(404).json({ error: "Commercial introuvable." });
+
+  /* Trois semaines : celle qui vient de s'écouler, la courante, la suivante.
+     Un encadrant demande le lundi matin ce qui a été fait la semaine passée
+     autant que ce qui est prévu ; et sans borne la requête ramènerait
+     l'année entière pour un écran qui n'en montre que quelques lignes. */
+  const aujourdhui = new Date();
+  const debutSemaine = new Date(aujourdhui);
+  debutSemaine.setDate(debutSemaine.getDate() - ((debutSemaine.getDay() + 6) % 7) - 7);
+  const finFenetre = new Date(debutSemaine);
+  finFenetre.setDate(finFenetre.getDate() + 21);
+
+  const [objectifs, creneaux, cotations, portefeuille] = await Promise.all([
+    prisma.objectifCommercial.findMany({
+      where: { utilisateurId: membre.id },
+      orderBy: [{ debut: "desc" }, { periode: "asc" }],
+      take: 12,
+      select: {
+        id: true,
+        titre: true,
+        periode: true,
+        debut: true,
+        cibleCaXAF: true,
+        cibleVentes: true,
+        cibleRendezVous: true,
+        fixeParEncadrement: true,
+        definiParNom: true,
+      },
+    }),
+    prisma.saisieTemps.findMany({
+      where: {
+        utilisateurId: membre.id,
+        jour: { gte: jourCalendaire(debutSemaine), lt: jourCalendaire(finFenetre) },
+      },
+      orderBy: [{ jour: "asc" }, { debutMinutes: "asc" }],
+      select: {
+        id: true,
+        jour: true,
+        debutMinutes: true,
+        finMinutes: true,
+        activite: true,
+        clientNom: true,
+        statut: true,
+      },
+    }),
+    prisma.demandeCotation.findMany({
+      where: { commercialId: membre.id, statut: { not: "CLOTUREE" } },
+      orderBy: { echeanceLe: "asc" },
+      take: 20,
+      select: {
+        id: true,
+        reference: true,
+        objet: true,
+        clientNom: true,
+        statut: true,
+        echeanceLe: true,
+        responsableNom: true,
+      },
+    }),
+    prisma.client.findMany({
+      where: { proprietaireId: membre.id },
+      orderBy: { nom: "asc" },
+      take: 200,
+      select: { id: true, nom: true, pays: true, secteurActivite: true, chiffreAffaires: true },
+    }),
+  ]);
+
+  res.json({
+    membre,
+    objectifs: objectifs.map((o) => ({
+      ...o,
+      cibleCaXAF: o.cibleCaXAF === null ? null : Math.round(Number(o.cibleCaXAF)),
+    })),
+    agenda: {
+      debut: jourCalendaire(debutSemaine),
+      fin: jourCalendaire(finFenetre),
+      creneaux,
+    },
+    cotations: cotations.map((c) => ({
+      ...c,
+      enRetard: estEnRetard(c.statut, c.echeanceLe),
+    })),
+    portefeuille: {
+      total: portefeuille.length,
+      clients: portefeuille.map((c) => ({
+        ...c,
+        chiffreAffaires: c.chiffreAffaires === null ? null : Math.round(Number(c.chiffreAffaires)),
+      })),
+    },
+  });
 });

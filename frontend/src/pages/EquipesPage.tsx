@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApercuEquipes, fetchApercuEquipes } from "../api";
+import { useAuth } from "../AuthContext";
 import { useLangue } from "../i18n";
 import { IconAlert, IconArrowRight, IconHandshake, IconTeam, IconTrend } from "../components/Icons";
 
@@ -14,7 +15,9 @@ import { IconAlert, IconArrowRight, IconHandshake, IconTeam, IconTrend } from ".
  */
 export default function EquipesPage() {
   const { t, nombre, montantCompact } = useLangue();
+  const { utilisateur } = useAuth();
   const navigate = useNavigate();
+  const estResponsableCommercial = utilisateur?.role === "RESPONSABLE_COMMERCIAL";
   const [apercu, setApercu] = useState<ApercuEquipes | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -112,6 +115,11 @@ export default function EquipesPage() {
           </div>
         </button>
 
+        {/* L'équipe projet n'apparaît qu'à la direction. Le responsable
+            commercial ne l'encadre pas, et une vignette qui mène à une liste
+            de chefs de projet dont il ne peut rien faire n'est pas une
+            information, c'est une porte fermée de plus. */}
+        {!estResponsableCommercial && (
         <button
           type="button"
           className="equipe-carte"
@@ -168,6 +176,7 @@ export default function EquipesPage() {
             </span>
           </div>
         </button>
+        )}
       </div>
     </>
   );

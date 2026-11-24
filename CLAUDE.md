@@ -130,6 +130,12 @@ et non une capacité : une surcharge de permissions REMPLACE la matrice par
 défaut, donc une capacité nouvelle n'atteindrait jamais les rôles déjà
 surchargés en production et leurs tableaux de bord se videraient.
 
+**Un objectif fixé à autrui n'engage que les siens.** `POST /api/planning/objectifs`
+avec `pourUtilisateurId` exige `utilisateurs.gerer` ET l'appartenance à
+l'équipe du demandeur. La capacité dit qu'on peut fixer un objectif, elle ne
+dit pas à qui. L'enregistrement est un `upsert` : un seul objectif
+d'encadrement par période et par date de début, le réenregistrer le remplace.
+
 **Les colonnes `@db.Date` tronquent sur UTC.** Y écrire un minuit local décale
 la date d'un jour à Douala. Toujours passer par `jourCalendaire()`, à l'écriture
 comme à la lecture.

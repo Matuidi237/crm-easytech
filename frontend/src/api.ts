@@ -1037,6 +1037,9 @@ export async function enregistrerObjectif(objectif: {
   cibleVentes: number | null;
   cibleRendezVous: number | null;
   note: string;
+  /** Renseigné, l'objectif engage ce compte et non le sien. Le serveur exige
+      « utilisateurs.gerer » et vérifie que la cible est dans l'équipe. */
+  pourUtilisateurId?: string;
 }) {
   const res = await authedFetch("/api/planning/objectifs", {
     method: "POST",
@@ -1304,6 +1307,63 @@ export async function supprimerOpportunite(id: string) {
   const res = await authedFetch(`/api/commercial/pipeline/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors de la suppression.");
   return res.json();
+}
+
+/* ------------------------------- Suivi d'un commercial par son encadrement */
+
+export type SuiviCommercial = {
+  membre: { id: string; nomComplet: string };
+  objectifs: {
+    id: string;
+    titre: string | null;
+    periode: PeriodeObjectif;
+    debut: string;
+    cibleCaXAF: number | null;
+    cibleVentes: number | null;
+    cibleRendezVous: number | null;
+    /** Vrai quand l'objectif vient de l'encadrement, pas de l'intéressé. */
+    fixeParEncadrement: boolean;
+    definiParNom: string | null;
+  }[];
+  agenda: {
+    debut: string;
+    fin: string;
+    creneaux: {
+      id: string;
+      jour: string;
+      debutMinutes: number;
+      finMinutes: number;
+      activite: string;
+      clientNom: string | null;
+      statut: string;
+    }[];
+  };
+  cotations: {
+    id: string;
+    reference: string;
+    objet: string;
+    clientNom: string;
+    statut: StatutCotation;
+    echeanceLe: string;
+    responsableNom: string | null;
+    enRetard: boolean;
+  }[];
+  portefeuille: {
+    total: number;
+    clients: {
+      id: string;
+      nom: string;
+      pays: string | null;
+      secteurActivite: string | null;
+      chiffreAffaires: number | null;
+    }[];
+  };
+};
+
+export async function fetchSuiviCommercial(id: string) {
+  const res = await authedFetch(`/api/direction/commercial/${id}/suivi`);
+  if (!res.ok) throw new Error((await res.json()).error ?? "Erreur lors du chargement du suivi.");
+  return res.json() as Promise<SuiviCommercial>;
 }
 
 /* ---------------------------------------------------------- Notifications */

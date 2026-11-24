@@ -8629,3 +8629,105 @@ td.col-actions {
     max-width: none;
   }
 }
+
+/* =======================================================================
+   Suivi d un commercial par son encadrement
+   Quatre blocs sous la fiche : ce qu on lui demande, ce qu il fait de ses
+   journees, ce qu il attend des autres, ce qu il a en main.
+   ======================================================================= */
+
+.suivi-forme {
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.suivi-vide {
+  margin: 0;
+  padding: 22px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+/* Seconde ligne d une cellule : le client sous l objet, la date sous la
+   periode. Grise et plus petite, pour qu elle n entre pas en concurrence
+   avec ce qu elle precise. */
+.suivi-sous {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.suivi-ref {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.suivi-retard {
+  color: #8a5f05;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* L agenda : une journee, puis ses creneaux en retrait. Une grille horaire
+   serait plus fidele mais illisible sur trois semaines ; l encadrant veut
+   savoir ce qui remplit les journees, pas a quelle minute. */
+.suivi-agenda {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suivi-agenda > li + li {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.suivi-jour {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+}
+
+.suivi-creneaux {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.suivi-creneaux li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.suivi-heure {
+  flex: none;
+  width: 108px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.suivi-activite {
+  color: var(--ink);
+}
+
+.suivi-creneaux .suivi-sous {
+  display: inline;
+  margin: 0;
+}

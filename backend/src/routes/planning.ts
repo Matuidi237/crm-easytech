@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { PeriodeObjectif, RoleUtilisateur, StatutCreneau } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { peut, perimetreClients } from "../lib/permissions.js";
+import { perimetreVendeurs } from "../lib/perimetreVentes.js";
 import { debutDe, fenetreDe, minuit, partEcoulee } from "../lib/periodes.js";
 import { margeDe, montantDe } from "../lib/ventes.js";
 import {
@@ -916,6 +917,22 @@ planningRouter.post("/objectifs", async (req, res) => {
   const pourAutrui = !!corps.pourUtilisateurId && corps.pourUtilisateurId !== moi.id;
   if (pourAutrui && !peut(moi.role, "utilisateurs.gerer")) {
     return res.status(403).json({ error: "Votre rôle ne permet pas de fixer l'objectif d'un autre compte." });
+  }
+  /* Et pas à n'importe qui : un responsable commercial n'engage que les
+     siens. La capacité dit qu'il peut fixer un objectif, elle ne dit pas à
+     qui ; sans ce contrôle il suffisait de connaître un identifiant pour
+     engager le commercial d'un collègue. */
+  if (pourAutrui) {
+    const equipe = await perimetreVendeurs(moi);
+    if (equipe) {
+      const dansLEquipe = await prisma.utilisateur.findFirst({
+        where: { AND: [{ id: corps.pourUtilisateurId! }, equipe] },
+        select: { id: true },
+      });
+      if (!dansLEquipe) {
+        return res.status(404).json({ error: "Ce compte n'est pas dans votre équipe." });
+      }
+    }
   }
   const utilisateurId = pourAutrui ? corps.pourUtilisateurId! : moi.id;
 

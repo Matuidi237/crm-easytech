@@ -4,6 +4,7 @@ import { FicheCommercial, fetchFicheCommercial } from "../api";
 import { useLangue, useLibelles } from "../i18n";
 import { useFilAriane } from "../ContexteEntete";
 import { EvolutionMensuelle } from "../components/Charts";
+import SuiviCommercial from "../components/SuiviCommercial";
 import { IconAlert, IconCoins, IconInbox, IconTrend } from "../components/Icons";
 
 function initiales(nom: string) {
@@ -186,6 +187,12 @@ export default function FicheCommercialPage() {
           />
         </div>
       )}
+
+      {/* Le suivi d'encadrement vient après les chiffres et avant le détail
+          des ventes : on regarde d'abord ce qui a été vendu, puis ce qui est
+          demandé et ce qui est en cours, et seulement ensuite la ligne à
+          ligne, qui ne se lit qu'en cas de doute. */}
+      {id && <SuiviCommercial id={id} nom={m.nomComplet} />}
 
       <div className="table-card">
         <div className="card-head">
