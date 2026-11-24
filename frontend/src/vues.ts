@@ -65,6 +65,21 @@ const NAV_DG: EntreeNav[] = [
 ];
 
 /**
+ * Vue du responsable commercial : celle de la direction, plus l'import.
+ *
+ * Le directeur général n'ouvre pas l'outil pour charger un fichier de
+ * prospects ; le responsable commercial si, c'est lui qui alimente la base
+ * avant de la distribuer à son équipe. Le lui retirer en le faisant passer
+ * au pilotage aurait été une perte, et c'est la seule différence entre les
+ * deux menus.
+ */
+const NAV_RESPONSABLE: EntreeNav[] = [
+  ...NAV_DG.slice(0, 3),
+  { to: "/import", cle: "nav.import", icone: "import", requiert: "clients.importer" },
+  ...NAV_DG.slice(3),
+];
+
+/**
  * Vue du commercial : trois onglets, pas davantage.
  *
  * Ses chiffres, ses clients, son temps. Ventes et commissions restent des
@@ -92,22 +107,39 @@ const NAV_COMMERCIAL: EntreeNav[] = [
 
 export function navDe(role: Role | undefined): EntreeNav[] {
   if (role === "DG") return NAV_DG;
+  if (role === "RESPONSABLE_COMMERCIAL") return NAV_RESPONSABLE;
   if (role === "COMMERCIAL") return NAV_COMMERCIAL;
   if (role === "RH") return NAV_RH;
   return NAV_STANDARD;
 }
 
-/** Le DG ouvre sur ses indicateurs, pas sur l'état de la base clients. */
-export function estVueDirection(role: Role | undefined) {
-  return role === "DG";
+/**
+ * Comptes qui ouvrent sur les indicateurs plutôt que sur la base clients.
+ *
+ * Le directeur général et le responsable commercial. Le second encadre une
+ * équipe : ses questions du matin sont celles du premier, où en est le
+ * chiffre d'affaires et qui vend quoi, pas l'état de la base de prospection.
+ * Il voyait jusqu'ici le tableau de bord des fiches clients, qui ne répond à
+ * aucune de ces questions.
+ *
+ * Nommée « pilotage » et non « direction » depuis qu'ils sont deux : un nom
+ * qui désigne une personne précise cesse d'être vrai au premier ajout.
+ *
+ * Les données qu'ils voient sont les mêmes, et c'est assumé : le responsable
+ * commercial a déjà « clients.voirTous » et « stats.globales », il lit donc
+ * toute la base. Lui montrer les mêmes chiffres ne lui ouvre rien de neuf,
+ * cela les lui présente enfin.
+ */
+export function estVuePilotage(role: Role | undefined) {
+  return role === "DG" || role === "RESPONSABLE_COMMERCIAL";
 }
 
 /**
  * Le commercial ouvre sur sa propre performance.
  *
- * Le responsable commercial en est volontairement exclu : il encadre une
- * équipe, ses questions portent sur les autres autant que sur lui, et sa vue
- * reste celle de la base clients tant qu'elle n'a pas été traitée.
+ * Le responsable commercial en est exclu, mais plus par défaut : il encadre
+ * une équipe, ses questions portent sur les autres autant que sur lui, et
+ * c'est la vue de pilotage qui y répond.
  */
 export function estVueCommerciale(role: Role | undefined) {
   return role === "COMMERCIAL";

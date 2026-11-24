@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
-import { estVueCommerciale, estVueDirection, estVueRH } from "./vues";
+import { estVueCommerciale, estVuePilotage, estVueRH } from "./vues";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -39,13 +39,13 @@ import DetailPortefeuillePage from "./pages/DetailPortefeuillePage";
 import EnConstruction from "./pages/EnConstruction";
 
 /**
- * L'accueil dépend de la vue du rôle : le directeur général ouvre sur ses
- * indicateurs, le commercial sur les siens, tout le monde sur l'état de la
- * base clients.
+ * L'accueil dépend de la vue du rôle : la direction et le responsable
+ * commercial ouvrent sur les indicateurs d'activité, le commercial sur les
+ * siens, tout le monde sur l'état de la base clients.
  */
 function Accueil() {
   const { utilisateur } = useAuth();
-  if (estVueDirection(utilisateur?.role)) return <DirectionPage />;
+  if (estVuePilotage(utilisateur?.role)) return <DirectionPage />;
   if (estVueCommerciale(utilisateur?.role)) return <CommercialPage />;
   /* La DRH n'a aucun droit sur le CRM : le tableau de bord ne lui renverrait
      que des refus. Tant que le module RH n'a pas ses écrans, elle ouvre sur la
@@ -65,13 +65,14 @@ function RouteCommerciale({ children }: { children: JSX.Element }) {
 }
 
 /**
- * Réservée à la vue direction. Un autre rôle qui taperait l'adresse est
- * renvoyé chez lui : ce n'est pas une protection (le serveur reste seul juge)
- * mais la page n'aurait aucun sens dans son parcours.
+ * Réservée aux comptes de pilotage, directeur général et responsable
+ * commercial. Un autre rôle qui taperait l'adresse est renvoyé chez lui : ce
+ * n'est pas une protection (le serveur reste seul juge, et ces pages exigent
+ * « stats.globales ») mais elles n'auraient aucun sens dans son parcours.
  */
-function RouteDirection({ children }: { children: JSX.Element }) {
+function RoutePilotage({ children }: { children: JSX.Element }) {
   const { utilisateur } = useAuth();
-  return estVueDirection(utilisateur?.role) ? children : <Navigate to="/" replace />;
+  return estVuePilotage(utilisateur?.role) ? children : <Navigate to="/" replace />;
 }
 
 /** Redirige vers l accueil si le compte ne dispose pas du droit demandé. */
@@ -103,41 +104,41 @@ export default function App() {
             <Route
               path="/equipes"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <EquipesPage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
               path="/equipes/commerciale"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <EquipeCommercialePage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
               path="/equipes/commerciale/:id"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <FicheCommercialPage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
               path="/equipes/projet"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <EquipeProjetPage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
               path="/equipes/projet/:id"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <FicheChefProjetPage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
@@ -159,9 +160,9 @@ export default function App() {
             <Route
               path="/partenaires"
               element={
-                <RouteDirection>
+                <RoutePilotage>
                   <PartenairesPage />
-                </RouteDirection>
+                </RoutePilotage>
               }
             />
             <Route
