@@ -176,6 +176,12 @@ export default function DirectionPage() {
       valeurTexte: true,
       // La part du meilleur vendeur se lit mieux en fraction de cercle.
       jauge: ind.meilleurVendeur ? { valeurPct: ind.meilleurVendeur.partPct, couleur: "#c07a00" } : undefined,
+      /* Seule porte d'entrée vers les équipes depuis que le menu est réduit à
+         trois onglets. Ce tableau de bord ne comportait aucun lien : les
+         écrans d'encadrement n'étaient atteignables que par la barre latérale,
+         et la retirer les aurait rendus inaccessibles. */
+      vers: "/equipes",
+      libelleLien: t("dg.voirEquipes"),
     },
     {
       label: t("dg.meilleurProduit"),

@@ -8731,3 +8731,87 @@ td.col-actions {
   display: inline;
   margin: 0;
 }
+
+/* ===================== Tableau de bord du chef de projet ===================== */
+
+/* Reference cliquable dans la file du jour. Reprend « cot-ref » pour la casse
+   et les chiffres tabulaires, et n'ajoute que ce qui en fait un lien. */
+.cp-lien {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.cp-lien:hover {
+  text-decoration: underline;
+}
+
+/* Deux barres par semaine, cote a cote. Un rail clair materialise le maximum :
+   sans lui, une semaine faible ressemble a une semaine manquante. */
+.chg {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 180px;
+  padding: 4px 0 0;
+}
+
+.chg-sem {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+.chg-paire {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  /* 2px de fond entre les deux barres d'une meme semaine : collees, elles se
+     lisent comme une seule barre a deux teintes. */
+  gap: 2px;
+}
+
+.chg-rail {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.chg-barre {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.25s ease;
+}
+
+.chg-recues {
+  background: var(--viz-4);
+}
+
+.chg-rendues {
+  background: var(--viz-1);
+}
+
+.chg-libelle {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .chg {
+    height: 150px;
+    gap: 5px;
+  }
+
+  .chg-libelle {
+    font-size: 10px;
+  }
+}

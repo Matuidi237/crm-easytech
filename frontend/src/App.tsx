@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
-import { estVueCommerciale, estVuePilotage, estVueRH } from "./vues";
+import { estVueChefProjet, estVueCommerciale, estVuePilotage, estVueRH } from "./vues";
+import ChefProjetPage from "./pages/ChefProjetPage";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -47,6 +48,9 @@ function Accueil() {
   const { utilisateur } = useAuth();
   if (estVuePilotage(utilisateur?.role)) return <DirectionPage />;
   if (estVueCommerciale(utilisateur?.role)) return <CommercialPage />;
+  /* Le chef de projet mesure de la charge et du temps, là où les autres
+     comptent de l'argent. */
+  if (estVueChefProjet(utilisateur?.role)) return <ChefProjetPage />;
   /* La DRH n'a aucun droit sur le CRM : le tableau de bord ne lui renverrait
      que des refus. Tant que le module RH n'a pas ses écrans, elle ouvre sur la
      seule chose qu'elle suit ici, la file des cotations. */

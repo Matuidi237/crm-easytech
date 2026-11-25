@@ -13,6 +13,7 @@ import { campagnesRouter } from "./routes/campagnes.js";
 import { commercialRouter } from "./routes/commercial.js";
 import { planningRouter } from "./routes/planning.js";
 import { cotationsRouter } from "./routes/cotations.js";
+import { chefProjetRouter } from "./routes/chefProjet.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { requireAuth, requirePermission } from "./lib/auth.js";
 
@@ -62,6 +63,10 @@ app.use("/api/planning", requireAuth, planningRouter);
    élargissent la vue à la file de tout le monde, et la route les vérifie
    elle-même puisque la réponse en dépend ligne par ligne. */
 app.use("/api/cotations", requireAuth, cotationsRouter);
+/* Le tableau de bord du chef de projet, réservé à qui traite les demandes :
+   il ne mesure que la charge du compte connecté, et un compte qui ne peut
+   rien traiter n'en a aucune. */
+app.use("/api/chef-projet", requireAuth, requirePermission("cotations.traiter"), chefProjetRouter);
 /* Aucune capacité : chacun ne lit que les avis qui lui sont adressés, et le
    destinataire vient du jeton. Exiger un droit pour consulter son propre
    courrier n'aurait pas de sens. */

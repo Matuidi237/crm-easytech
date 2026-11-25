@@ -697,3 +697,76 @@ export function EvolutionMensuelle({ points }: { points: PointMois[] }) {
     </>
   );
 }
+
+export type SemaineCharge = { cle: string; libelle: string; recues: number; rendues: number };
+
+/**
+ * Reçues contre rendues, semaine par semaine.
+ *
+ * Deux séries groupées plutôt que superposées : ce ne sont pas deux parts d'un
+ * même total, ce sont deux flux, et l'une peut dépasser l'autre dans les deux
+ * sens. Même unité, donc un seul axe et une seule échelle ; les mettre sur deux
+ * échelles ferait croire à un équilibre là où la file grossit.
+ *
+ * C'est l'écart durable entre les deux qui informe, pas la hauteur d'une barre :
+ * un délai moyen reste bon jusqu'au jour où la file a trop grossi pour tenir.
+ */
+export function ChargeHebdomadaire({ semaines }: { semaines: SemaineCharge[] }) {
+  const { t, nombre } = useLangue();
+  const [tip, setTip] = useState<Tip>(null);
+  const max = Math.max(1, ...semaines.map((s) => Math.max(s.recues, s.rendues)));
+
+  return (
+    <>
+      <div className="chg">
+        {semaines.map((s) => (
+          <div
+            className="chg-sem"
+            key={s.cle}
+            onMouseMove={(e) =>
+              setTip({
+                x: e.clientX,
+                y: e.clientY,
+                title: s.libelle,
+                detail: t("cp.semaineDetail", {
+                  recues: nombre(s.recues),
+                  rendues: nombre(s.rendues),
+                }),
+              })
+            }
+            onMouseLeave={() => setTip(null)}
+          >
+            <div className="chg-paire">
+              <div className="chg-rail">
+                <div
+                  className="chg-barre chg-recues"
+                  style={{ height: `${(s.recues / max) * 100}%` }}
+                />
+              </div>
+              <div className="chg-rail">
+                <div
+                  className="chg-barre chg-rendues"
+                  style={{ height: `${(s.rendues / max) * 100}%` }}
+                />
+              </div>
+            </div>
+            <span className="chg-libelle">{s.libelle}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="legend legend-inline">
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: "var(--viz-4)" }} />
+          <span className="legend-name">{t("cp.legendeRecues")}</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-dot" style={{ background: "var(--viz-1)" }} />
+          <span className="legend-name">{t("cp.legendeRendues")}</span>
+        </div>
+      </div>
+
+      <Tooltip tip={tip} />
+    </>
+  );
+}

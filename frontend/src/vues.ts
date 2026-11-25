@@ -105,7 +105,37 @@ const NAV_COMMERCIAL: EntreeNav[] = [
   { to: "/planning", cle: "nav.calendrier", icone: "calendar" },
 ];
 
+/**
+ * Mise en service progressive : trois onglets, pour tout le monde.
+ *
+ * Tableau de bord, portefeuille client, cotations. C'est une décision
+ * d'adoption, pas une décision technique : un outil qui s'ouvre sur onze
+ * entrées de menu ne dit pas par où commencer, et une équipe qui ne sait pas
+ * par où commencer retourne au fichier Excel. Les trois retenus couvrent la
+ * journée de chacun, et c'est sur eux que portera la formation.
+ *
+ * Seuls les MENUS sont réduits. Les routes restent toutes montées et les écrans
+ * de détail restent atteignables depuis les indicateurs du tableau de bord,
+ * comme le parcours commercial le fait déjà : masquer une entrée n'a jamais
+ * rien désactivé. Rouvrir un onglet se fait en retirant son chemin d'ici, sans
+ * toucher à une page.
+ */
+const MENU_RESTREINT = true;
+
+/** Les chemins conservés pendant la mise en service. */
+const ONGLETS_OUVERTS = ["/", "/clients", "/cotations"];
+
 export function navDe(role: Role | undefined): EntreeNav[] {
+  const complete = navComplete(role);
+  if (!MENU_RESTREINT) return complete;
+  /* Filtré depuis le menu complet plutôt que réécrit : chaque rôle garde son
+     ordre, son libellé et sa condition de droit. Le commercial lit
+     « Portefeuille » là où la direction lit « Clients », et le chef de projet
+     ne voit les cotations que s'il peut les traiter. */
+  return complete.filter((e) => ONGLETS_OUVERTS.includes(e.to));
+}
+
+function navComplete(role: Role | undefined): EntreeNav[] {
   if (role === "DG") return NAV_DG;
   if (role === "RESPONSABLE_COMMERCIAL") return NAV_RESPONSABLE;
   if (role === "COMMERCIAL") return NAV_COMMERCIAL;
@@ -153,6 +183,23 @@ export function estVueCommerciale(role: Role | undefined) {
  */
 export function estVueRH(role: Role | undefined) {
   return role === "RH";
+}
+
+/**
+ * Le chef de projet, qui n'ouvre l'outil ni sur de l'argent ni sur des clients.
+ *
+ * Il ne vend rien : chiffre d'affaires, marge et commissions ne le concernent
+ * pas, et le tableau de bord des fiches clients qu'il voyait jusqu'ici ne
+ * répondait à aucune de ses questions. Les siennes portent sur sa charge et
+ * sur ses délais, et c'est ce que mesure son écran.
+ *
+ * Testé sur le rôle et non sur « cotations.traiter », comme le périmètre des
+ * ventes : une surcharge de permissions REMPLACE la matrice par défaut, donc
+ * une capacité ajoutée n'atteint jamais les rôles déjà surchargés en
+ * production, et leur page d'accueil basculerait au hasard des surcharges.
+ */
+export function estVueChefProjet(role: Role | undefined) {
+  return role === "CHEF_DE_PROJET";
 }
 
 /**

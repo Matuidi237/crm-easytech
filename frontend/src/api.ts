@@ -2068,3 +2068,53 @@ export async function supprimerCampagne(id: string) {
   const res = await authedFetch(`/api/campagnes/${id}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error("Erreur lors de la suppression.");
 }
+
+/* ---------------------------------------- Tableau de bord du chef de projet */
+
+/**
+ * Ce que mesure le tableau de bord du chef de projet.
+ *
+ * Du temps et de la charge, là où les autres rôles comptent de l'argent. Il ne
+ * porte que les dossiers dont il est le responsable : il peut en consulter
+ * d'autres, il n'est comptable que des siens.
+ */
+export type TableauChefProjet = {
+  charge: {
+    aPrendreEnCharge: number;
+    enTraitement: number;
+    enRetard: number;
+    transmises: number;
+    /** La plus longue attente avant prise en charge, en heures. */
+    plusLongueAttenteH: number | null;
+  };
+  delais: {
+    priseEnChargeH: number | null;
+    chiffrageH: number | null;
+    tenuePct: number | null;
+    nbRendues: number;
+    nbRevisions: number;
+  };
+  total: number;
+  /** Huit semaines, du lundi le plus ancien au lundi en cours. */
+  semaines: { cle: string; recues: number; rendues: number }[];
+  file: {
+    id: string;
+    reference: string;
+    objet: string;
+    clientNom: string;
+    commercialNom: string;
+    statut: StatutCotation;
+    echeanceLe: string;
+    urgence: UrgenceCotation | null;
+    joursRestants: number;
+    enRetard: boolean;
+    priseEnCharge: boolean;
+  }[];
+  demandeurs: Repartition[];
+};
+
+export async function fetchTableauChefProjet() {
+  const res = await authedFetch("/api/chef-projet/tableau-de-bord");
+  if (!res.ok) throw new Error("Erreur lors du chargement du tableau de bord.");
+  return res.json() as Promise<TableauChefProjet>;
+}

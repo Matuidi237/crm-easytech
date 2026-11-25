@@ -136,6 +136,24 @@ l'équipe du demandeur. La capacité dit qu'on peut fixer un objectif, elle ne
 dit pas à qui. L'enregistrement est un `upsert` : un seul objectif
 d'encadrement par période et par date de début, le réenregistrer le remplace.
 
+**Mise en service : trois onglets, pour tous les rôles.** Tableau de bord,
+portefeuille client, cotations. Décision d'adoption et non décision technique :
+un outil qui s'ouvre sur onze entrées ne dit pas par où commencer. Seuls les
+MENUS sont réduits (`MENU_RESTREINT` dans `frontend/src/vues.ts`), les routes
+restent toutes montées et les écrans de détail s'atteignent depuis les
+indicateurs. Conséquence à surveiller : un écran sans lien entrant depuis l'un
+des trois onglets devient inatteignable. C'est arrivé aux équipes, dont le
+tableau de bord du DG ne comportait aucun lien ; la carte « Meilleur vendeur »
+y mène désormais. Le pipeline et le planning du commercial sont dans ce cas et
+attendent un arbitrage.
+
+**Le chef de projet mesure du temps, pas de l'argent.** Il ne vend rien :
+chiffre d'affaires, marge et commissions ne le concernent pas. Son tableau de
+bord (`backend/src/routes/chefProjet.ts`, `frontend/src/pages/ChefProjetPage.tsx`)
+compte sa charge et ses délais, et ne porte que les demandes dont il est le
+responsable. Il peut consulter n'importe quel dossier, il n'est comptable que
+des siens ; les mélanger lui ferait porter le retard d'un autre.
+
 **Les colonnes `@db.Date` tronquent sur UTC.** Y écrire un minuit local décale
 la date d'un jour à Douala. Toujours passer par `jourCalendaire()`, à l'écriture
 comme à la lecture.
