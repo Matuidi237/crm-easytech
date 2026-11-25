@@ -2118,3 +2118,50 @@ export async function fetchTableauChefProjet() {
   if (!res.ok) throw new Error("Erreur lors du chargement du tableau de bord.");
   return res.json() as Promise<TableauChefProjet>;
 }
+
+/* ------------------------------- Pilotage de la force de vente */
+
+/**
+ * Ce que lit le responsable commercial sur son tableau de bord.
+ *
+ * Son périmètre est la force de vente entière, tous pays du groupe. Les
+ * cibles individuelles valent null quand aucun objectif n'est posé, ce qui
+ * n'est pas un objectif à zéro et appelle une autre réaction.
+ */
+export type PilotageCommercial = {
+  objectif: {
+    annee: number;
+    cible: number | null;
+    realise: number;
+    atteintePct: number | null;
+    partEcoulee: number;
+    nbAvecObjectif: number;
+    effectif: number;
+  };
+  mois: { ca: number; variationPct: number | null };
+  pipeline: { pondere: number; resteApresPipeline: number | null };
+  alertes: {
+    sansObjectif: number;
+    sousTrajectoire: number;
+    silencieux: number;
+    seuilSilenceJours: number;
+  };
+  commerciaux: {
+    id: string;
+    nomComplet: string;
+    pays: string | null;
+    chiffreAffaires: number;
+    cible: number | null;
+    atteintePct: number | null;
+    derniereVente: string | null;
+    nbVentes: number;
+    silencieux: boolean;
+  }[];
+  parPays: { pays: string; ca: number; nbVentes: number }[];
+};
+
+export async function fetchPilotageCommercial() {
+  const res = await authedFetch("/api/direction/pilotage-commercial");
+  if (!res.ok) throw new Error("Erreur lors du chargement du tableau de bord.");
+  return res.json() as Promise<PilotageCommercial>;
+}

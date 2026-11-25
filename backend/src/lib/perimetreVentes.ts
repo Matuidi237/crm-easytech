@@ -1,10 +1,11 @@
 /**
  * Quelles ventes un compte voit dans les indicateurs de pilotage.
  *
- * La direction voit l'entreprise ; le responsable commercial voit son équipe.
- * Sans cette distinction, son tableau de bord lui annonçait le chiffre
- * d'affaires de gens qu'il n'encadre pas, et aucun de ses indicateurs ne
- * répondait à la question qu'il se pose : où en est MON équipe.
+ * La direction voit l'entreprise entière, ventes de tous les comptes
+ * confondues ; le responsable commercial voit la force de vente, c'est-à-dire
+ * les commerciaux de tous les pays du groupe et lui-même. Sans cette
+ * distinction, son tableau de bord mêlait à ses chiffres des ventes
+ * enregistrées par des comptes qu'il n'encadre pas.
  */
 
 import type { Prisma, RoleUtilisateur } from "@prisma/client";
@@ -31,17 +32,33 @@ export function voitSonEquipeSeulement(role: RoleUtilisateur): boolean {
 }
 
 /**
- * Les comptes dont ce lecteur suit les ventes : lui-même et ses rattachés.
+ * Les rôles qui composent la force de vente.
  *
- * Lui-même en fait partie : un responsable commercial porte un portefeuille
- * en plus d'encadrer, et s'exclure de son propre bilan le rendrait faux.
+ * Le responsable commercial en fait partie : il porte un portefeuille en plus
+ * d'encadrer, et s'exclure de son propre bilan le rendrait faux.
+ */
+const ROLES_FORCE_DE_VENTE = ["RESPONSABLE_COMMERCIAL", "COMMERCIAL"] as const;
+
+/**
+ * Les comptes dont ce lecteur suit les ventes.
+ *
+ * Tous les commerciaux du groupe, et non les seuls comptes qui le désignent
+ * comme responsable hiérarchique. Le rattachement décrit l'organigramme, il
+ * ne décrit pas le périmètre : un commercial recruté et oublié dans le champ
+ * « responsable » disparaissait de tous ses indicateurs sans qu'aucun écran
+ * ne le signale. Le cas s'est produit, un compte réel était dans cet état.
+ *
+ * À revoir le jour où le groupe nomme un responsable commercial par zone :
+ * il faudra alors revenir au rattachement, et signaler les non rattachés.
  */
 export async function equipeDe(lecteurId: string): Promise<string[]> {
-  const rattaches = await prisma.utilisateur.findMany({
-    where: { responsableId: lecteurId },
+  const force = await prisma.utilisateur.findMany({
+    where: { role: { in: [...ROLES_FORCE_DE_VENTE] } },
     select: { id: true },
   });
-  return [lecteurId, ...rattaches.map((r) => r.id)];
+  const ids = new Set(force.map((u) => u.id));
+  ids.add(lecteurId);
+  return [...ids];
 }
 
 /**

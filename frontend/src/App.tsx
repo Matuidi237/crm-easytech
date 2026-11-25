@@ -1,7 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { LangueProvider } from "./i18n";
-import { estVueChefProjet, estVueCommerciale, estVuePilotage, estVueRH } from "./vues";
+import {
+  estVueChefProjet,
+  estVueCommerciale,
+  estVuePilotage,
+  estVueRH,
+  estVueResponsableCommercial,
+} from "./vues";
+import PilotageCommercialPage from "./pages/PilotageCommercialPage";
 import ChefProjetPage from "./pages/ChefProjetPage";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
@@ -46,6 +53,10 @@ import EnConstruction from "./pages/EnConstruction";
  */
 function Accueil() {
   const { utilisateur } = useAuth();
+  /* Le responsable commercial avant la direction : les deux sont en vue de
+     pilotage, mais il encadre la force de vente quand le directeur general
+     constate l'activite de l'entreprise. */
+  if (estVueResponsableCommercial(utilisateur?.role)) return <PilotageCommercialPage />;
   if (estVuePilotage(utilisateur?.role)) return <DirectionPage />;
   if (estVueCommerciale(utilisateur?.role)) return <CommercialPage />;
   /* Le chef de projet mesure de la charge et du temps, là où les autres

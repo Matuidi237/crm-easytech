@@ -5,6 +5,8 @@ import { avec, perimetreVendeurs, perimetreVentes } from "../lib/perimetreVentes
 import { estEnRetard, jourCalendaire } from "../lib/cotations.js";
 import { requirePermission } from "../lib/auth.js";
 import { margeDe, montantDe } from "../lib/ventes.js";
+import { fenetreDe, partEcoulee } from "../lib/periodes.js";
+import { valeurPonderee } from "../lib/pipeline.js";
 import {
   BAREME_PCT,
   beneficeVide,
@@ -1319,5 +1321,189 @@ directionRouter.get("/commercial/:id/suivi", async (req, res) => {
         chiffreAffaires: c.chiffreAffaires === null ? null : Math.round(Number(c.chiffreAffaires)),
       })),
     },
+  });
+});
+
+/* ==========================================================================
+   Pilotage de la force de vente
+   ========================================================================== */
+
+/**
+ * Tableau de bord du responsable commercial.
+ *
+ * Distinct de celui de la direction, et c'est le point : le directeur général
+ * constate, le responsable commercial agit. Ses questions ne sont pas « combien
+ * a-t-on vendu » mais « sommes-nous sur la trajectoire que j'ai fixée », « qui
+ * décroche » et « quel pays stagne ». L'écran est donc ordonné par ce qu'il
+ * doit faire, pas par ce qu'il doit savoir.
+ *
+ * Son périmètre est la force de vente entière, tous pays du groupe confondus.
+ * Voir « perimetreVentes ».
+ */
+directionRouter.get("/pilotage-commercial", async (req, res) => {
+  const maintenant = new Date();
+  const anneeEnCours = fenetreDe("ANNEE", maintenant);
+  const { debutMois, debutMoisPrecedent } = bornesMensuelles(maintenant);
+  const ecoulePct = Math.round(partEcoulee(anneeEnCours) * 100);
+
+  const perimetre = await perimetreVentes(req.utilisateur!);
+  const vendeurs = await perimetreVendeurs(req.utilisateur!);
+
+  const [membres, ventes, objectifs, affaires] = await Promise.all([
+    prisma.utilisateur.findMany({
+      where: avec({ role: { in: [...ROLES_COMMERCIALE] }, actif: true }, vendeurs),
+      select: { id: true, nomComplet: true, pays: true, objectifsPersonnels: true },
+    }),
+    prisma.vente.findMany({
+      where: perimetre ?? undefined,
+      select: {
+        vendeurId: true,
+        prixVente: true,
+        prixAchat: true,
+        quantite: true,
+        dateVente: true,
+        /* Le pays vient de la fiche client : la vente ne le porte pas, et
+           c'est le marché qu'on veut comparer, pas le bureau du vendeur. */
+        client: { select: { pays: true } },
+      },
+    }),
+    /* Les objectifs annuels en cours, des deux sources. Un compte suit soit
+       le sien, soit celui de l'encadrement : prendre les deux et trancher
+       plus bas évite une requête par commercial. */
+    prisma.objectifCommercial.findMany({
+      where: {
+        periode: "ANNEE",
+        debut: new Date(Date.UTC(anneeEnCours.debut.getFullYear(), 0, 1)),
+      },
+      select: { utilisateurId: true, cibleCaXAF: true, fixeParEncadrement: true },
+    }),
+    /* Ce qui est engagé mais pas encore vendu. Un objectif qui paraît hors
+       d'atteinte ne l'est pas si le pipeline le couvre, et c'est la seule
+       mesure qui permet de le savoir avant la fin de l'année. */
+    prisma.opportunite.findMany({
+      where: { etape: { notIn: ["GAGNEE", "PERDUE"] } },
+      select: { commercialId: true, montantEstime: true, etape: true },
+    }),
+  ]);
+
+  const idsEquipe = new Set(membres.map((m) => m.id));
+  const ventesEquipe = ventes.filter((v) => v.vendeurId && idsEquipe.has(v.vendeurId));
+
+  type LigneVente = (typeof ventesEquipe)[number];
+  const caDe = (lignes: LigneVente[]) => lignes.reduce((s, v) => s + montantDe(v), 0);
+
+  const ventesAnnee = ventesEquipe.filter((v) => v.dateVente >= anneeEnCours.debut);
+  const caAnnee = caDe(ventesAnnee);
+  const caMois = caDe(ventesEquipe.filter((v) => v.dateVente >= debutMois));
+  const caMoisPrecedent = caDe(
+    ventesEquipe.filter((v) => v.dateVente >= debutMoisPrecedent && v.dateVente < debutMois)
+  );
+
+  /* La cible du groupe est la somme des cibles individuelles, et non un
+     chiffre saisi à part : deux totaux qui se contredisent valent moins
+     qu'un seul, et c'est celui-ci que les commerciaux voient sur leur
+     propre écran. */
+  function cibleDe(m: { id: string; objectifsPersonnels: boolean }): number | null {
+    const sourceEncadrement = !m.objectifsPersonnels;
+    const o = objectifs.find(
+      (x) => x.utilisateurId === m.id && x.fixeParEncadrement === sourceEncadrement
+    );
+    if (!o || o.cibleCaXAF === null) return null;
+    return Math.round(Number(o.cibleCaXAF));
+  }
+
+  /* Pondéré par l'étape et non pris au montant plein : un pipeline brut
+     promet toujours de quoi couvrir l'objectif, et la probabilité par étape
+     est déjà la convention du module. */
+  const pipelinePondere = affaires
+    .filter((a) => a.commercialId !== null && idsEquipe.has(a.commercialId))
+    .reduce((s, a) => s + valeurPonderee(nb(a.montantEstime), a.etape), 0);
+
+  /* Trente jours sans rien enregistrer. Seuil assumé : assez long pour ne pas
+     s'alarmer d'un cycle de vente ordinaire, assez court pour qu'un commercial
+     en difficulté ne passe pas un trimestre inaperçu. */
+  const SILENCE_JOURS = 30;
+  const limiteSilence = new Date(maintenant.getTime() - SILENCE_JOURS * 86_400_000);
+
+  const lignes = membres.map((m) => {
+    const siennes = ventesAnnee.filter((v) => v.vendeurId === m.id);
+    const ca = Math.round(caDe(siennes));
+    const cible = cibleDe(m);
+    const derniereVente = ventesEquipe
+      .filter((v) => v.vendeurId === m.id)
+      .reduce<Date | null>((d, v) => (d === null || v.dateVente > d ? v.dateVente : d), null);
+    return {
+      id: m.id,
+      nomComplet: m.nomComplet,
+      pays: m.pays,
+      chiffreAffaires: ca,
+      cible,
+      /* Null quand aucune cible n'est posée : zéro pour cent se lirait comme
+         un échec alors que c'est l'objectif qui manque, et c'est une action
+         pour le responsable, pas pour le commercial. */
+      atteintePct: cible !== null && cible > 0 ? Math.round((ca / cible) * 100) : null,
+      derniereVente,
+      nbVentes: siennes.length,
+      silencieux: derniereVente === null || derniereVente < limiteSilence,
+    };
+  });
+
+  /* Par taux d'atteinte croissant, les sans-objectif en tête : cet écran sert
+     à repérer ce qui ne va pas, et un classement du meilleur au moins bon
+     oblige à le lire à l'envers. */
+  lignes.sort((a, b) => {
+    if ((a.atteintePct === null) !== (b.atteintePct === null)) {
+      return a.atteintePct === null ? -1 : 1;
+    }
+    return (a.atteintePct ?? 0) - (b.atteintePct ?? 0);
+  });
+
+  /* Par pays du client et non du commercial : c'est le marché qui avance ou
+     stagne, pas le bureau depuis lequel la vente a été saisie. */
+  const parPays = new Map<string, { ca: number; nbVentes: number }>();
+  for (const v of ventesAnnee) {
+    const cle = v.client?.pays;
+    if (!cle) continue;
+    const acc = parPays.get(cle) ?? { ca: 0, nbVentes: 0 };
+    acc.ca += montantDe(v);
+    acc.nbVentes += 1;
+    parPays.set(cle, acc);
+  }
+
+  const cibleGroupe = lignes.reduce((s, l) => s + (l.cible ?? 0), 0);
+
+  res.json({
+    objectif: {
+      annee: anneeEnCours.debut.getFullYear(),
+      cible: cibleGroupe > 0 ? cibleGroupe : null,
+      realise: Math.round(caAnnee),
+      atteintePct: cibleGroupe > 0 ? Math.round((caAnnee / cibleGroupe) * 100) : null,
+      partEcoulee: ecoulePct,
+      nbAvecObjectif: lignes.filter((l) => l.cible !== null).length,
+      effectif: lignes.length,
+    },
+    mois: {
+      ca: Math.round(caMois),
+      variationPct: variation(caMois, caMoisPrecedent),
+    },
+    pipeline: {
+      pondere: Math.round(pipelinePondere),
+      /* Ce qu'il resterait à faire une fois le pipeline converti. Négatif
+         veut dire que l'objectif est couvert, et c'est une bonne nouvelle
+         qu'aucun autre chiffre de l'écran ne donne. */
+      resteApresPipeline:
+        cibleGroupe > 0 ? Math.round(cibleGroupe - caAnnee - pipelinePondere) : null,
+    },
+    alertes: {
+      sansObjectif: lignes.filter((l) => l.cible === null).length,
+      sousTrajectoire: lignes.filter((l) => l.atteintePct !== null && l.atteintePct < ecoulePct)
+        .length,
+      silencieux: lignes.filter((l) => l.silencieux).length,
+      seuilSilenceJours: SILENCE_JOURS,
+    },
+    commerciaux: lignes,
+    parPays: [...parPays.entries()]
+      .map(([pays, v]) => ({ pays, ca: Math.round(v.ca), nbVentes: v.nbVentes }))
+      .sort((a, b) => b.ca - a.ca),
   });
 });

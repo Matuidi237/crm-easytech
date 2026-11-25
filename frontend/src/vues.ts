@@ -76,7 +76,14 @@ const NAV_DG: EntreeNav[] = [
 const NAV_RESPONSABLE: EntreeNav[] = [
   ...NAV_DG.slice(0, 3),
   { to: "/import", cle: "nav.import", icone: "import", requiert: "clients.importer" },
-  ...NAV_DG.slice(3),
+  ...NAV_DG.slice(3).filter((e) => e.to !== "/cotations"),
+  /* Les cotations sans condition de droit, contrairement au menu de la
+     direction. Le responsable commercial porte un portefeuille : il soumet
+     ses propres demandes, et le droit de suivre son propre travail ne se
+     discute pas. L'entrée héritée du directeur général exigeait
+     « cotations.superviser », qu'il n'a pas, et l'onglet disparaissait de sa
+     barre alors que la mise en service repose sur trois onglets. */
+  { to: "/cotations", cle: "nav.cotations", icone: "quote" },
 ];
 
 /**
@@ -198,6 +205,19 @@ export function estVueRH(role: Role | undefined) {
  * une capacité ajoutée n'atteint jamais les rôles déjà surchargés en
  * production, et leur page d'accueil basculerait au hasard des surcharges.
  */
+/**
+ * Le responsable commercial, qui encadre la force de vente du groupe.
+ *
+ * En vue de pilotage comme le directeur general, mais pas sur le meme ecran :
+ * celui-la constate l'activite de l'entreprise, celui-ci repond d'une
+ * trajectoire et d'une equipe. Les deux tableaux de bord repondent a des
+ * questions differentes, les confondre obligeait l'un des deux a lire les
+ * chiffres de l'autre.
+ */
+export function estVueResponsableCommercial(role: Role | undefined) {
+  return role === "RESPONSABLE_COMMERCIAL";
+}
+
 export function estVueChefProjet(role: Role | undefined) {
   return role === "CHEF_DE_PROJET";
 }

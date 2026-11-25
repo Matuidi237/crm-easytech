@@ -9190,3 +9190,113 @@ td.col-actions {
   flex-direction: column;
   min-width: 0;
 }
+
+/* ============ Tableau de bord du responsable commercial ================== */
+
+/* Les trois signaux. Compacts et sur une seule rangee : ce ne sont pas des
+   indicateurs a contempler mais des boutons de tri, le chiffre heros est
+   au-dessus. Un signal a zero se desactive plutot que de disparaitre : une
+   rangee dont les elements bougent d un jour a l autre ne se memorise pas. */
+.rc-signaux {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0 18px;
+}
+
+.rc-signal {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.rc-signal:hover:not(:disabled) {
+  border-color: var(--warn);
+}
+
+.rc-signal:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+
+.rc-signal.actif {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.rc-signal.calme {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.rc-signal-valeur {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--warn);
+}
+
+.rc-signal.calme .rc-signal-valeur {
+  color: var(--ink-3);
+}
+
+.rc-signal-libelle {
+  font-size: 12.5px;
+}
+
+/* La jauge d atteinte, dans la ligne du tableau. Plus discrete que celle du
+   chiffre heros : elle se compare d une ligne a l autre, elle ne se lit pas
+   seule. */
+.rc-atteinte {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 118px;
+}
+
+.rc-jauge {
+  flex: 1;
+  height: 6px;
+  min-width: 56px;
+  border-radius: 999px;
+  background: var(--brand-100);
+  overflow: hidden;
+}
+
+.rc-jauge-remplie {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+/* Sous la trajectoire : ambre, comme partout ailleurs dans l outil. Le
+   libelle du signal et la date de derniere vente portent la meme alerte, la
+   couleur ne la porte jamais seule. */
+.rc-jauge-remplie.alerte {
+  background: var(--warn);
+}
+
+.rc-atteinte-pct {
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+@media (max-width: 600px) {
+  .rc-signal {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}
