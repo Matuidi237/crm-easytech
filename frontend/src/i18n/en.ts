@@ -1599,7 +1599,6 @@ export const en: Record<keyof typeof fr, string> = {
   "cp.colStatut": "Status",
   "cp.colEcheance": "Deadline",
   "cp.pourClient": "{client} · requested by {commercial}",
-  "cp.retardJours": "{n} d overdue",
   "cp.chargeTitre": "Received and returned",
   "cp.chargeSousTitre": "Last eight weeks. A widening gap means a growing queue",
   "cp.semaineDetail": "{recues} received, {rendues} returned",
@@ -1609,4 +1608,14 @@ export const en: Record<keyof typeof fr, string> = {
   "cp.demandeursSousTitre": "Requests still in the loop, by salesperson",
   "cp.surTotal": "{n} in the loop",
   "cp.uniteDemandes": "requests",
+  /* --------------------- The three states, salesperson view */
+  "cot.mEnAttente": "Requests pending",
+  "cot.mEnAttenteNote": "{n} of them opened by the project manager",
+  "cot.mEnAttenteVide": "No request awaiting an answer",
+  "cot.mTraitees": "Requests completed",
+  "cot.mTraiteesNote": "{n} of them still to confirm as received",
+  "cot.mTraiteesVide": "No quotation received so far",
+  "cot.mEnRetard": "Requests overdue",
+  "cot.mEnRetardNote": "Past deadline, counted within the pending requests",
+  "cot.mEnRetardVide": "Every deadline is being met",
 };

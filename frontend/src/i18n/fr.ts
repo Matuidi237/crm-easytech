@@ -1601,7 +1601,6 @@ export const fr = {
   "cp.colStatut": "Statut",
   "cp.colEcheance": "Échéance",
   "cp.pourClient": "{client} · demandée par {commercial}",
-  "cp.retardJours": "{n} j de retard",
   "cp.chargeTitre": "Reçues et rendues",
   "cp.chargeSousTitre": "Huit dernières semaines. Un écart qui se creuse signale une file qui grossit",
   "cp.semaineDetail": "{recues} reçues, {rendues} rendues",
@@ -1611,4 +1610,14 @@ export const fr = {
   "cp.demandeursSousTitre": "Demandes encore dans le circuit, par commercial",
   "cp.surTotal": "{n} en circuit",
   "cp.uniteDemandes": "demandes",
+  /* ----------------------- Les trois etats, vue du commercial */
+  "cot.mEnAttente": "Demandes en attente",
+  "cot.mEnAttenteNote": "Dont {n} ouvertes par le chef de projet",
+  "cot.mEnAttenteVide": "Aucune demande en attente de réponse",
+  "cot.mTraitees": "Demandes traitées",
+  "cot.mTraiteesNote": "Dont {n} à confirmer reçues",
+  "cot.mTraiteesVide": "Aucune cotation reçue à ce jour",
+  "cot.mEnRetard": "Demandes en retard",
+  "cot.mEnRetardNote": "Échéance dépassée, comprises dans les demandes en attente",
+  "cot.mEnRetardVide": "Toutes les échéances sont tenues",
 };

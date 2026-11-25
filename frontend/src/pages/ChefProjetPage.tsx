@@ -255,12 +255,13 @@ export default function ChefProjetPage() {
                       </span>
                     </td>
                     <td data-label={t("cp.colEcheance")}>
-                      {date(d.echeanceLe)}
-                      {d.enRetard && (
-                        <span className="cot-sous-ligne cot-retard">
-                          {t("cp.retardJours", { n: nombre(Math.abs(d.joursRestants)) })}
-                        </span>
-                      )}
+                      {/* La date seule, teintée si l'échéance est passée. La
+                          pastille « Critique » de la colonne d'urgence dit
+                          déjà le retard : l'écrire une seconde fois en toutes
+                          lettres allongeait la ligne sans rien apprendre. */}
+                      <span className={d.enRetard ? "cot-retard" : undefined}>
+                        {date(d.echeanceLe)}
+                      </span>
                     </td>
                   </tr>
                 ))}

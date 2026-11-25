@@ -8815,3 +8815,103 @@ td.col-actions {
     font-size: 10px;
   }
 }
+
+/* ============ Les trois etats des cotations, vue du commercial ============ */
+
+/* Trois encarts et non les cartes d indicateurs du reste de l outil : ce sont
+   trois etats d un meme circuit, pas trois mesures independantes, et la
+   couleur y porte une gravite croissante. Le libelle et l icone la doublent
+   toujours : la couleur seule ne porte jamais l information. */
+.cotm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.cotm-carte {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* Le filet de couleur est porte par la bordure gauche et non par un fond
+     teinte : un aplat de couleur sur toute la carte ecrase le chiffre, qui est
+     la seule chose qu on vient y lire. */
+  border-left: 4px solid var(--cotm-ton);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.cotm-pastille {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--cotm-fond);
+  color: var(--cotm-ton);
+}
+
+.cotm-corps {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cotm-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+/* Chiffres tabulaires : sans eux, trois compteurs cote a cote ne s alignent
+   pas d un encart a l autre et la rangee parait de travers. */
+.cotm-valeur {
+  margin-top: 2px;
+  font-size: 38px;
+  line-height: 1.05;
+  font-weight: 700;
+  color: var(--cotm-ton);
+  font-variant-numeric: tabular-nums;
+}
+
+.cotm-note {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+/* Les trois tons de statut de la maison, pas trois couleurs choisies ici :
+   un orange invente pour cette page ne serait plus le meme orange que les
+   pilules du tableau juste en dessous. */
+.cotm-ambre {
+  --cotm-ton: var(--warn);
+  --cotm-fond: var(--warn-bg);
+}
+
+.cotm-vert {
+  --cotm-ton: var(--success);
+  --cotm-fond: var(--success-bg);
+}
+
+.cotm-rouge {
+  --cotm-ton: var(--danger);
+  --cotm-fond: var(--danger-bg);
+}
+
+@media (max-width: 900px) {
+  .cotm {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cotm-valeur {
+    font-size: 32px;
+  }
+}

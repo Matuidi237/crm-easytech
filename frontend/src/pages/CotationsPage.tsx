@@ -514,11 +514,63 @@ export default function CotationsPage() {
 
   const { totaux } = file;
 
-  /** « 3 en retard », ou rien à signaler. */
-  function noteRetard(n: number, defaut: string): string {
-    if (n === 0) return defaut;
-    return n === 1 ? t("cot.uneEnRetardCourt") : t("cot.nEnRetardCourt", { n: nombre(n) });
-  }
+  /**
+   * Les trois compteurs du commercial.
+   *
+   * Il ne pilote pas le circuit, il attend une réponse : ce qui l'intéresse
+   * est l'état de SES demandes, en trois mots. Les étapes internes du chef de
+   * projet, prise en charge et chiffrage, ne le concernent pas ; une demande
+   * ouverte mais pas rendue reste une demande en attente de son point de vue.
+   *
+   * Le retard n'est donc pas une quatrième étape mais une alerte sur les
+   * demandes en attente : les trois chiffres ne s'additionnent pas, et la
+   * mention sous le troisième le dit plutôt que de laisser le croire.
+   *
+   * Présentation distincte des cartes d'indicateurs du reste de l'outil, et
+   * c'est voulu : ce sont trois états d'un même circuit, pas trois mesures
+   * indépendantes, et la couleur y porte une gravité croissante. Le libellé et
+   * l'icône la doublent toujours, car un daltonien ne lit pas le rouge.
+   */
+  /* Ni traitant ni superviseur : il soumet et il attend. C'est le critère de
+     la page elle-même pour le périmètre des données, et le reprendre ici évite
+     qu'un rôle voie une présentation qui ne correspond pas à ses chiffres. */
+  const vueCommerciale = !droits.traiter && !droits.superviser;
+
+  const enAttente = totaux.nonTraitees + totaux.enCours;
+  const traiteesTotal = totaux.traitees + totaux.cloturees;
+
+  const metriques = [
+    {
+      cle: "attente" as const,
+      ton: "ambre",
+      label: t("cot.mEnAttente"),
+      valeur: enAttente,
+      note:
+        enAttente === 0
+          ? t("cot.mEnAttenteVide")
+          : t("cot.mEnAttenteNote", { n: nombre(totaux.enCours) }),
+      Icone: IconClock,
+    },
+    {
+      cle: "traitees" as const,
+      ton: "vert",
+      label: t("cot.mTraitees"),
+      valeur: traiteesTotal,
+      note:
+        traiteesTotal === 0
+          ? t("cot.mTraiteesVide")
+          : t("cot.mTraiteesNote", { n: nombre(totaux.traitees) }),
+      Icone: IconCheck,
+    },
+    {
+      cle: "retard" as const,
+      ton: "rouge",
+      label: t("cot.mEnRetard"),
+      valeur: totaux.enRetard,
+      note: totaux.enRetard === 0 ? t("cot.mEnRetardVide") : t("cot.mEnRetardNote"),
+      Icone: IconAlert,
+    },
+  ];
 
   /**
    * Les quatre compteurs de la page.
@@ -552,7 +604,9 @@ export default function CotationsPage() {
       /* Le retard passe avant la définition de l'étape : c'est lui qui appelle
          une action. Ventilé par étape, sinon on ne saurait pas si les dossiers
          pourrissent avant d'être pris en charge ou pendant le chiffrage. */
-      note: noteRetard(totaux.enRetardAttente, t("cot.kpiEnAttenteNote")),
+      /* Plus de « 3 en retard » ici : le retard a son compteur, et le répéter
+         sous chaque carte le faisait lire trois fois pour un seul fait. */
+      note: t("cot.kpiEnAttenteNote"),
       icone: IconClock,
       fg: "#9e6b06",
       bg: "#fcf2e0",
@@ -560,7 +614,7 @@ export default function CotationsPage() {
     {
       label: t("cot.kpiEnCours"),
       valeur: nombre(totaux.enCours),
-      note: noteRetard(totaux.enRetardEnCours, t("cot.kpiEnCoursNote")),
+      note: t("cot.kpiEnCoursNote"),
       icone: IconTrend,
       fg: "#5b4bc4",
       bg: "#eeebfa",
@@ -687,16 +741,36 @@ export default function CotationsPage() {
         </div>
       )}
 
-      <div className="stat-grid">
-        {cartes.map((c) => (
-          <CarteIndicateur
-            key={c.label}
-            {...c}
-            libelleVariation={t("dg.depuisMoisDernier")}
-            libelleSansVariation={t("dg.pasDeComparaison")}
-          />
-        ))}
-      </div>
+      {/* Le commercial lit trois états, ceux de ses propres demandes. Qui
+          traite ou supervise la file garde les compteurs du circuit, qui
+          distinguent les étapes internes dont il est responsable. */}
+      {vueCommerciale ? (
+        <div className="cotm">
+          {metriques.map((m) => (
+            <div className={`cotm-carte cotm-${m.ton}`} key={m.cle}>
+              <span className="cotm-pastille">
+                <m.Icone size={20} />
+              </span>
+              <div className="cotm-corps">
+                <span className="cotm-label">{m.label}</span>
+                <span className="cotm-valeur">{nombre(m.valeur)}</span>
+                <span className="cotm-note">{m.note}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="stat-grid">
+          {cartes.map((c) => (
+            <CarteIndicateur
+              key={c.label}
+              {...c}
+              libelleVariation={t("dg.depuisMoisDernier")}
+              libelleSansVariation={t("dg.pasDeComparaison")}
+            />
+          ))}
+        </div>
+      )}
 
       <p className="cot-qualite">
         <IconTrend size={15} />
