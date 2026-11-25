@@ -9122,3 +9122,38 @@ td.col-actions {
     justify-content: center;
   }
 }
+
+/* L encart est un bouton : il filtre la liste sur son etat. Mise a plat des
+   styles de bouton, sinon il herite de la police du navigateur. */
+.cotm-carte {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cotm-carte:hover {
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.09);
+}
+
+.cotm-carte:focus-visible {
+  outline: 2px solid var(--cotm-ton);
+  outline-offset: 2px;
+}
+
+/* Filtre actif : le fond prend la teinte de l etat. L etat du filtre se lit
+   aussi dans la liste deroulante, la couleur ne le porte pas seule. */
+.cotm-carte.actif {
+  background: var(--cotm-fond);
+  border-color: var(--cotm-ton);
+}
+
+.cotm-corps {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}

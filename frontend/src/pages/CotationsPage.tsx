@@ -65,6 +65,27 @@ const VIDE = {
 };
 
 const STATUTS: StatutCotation[] = ["NON_TRAITEE", "EN_COURS", "TRAITEE", "CLOTUREE"];
+
+/**
+ * Les trois états que lit le commercial, et comment ils se calculent.
+ *
+ * Ce sont ceux de ses trois compteurs, et c'est la raison d'être de cette
+ * table : un filtre qui propose les quatre statuts internes du circuit alors
+ * que la page en affiche trois oblige à traduire de tête, et un chiffre qu'on
+ * ne peut pas retrouver dans la liste cesse d'être vérifiable.
+ *
+ * Le retard n'est pas un statut mais une lecture de l'échéance : il recoupe
+ * les demandes en attente au lieu de s'y ajouter.
+ */
+const ETATS_COMMERCIAL = {
+  ATTENTE: (d: DemandeCotation) => d.statut === "NON_TRAITEE" || d.statut === "EN_COURS",
+  TRAITEES: (d: DemandeCotation) => d.statut === "TRAITEE" || d.statut === "CLOTUREE",
+  RETARD: (d: DemandeCotation) => d.enRetard,
+} satisfies Record<string, (d: DemandeCotation) => boolean>;
+
+type EtatCommercial = keyof typeof ETATS_COMMERCIAL;
+
+const ETATS: EtatCommercial[] = ["ATTENTE", "TRAITEES", "RETARD"];
 const URGENCES: UrgenceCotation[] = ["CRITIQUE", "HAUTE", "MOYENNE", "BASSE"];
 
 /* La file se rafraîchit toute seule. Un commercial laisse cette page ouverte
@@ -109,6 +130,10 @@ export default function CotationsPage() {
   const [historique, setHistorique] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [filtreStatut, setFiltreStatut] = useState("");
+  /* Le filtre du commercial, distinct de celui des statuts : les deux listes
+     ne proposent pas la même chose et laisser une seule variable les porter
+     ferait réapparaître l'un en changeant de rôle. */
+  const [filtreEtat, setFiltreEtat] = useState<EtatCommercial | "">("");
   const [filtreUrgence, setFiltreUrgence] = useState("");
 
   /* Le filtre par responsable vit dans l'adresse, et lui seul : la carte
@@ -224,6 +249,7 @@ export default function CotationsPage() {
     const q = recherche.trim().toLowerCase();
     return toutes
       .filter((d) => filtreStatut === "" || d.statut === filtreStatut)
+      .filter((d) => filtreEtat === "" || ETATS_COMMERCIAL[filtreEtat](d))
       .filter((d) => filtreUrgence === "" || d.urgence === filtreUrgence)
       .filter(
         (d) =>
@@ -234,7 +260,7 @@ export default function CotationsPage() {
           d.commercialNom.toLowerCase().includes(q) ||
           (d.responsableNom ?? "").toLowerCase().includes(q)
       );
-  }, [toutes, filtreStatut, filtreUrgence, recherche]);
+  }, [toutes, filtreStatut, filtreEtat, filtreUrgence, recherche]);
 
   /* Les dossiers repartis pour correction, à part. Un chiffrage refait est du
      travail payé deux fois, et c'est le seul endroit de la page où on peut
@@ -425,6 +451,21 @@ export default function CotationsPage() {
 
   const libelleStatut = (s: StatutCotation) => t(`cot.statut.${s}` as CleTraduction);
   const libelleUrgence = (u: UrgenceCotation) => t(`cot.urgence.${u}` as CleTraduction);
+  const libelleEtat = (e: EtatCommercial) => t(`cot.etat.${e}` as CleTraduction);
+
+  /**
+   * Choisit un état, et va chercher ce qu'il faut pour le montrer en entier.
+   *
+   * La file courante exclut les demandes closes : filtrer sur « traitées »
+   * sans les charger afficherait moins de lignes que le compteur n'en annonce,
+   * et un chiffre qu'on ne retrouve pas dans la liste passe pour une erreur.
+   */
+  function choisirEtat(etat: EtatCommercial | "") {
+    setFiltreEtat(etat);
+    if (etat !== "TRAITEES" || historique) return;
+    setHistorique(true);
+    recharger(true);
+  }
 
   /** Un délai en heures, rendu dans l'unité qui se lit. */
   function delai(heures: number | null): string {
@@ -545,6 +586,7 @@ export default function CotationsPage() {
   const metriques = [
     {
       cle: "attente" as const,
+      etat: "ATTENTE" as const,
       ton: "ambre",
       label: t("cot.mEnAttente"),
       valeur: enAttente,
@@ -556,6 +598,7 @@ export default function CotationsPage() {
     },
     {
       cle: "traitees" as const,
+      etat: "TRAITEES" as const,
       ton: "vert",
       label: t("cot.mTraitees"),
       valeur: traiteesTotal,
@@ -567,6 +610,7 @@ export default function CotationsPage() {
     },
     {
       cle: "retard" as const,
+      etat: "RETARD" as const,
       ton: "rouge",
       label: t("cot.mEnRetard"),
       valeur: totaux.enRetard,
@@ -805,16 +849,25 @@ export default function CotationsPage() {
       {vueCommerciale ? (
         <div className="cotm">
           {metriques.map((m) => (
-            <div className={`cotm-carte cotm-${m.ton}`} key={m.cle}>
+            /* Chaque encart filtre la liste sur son etat, et le second clic
+               le retire. Un compteur qu on ne peut pas ouvrir oblige a
+               retrouver a la main les lignes qu il annonce. */
+            <button
+              type="button"
+              className={`cotm-carte cotm-${m.ton}${filtreEtat === m.etat ? " actif" : ""}`}
+              key={m.cle}
+              aria-pressed={filtreEtat === m.etat}
+              onClick={() => choisirEtat(filtreEtat === m.etat ? "" : m.etat)}
+            >
               <span className="cotm-pastille">
                 <m.Icone size={20} />
               </span>
-              <div className="cotm-corps">
+              <span className="cotm-corps">
                 <span className="cotm-label">{m.label}</span>
                 <span className="cotm-valeur">{nombre(m.valeur)}</span>
                 <span className="cotm-note">{m.note}</span>
-              </div>
-            </div>
+              </span>
+            </button>
           ))}
         </div>
       ) : (
@@ -1384,16 +1437,32 @@ export default function CotationsPage() {
               aria-label={t("cot.recherche", { n: nombre(toutes.length) })}
             />
           </div>
-          <ListeDeroulante
-            id="cot-filtre-statut"
-            valeur={filtreStatut === "" ? "" : libelleStatut(filtreStatut as StatutCotation)}
-            options={STATUTS.map(libelleStatut)}
-            onChange={(libelle) =>
-              setFiltreStatut(STATUTS.find((s) => libelleStatut(s) === libelle) ?? "")
-            }
-            placeholder={t("cot.filtreStatut")}
-            videLibelle={t("cot.filtreStatut")}
-          />
+          {/* Le commercial filtre sur les trois états de ses compteurs, pas
+              sur les quatre statuts internes du circuit : un chiffre affiché
+              en haut de page doit pouvoir se retrouver dans la liste. */}
+          {vueCommerciale ? (
+            <ListeDeroulante
+              id="cot-filtre-etat"
+              valeur={filtreEtat === "" ? "" : libelleEtat(filtreEtat)}
+              options={ETATS.map(libelleEtat)}
+              onChange={(libelle) =>
+                choisirEtat(ETATS.find((e) => libelleEtat(e) === libelle) ?? "")
+              }
+              placeholder={t("cot.filtreEtat")}
+              videLibelle={t("cot.filtreEtat")}
+            />
+          ) : (
+            <ListeDeroulante
+              id="cot-filtre-statut"
+              valeur={filtreStatut === "" ? "" : libelleStatut(filtreStatut as StatutCotation)}
+              options={STATUTS.map(libelleStatut)}
+              onChange={(libelle) =>
+                setFiltreStatut(STATUTS.find((s) => libelleStatut(s) === libelle) ?? "")
+              }
+              placeholder={t("cot.filtreStatut")}
+              videLibelle={t("cot.filtreStatut")}
+            />
+          )}
           <ListeDeroulante
             id="cot-filtre-urgence"
             valeur={filtreUrgence === "" ? "" : libelleUrgence(filtreUrgence as UrgenceCotation)}
@@ -1424,11 +1493,11 @@ export default function CotationsPage() {
               <IconInbox />
             </div>
             <div className="empty-title">
-              {recherche.trim() !== "" || filtreStatut || filtreUrgence || filtreResponsable
+              {recherche.trim() !== "" || filtreStatut || filtreEtat || filtreUrgence || filtreResponsable
                 ? t("cot.aucunResultat")
                 : t("cot.videTitre")}
             </div>
-            {recherche.trim() === "" && !filtreStatut && !filtreUrgence && !filtreResponsable && (
+            {recherche.trim() === "" && !filtreStatut && !filtreEtat && !filtreUrgence && !filtreResponsable && (
               <p className="empty-text" style={{ margin: 0 }}>
                 {droits.traiter
                   ? t("cot.videTraitant")

@@ -1630,4 +1630,11 @@ export const fr = {
   "cot.poidsKo": "{n} Ko",
   "cot.poidsMo": "{n} Mo",
   "cot.fichierMeta": "{poids} · déposé par {nom} le {date}",
+  /* Filtre des trois etats, vue du commercial. Libelles courts : ils tiennent
+     dans une liste deroulante, la ou les encarts ont la place de dire
+     « Demandes en attente ». */
+  "cot.filtreEtat": "Tous les états",
+  "cot.etat.ATTENTE": "En attente",
+  "cot.etat.TRAITEES": "Traitées",
+  "cot.etat.RETARD": "En retard",
 };

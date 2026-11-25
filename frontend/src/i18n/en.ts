@@ -1628,4 +1628,8 @@ export const en: Record<keyof typeof fr, string> = {
   "cot.poidsKo": "{n} KB",
   "cot.poidsMo": "{n} MB",
   "cot.fichierMeta": "{poids} · added by {nom} on {date}",
+  "cot.filtreEtat": "All states",
+  "cot.etat.ATTENTE": "Pending",
+  "cot.etat.TRAITEES": "Completed",
+  "cot.etat.RETARD": "Overdue",
 };
