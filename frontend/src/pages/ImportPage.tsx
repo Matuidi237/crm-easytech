@@ -14,7 +14,7 @@ import {
 } from "../components/Icons";
 
 /**
- * Devine l'association colonne du fichier -> champ du CRM.
+ * Devine l'association colonne du fichier -> champ de l'ERP.
  *
  * L'entête du fichier est comparée aux libellés des DEUX langues : un fichier
  * français reste reconnu même si l'interface est en anglais, et l'inverse.

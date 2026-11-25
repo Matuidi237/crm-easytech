@@ -1,9 +1,16 @@
 # Repères pour travailler sur ce dépôt
 
-Outil de gestion interne, parti d'un CRM et en train de devenir un ERP :
-clients, ventes et commissions, projets, partenaires, campagnes, planning et
-feuilles de temps. Un module RH est en cours. Déployé en **une instance par
-client**, jamais mutualisé.
+**EasyTech ERP**, outil de gestion interne : clients, ventes et commissions,
+projets, partenaires, campagnes, cotations, planning et feuilles de temps. Un
+module RH est en cours. Déployé en **une instance par client**, jamais
+mutualisé.
+
+Le produit s'appelait « CRM Clients » jusqu'en novembre 2026. Le nom visible
+vit dans `nav.marque` et le titre de `frontend/index.html`, et nulle part
+ailleurs. Les noms d'infrastructure, eux, restent en `crm` : dépôt
+`crm-easytech`, services `crm-backend` et `crm-frontend`, répertoire `/opt/crm`
+sur le serveur, volume de la base. Les renommer casserait le déploiement en
+place pour un gain cosmétique que personne ne voit.
 
 ## Commandes
 

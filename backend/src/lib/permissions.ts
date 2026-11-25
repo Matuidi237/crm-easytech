@@ -1,7 +1,7 @@
 import type { RoleUtilisateur } from "@prisma/client";
 
 /**
- * Hiérarchie de privilèges du CRM.
+ * Hiérarchie de privilèges de l'ERP.
  *
  * Un seul endroit décide de ce que chaque rôle peut faire. Les routes ne
  * testent jamais un rôle directement : elles exigent une capacité. Ajouter un
@@ -172,7 +172,7 @@ const MATRICE_PAR_DEFAUT: Record<RoleUtilisateur, Permission[]> = {
   /**
    * Ressources humaines.
    *
-   * Aucune capacité sur le CRM, et c'est voulu : la RH tient l'effectif et les
+   * Aucune capacité sur la partie commerciale, et c'est voulu : la RH tient l'effectif et les
    * congés, elle n'a pas à lire le portefeuille clients ni les montants des
    * ventes. Ses propres capacités, nommées « rh.* », arriveront avec le module.
    *

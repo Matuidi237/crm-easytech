@@ -927,7 +927,7 @@ export type Jalon = {
   libelle: string;
   unite: UniteJalon;
   cible: number;
-  /** Avancement déclaré : un jalon porte souvent sur ce que le CRM ne mesure pas. */
+  /** Avancement déclaré : un jalon porte souvent sur ce que l'ERP ne mesure pas. */
   realise: number;
   echeance: string;
   ordre: number;

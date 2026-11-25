@@ -42,7 +42,7 @@ export const en: Record<keyof typeof fr, string> = {
   "topbar.monCompte": "My account",
 
   /* ---------------------------------------------------------- Navigation */
-  "nav.marque": "Client CRM",
+  "nav.marque": "EasyTech ERP",
   "nav.principale": "Main navigation",
   "nav.compte": "Account",
   "nav.dashboard": "Dashboard",
@@ -61,7 +61,7 @@ export const en: Record<keyof typeof fr, string> = {
     "We bring our files together, filter our clients by country, sector or account manager, and send our campaigns to the right people.",
   "login.pied": "Internal tool, staff access only.",
   "login.titre": "Sign in",
-  "login.sousTitre": "Enter your credentials to access the CRM.",
+  "login.sousTitre": "Enter your credentials to access the ERP.",
   "login.identifiant": "Username",
   "login.motDePasse": "Password",
   "login.connexion": "Signing in…",
@@ -346,7 +346,7 @@ export const en: Record<keyof typeof fr, string> = {
   "users.mdpReinitialise": "Password reset for \"{identifiant}\".",
   "users.roleChange": "{nom} is now {role}.",
   "users.aucunTitre": "No account",
-  "users.aucunTexte": "Create an account for every person who needs access to the CRM.",
+  "users.aucunTexte": "Create an account for every person who needs access to the ERP.",
   "users.colUtilisateur": "User",
   "users.colRole": "Role",
   "users.colRattacheA": "Reports to",

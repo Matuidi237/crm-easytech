@@ -51,7 +51,7 @@ function Accueil() {
   /* Le chef de projet mesure de la charge et du temps, là où les autres
      comptent de l'argent. */
   if (estVueChefProjet(utilisateur?.role)) return <ChefProjetPage />;
-  /* La DRH n'a aucun droit sur le CRM : le tableau de bord ne lui renverrait
+  /* La DRH n'a aucun droit sur la partie commerciale : le tableau de bord ne lui renverrait
      que des refus. Tant que le module RH n'a pas ses écrans, elle ouvre sur la
      seule chose qu'elle suit ici, la file des cotations. */
   if (estVueRH(utilisateur?.role)) return <Navigate to="/cotations" replace />;

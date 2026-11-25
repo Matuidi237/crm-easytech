@@ -117,7 +117,7 @@ importRouter.post("/commit", requirePermission("clients.importer"), async (req, 
         continue;
       }
 
-      // Les secteurs sont ramenés à la taxonomie du CRM : sans ça, chaque
+      // Les secteurs sont ramenés à la taxonomie de l'ERP : sans ça, chaque
       // fichier apporte son propre vocabulaire et le ciblage devient inutilisable.
       if (targetField === "secteurActivite") {
         const brut = String(value).trim();

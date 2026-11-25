@@ -661,7 +661,7 @@ directionRouter.patch("/ventes/:id/cout", requirePermission("ventes.cout"), asyn
   });
   if (!vente) return res.status(404).json({ error: "Vente introuvable." });
 
-  /* Une commission déjà versée a quitté le CRM : changer le coût maintenant
+  /* Une commission déjà versée a quitté l'outil : changer le coût maintenant
      recalculerait un montant qui ne correspondrait plus à ce qui a été payé. */
   if (vente.commissionVerseeLe) {
     return res.status(409).json({

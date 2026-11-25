@@ -1,4 +1,4 @@
-# CRM Clients — EasyTech Group SA
+# EasyTech ERP — EasyTech Group SA
 
 Outil interne de centralisation de la base de données clients : import CSV/Excel/JSON avec mapping de colonnes, fiche client standardisée, filtres (pays, ville, secteur, chiffre d'affaires, commercial en charge), tableau de bord avec statistiques, accès protégé par authentification. Conçu pour évoluer vers l'envoi automatisé de newsletters et d'offres.
 

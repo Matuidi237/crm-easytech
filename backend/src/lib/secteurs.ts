@@ -1,5 +1,5 @@
 /**
- * Taxonomie de secteurs d'activité du CRM.
+ * Taxonomie de secteurs d'activité de l'ERP.
  *
  * Les fichiers sources emploient des vocabulaires très différents (français,
  * anglais, abréviations, fautes de frappe) : sans regroupement on obtient des
@@ -195,7 +195,7 @@ export function canoniserSecteur(brut: string | null | undefined): string {
   if (!n) return "";
 
   // Un libellé déjà canonique se renvoie lui-même : la fonction doit être
-  // idempotente, sinon réimporter un export du CRM reclasserait les fiches
+  // idempotente, sinon réimporter un export de l'outil reclasserait les fiches
   // (« Secteur public & institutions » contient « INSTITUT »…).
   const dejaCanonique = CANONIQUES_NORMALISES.get(n);
   if (dejaCanonique) return dejaCanonique;

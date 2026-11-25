@@ -1519,7 +1519,7 @@ commercialRouter.delete("/ventes/:id", async (req, res) => {
      appartient à quelqu'un d'autre. */
   if (!vente) return res.status(404).json({ error: "Vente introuvable." });
 
-  /* Une commission déjà versée a quitté le CRM : effacer la vente ferait
+  /* Une commission déjà versée a quitté l'outil : effacer la vente ferait
      disparaître la justification d'un paiement réel. La correction passe alors
      par un responsable. */
   if (vente.commissionVerseeLe) {

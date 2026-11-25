@@ -132,6 +132,6 @@ demarrer()
   .catch((err) => console.error("Démarrage incomplet :", err))
   .finally(() => {
     app.listen(port, () => {
-      console.log(`CRM backend démarré sur http://localhost:${port}`);
+      console.log(`EasyTech ERP, API démarrée sur http://localhost:${port}`);
     });
   });

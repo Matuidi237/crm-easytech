@@ -42,7 +42,7 @@ export const fr = {
   "topbar.monCompte": "Mon compte",
 
   /* ------------------------------------------------------------ Menu nav */
-  "nav.marque": "CRM Clients",
+  "nav.marque": "EasyTech ERP",
   "nav.principale": "Navigation principale",
   "nav.compte": "Compte",
   "nav.dashboard": "Tableau de bord",
@@ -61,7 +61,7 @@ export const fr = {
     "Nous centralisons nos fichiers, filtrons nos clients par pays, secteur ou commercial, et adressons nos campagnes aux bons interlocuteurs.",
   "login.pied": "Outil interne, accès réservé aux collaborateurs.",
   "login.titre": "Connexion",
-  "login.sousTitre": "Renseignez vos identifiants pour accéder au CRM.",
+  "login.sousTitre": "Renseignez vos identifiants pour accéder à l'ERP.",
   "login.identifiant": "Identifiant",
   "login.motDePasse": "Mot de passe",
   "login.connexion": "Connexion…",
@@ -347,7 +347,7 @@ export const fr = {
   "users.mdpReinitialise": "Mot de passe réinitialisé pour « {identifiant} ».",
   "users.roleChange": "{nom} est désormais {role}.",
   "users.aucunTitre": "Aucun compte",
-  "users.aucunTexte": "Créez un compte pour chaque personne devant accéder au CRM.",
+  "users.aucunTexte": "Créez un compte pour chaque personne devant accéder à l'ERP.",
   "users.colUtilisateur": "Utilisateur",
   "users.colRole": "Rôle",
   "users.colRattacheA": "Rattaché à",
