@@ -175,17 +175,20 @@ export default function CotationsPage() {
      l'impression d'être coincé. Les trois ne s'ouvrent jamais ensemble, ouvrir
      l'une refermant les autres. */
   useEffect(() => {
-    if (!ouvert && !reaffectation && !revision) return;
+    if (!ouvert && !reaffectation && !revision && !detail) return;
     function auClavier(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       if (ouvert) fermerFormulaire();
       else if (reaffectation) setReaffectation(null);
-      else setRevision(null);
+      else if (revision) setRevision(null);
+      /* La fiche se ferme en dernier : les trois fenêtres d'action s'ouvrent
+         par-dessus elle, et Échap doit refermer celle du dessus. */
+      else fermerDetail();
     }
     window.addEventListener("keydown", auClavier);
     return () => window.removeEventListener("keydown", auClavier);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ouvert, reaffectation, revision]);
+  }, [ouvert, reaffectation, revision, detail]);
 
   /** Ferme la fiche, et retire de l'adresse le dossier qu'elle visait. */
   function fermerDetail() {
@@ -674,6 +677,61 @@ export default function CotationsPage() {
               })
         }`;
 
+  /* Les pièces séparées selon leur provenance. Le cahier des charges du
+     client et le chiffrage rendu ne s'ouvrent ni au même moment ni par la
+     même personne ; une liste unique obligeait à lire chaque étiquette pour
+     retrouver lequel était lequel. */
+  const piecesBesoin = detail?.pieces.filter((p) => p.origine === "BESOIN") ?? [];
+  const piecesCotation = detail?.pieces.filter((p) => p.origine === "COTATION") ?? [];
+
+  /** « 248 Ko », « 1,4 Mo ». Un poids en octets ne se lit pas. */
+  function poids(octets: number): string {
+    if (octets < 1024 * 1024) {
+      return t("cot.poidsKo", { n: nombre(Math.max(1, Math.round(octets / 1024))) });
+    }
+    return t("cot.poidsMo", { n: nombre(Math.round((octets / (1024 * 1024)) * 10) / 10) });
+  }
+
+  /** Les fichiers d'un bloc. Vide, elle le dit : une absence de liste se lit
+      comme un chargement en cours, pas comme une absence de fichier. */
+  function ListePieces({ pieces }: { pieces: PieceCotation[] }) {
+    if (pieces.length === 0) {
+      return <p className="cot-texte muted-3">{t("cot.aucunePiece")}</p>;
+    }
+    return (
+      <ul className="cot-fichiers">
+        {pieces.map((p) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              className="cot-fichier"
+              onClick={() =>
+                telechargerPieceCotation(p).catch((e) => setErreur((e as Error).message))
+              }
+            >
+              <span className="cot-fichier-icone">
+                <IconPaperclip size={16} />
+              </span>
+              <span className="cot-fichier-corps">
+                <span className="cot-fichier-nom">{p.nomFichier}</span>
+                <span className="cot-fichier-meta">
+                  {t("cot.fichierMeta", {
+                    poids: poids(p.taille),
+                    nom: p.deposeParNom,
+                    date: date(p.createdAt),
+                  })}
+                </span>
+              </span>
+              <span className="cot-fichier-action">
+                <IconDownload size={16} />
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   /** Le bandeau de responsabilité, en tête de la fiche détaillée. */
   function Responsabilite({ d }: { d: DemandeCotation }) {
     return (
@@ -1039,197 +1097,222 @@ export default function CotationsPage() {
         </div>
       )}
 
+      {/* La fiche en fenetre, comme le formulaire de demande. En panneau au
+          fil de la page, elle poussait la liste loin vers le bas et obligeait
+          a remonter pour passer au dossier suivant ; surtout, elle melait en
+          une colonne les faits, le besoin, les fichiers et l historique, qui
+          ne se lisent pas au meme moment. La fenetre les separe en blocs. */}
       {detail && (
-        <section className="panneau cot-detail">
-          <header className="panneau-tete">
-            <h2>
-              <span className="cot-ref">{t("cot.cotationN", { reference: detail.reference })}</span>
-              {detail.objet}
-            </h2>
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={fermerDetail}
-              aria-label={t("commun.fermer")}
-              title={t("commun.fermer")}
-            >
-              <IconClose size={16} />
-            </button>
-          </header>
-
-          <div className="cot-entete">
-            <span className={`pill pill-cot-${detail.statut.toLowerCase()}`}>
-              {libelleStatut(detail.statut)}
-            </span>
-            <span className="cot-client">{detail.clientNom}</span>
-            {detail.enRetard && (
-              <span className="etat etat-alerte">
-                {t("cot.retardNJours", { n: nombre(-detail.joursRestants) })}
-              </span>
-            )}
-          </div>
-
-          <Responsabilite d={detail} />
-
-          {detail.description && <p className="cot-texte">{detail.description}</p>}
-
-          {/* Le fil du dossier : qui l'a demandé, à qui il revient, qui s'en
-              est saisi, quand. C'est cette trace, et non le statut seul, qui
-              manquait. Les réaffectations y figurent avec leur motif. */}
-          <span className="cot-sous-titre">{t("cot.suiviDossier")}</span>
-          <ol className="cot-fil">
-            <li>
-              <IconClock size={15} />
-              {t("cot.demandeeLe", { date: dateHeure(detail.createdAt), nom: detail.commercialNom })}
-            </li>
-            {detail.affectations.map((a) => (
-              <li key={a.id}>
-                <IconLayers size={15} />
-                {a.ancienResponsableNom
-                  ? t("cot.reaffecteeDe", {
-                      ancien: a.ancienResponsableNom,
-                      nouveau: a.nouveauResponsableNom,
-                      par: a.parNom ?? "",
-                      date: dateHeure(a.createdAt),
-                    })
-                  : a.automatique
-                    ? t("cot.affecteeAuto", {
-                        nom: a.nouveauResponsableNom,
-                        date: dateHeure(a.createdAt),
-                      })
-                    : t("cot.affecteePar", {
-                        nom: a.nouveauResponsableNom,
-                        par: a.parNom ?? "",
-                        date: dateHeure(a.createdAt),
-                      })}
-                {a.motif && <span className="cot-motif">{a.motif}</span>}
-              </li>
-            ))}
-            {detail.priseEnChargeLe && detail.traiteParNom && (
-              <li>
-                <IconCheck size={15} />
-                {t("cot.priseEnChargePar", {
-                  nom: detail.traiteParNom,
-                  date: dateHeure(detail.priseEnChargeLe),
-                })}
-              </li>
-            )}
-            {detail.traiteeLe && (
-              <li>
-                <IconCheck size={15} />
-                {t("cot.rendueLe", { date: dateHeure(detail.traiteeLe) })}
-              </li>
-            )}
-            {detail.revisionDemandeeLe && (
-              <li>
-                <IconAlert size={15} />
-                {t("cot.revisionDemandeeLe", { date: dateHeure(detail.revisionDemandeeLe) })}
-                {detail.motifRevision && <span className="cot-motif">{detail.motifRevision}</span>}
-              </li>
-            )}
-            {detail.recueLe && (
-              <li>
-                <IconCheck size={15} />
-                {t("cot.recueLeDate", { date: dateHeure(detail.recueLe) })}
-              </li>
-            )}
-          </ol>
-
-          {detail.reponse && (
-            <div className="cot-reponse">
-              <span className="cot-sous-titre">{t("cot.reponseDuPM")}</span>
-              <p className="cot-texte">{detail.reponse}</p>
-            </div>
-          )}
-
-          <div className="cot-pieces">
-            <span className="cot-sous-titre">{t("cot.piecesJointes")}</span>
-            {detail.pieces.length === 0 ? (
-              <p className="cot-texte muted-3">{t("cot.aucunePiece")}</p>
-            ) : (
-              <ul className="cot-liste-pieces">
-                {detail.pieces.map((p: PieceCotation) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      className="cot-piece"
-                      onClick={() => telechargerPieceCotation(p).catch((e) => setErreur((e as Error).message))}
-                    >
-                      <IconDownload size={15} />
-                      <span className="cot-piece-nom">{p.nomFichier}</span>
-                      <span className={`pill pill-piece-${p.origine.toLowerCase()}`}>
-                        {p.origine === "BESOIN" ? t("cot.pieceBesoin") : t("cot.pieceCotation")}
-                      </span>
-                      <span className="cot-piece-meta">
-                        {t("cot.deposeePar", { nom: p.deposeParNom, date: date(p.createdAt) })}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Le chiffrage ne s'ouvre qu'une fois le dossier pris en charge :
-              laisser transmettre sans prise en charge rendrait le bouton
-              « Prendre en charge » décoratif, et le délai qu'il sert à mesurer
-              resterait inconnu. */}
-          {droits.traiter &&
-            detail.statut !== "CLOTUREE" &&
-            detail.responsableId === utilisateur?.id &&
-            detail.priseEnChargeLe !== null && (
-              <form className="cot-action" onSubmit={envoyerReponse}>
-                <span className="cot-sous-titre">
-                  {detail.statut === "TRAITEE" ? t("cot.corrigerCotation") : t("cot.rendreCotation")}
+        <div className="modal-backdrop" onClick={fermerDetail} role="presentation">
+          <div
+            className="modal modal-forme cot-fiche"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cot-fiche-titre"
+          >
+            <header className="modal-forme-tete">
+              <div className="cot-fiche-titre">
+                <span className="cot-ref">
+                  {t("cot.cotationN", { reference: detail.reference })}
                 </span>
-                <div className="field">
-                  <label htmlFor="cot-reponse">{t("cot.reponse")}</label>
-                  <textarea
-                    id="cot-reponse"
-                    rows={3}
-                    value={reponse}
-                    onChange={(e) => setReponse(e.target.value)}
-                    placeholder={t("cot.reponsePlaceholder")}
-                  />
-                </div>
-                <div className="depot">
-                  <input
-                    ref={champCotation}
-                    type="file"
-                    className="depot-champ"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc"
-                    onChange={(e) => setPieceReponse(e.target.files?.[0] ?? null)}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => champCotation.current?.click()}
-                  >
-                    <IconPaperclip size={15} />
-                    {pieceReponse ? t("cot.remplacerFichier") : t("cot.joindreCotation")}
-                  </button>
-                  <span className={pieceReponse ? "depot-nom" : "depot-nom vide"}>
-                    {pieceReponse ? pieceReponse.name : t("cot.aucunFichier")}
+                <h3 id="cot-fiche-titre">{detail.objet}</h3>
+                <div className="cot-fiche-etiquettes">
+                  <span className={`pill pill-cot-${detail.statut.toLowerCase()}`}>
+                    {libelleStatut(detail.statut)}
                   </span>
+                  {/* L urgence se deduit de l echeance : la repeter ici evite
+                      de comparer une date a la date du jour de tete. */}
+                  {detail.urgence && (
+                    <span className={`pill pill-urg-${detail.urgence.toLowerCase()}`}>
+                      {libelleUrgence(detail.urgence)}
+                    </span>
+                  )}
                 </div>
-                <div className="field-hint">{t("cot.reponseAide")}</div>
-                <div className="form-actions">
-                  <button type="submit" className="btn btn-primary" disabled={envoiReponse}>
-                    <IconSend size={15} />
-                    {envoiReponse
-                      ? t("cot.envoiEnCours")
-                      : detail.statut === "TRAITEE"
-                        ? t("cot.renvoyer")
-                        : t("cot.envoyerAuCommercial")}
-                  </button>
-                </div>
-              </form>
-            )}
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={fermerDetail}
+                aria-label={t("commun.fermer")}
+                title={t("commun.fermer")}
+              >
+                <IconClose size={16} />
+              </button>
+            </header>
 
-          {/* Les deux issues du demandeur. */}
-          {detail.statut === "TRAITEE" && detail.commercialId === utilisateur?.id && (
-            <div className="cot-action">
-              <div className="form-actions form-actions-entre">
+            <div className="modal-forme-corps">
+              {/* Les faits, en grille et sans phrase. C est ce qu on vient
+                  verifier en ouvrant un dossier, et le chercher dans un
+                  paragraphe prend plus de temps que de le lire aligne. */}
+              <dl className="cot-faits">
+                <div>
+                  <dt>{t("cot.fClient")}</dt>
+                  <dd className="cot-fait-fort">{detail.clientNom}</dd>
+                </div>
+                <div>
+                  <dt>{t("cot.fDemandeur")}</dt>
+                  <dd>{detail.commercialNom}</dd>
+                </div>
+                <div>
+                  <dt>{t("cot.fSoumise")}</dt>
+                  <dd>{dateHeure(detail.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>{t("cot.fEcheance")}</dt>
+                  <dd className={detail.enRetard ? "cot-retard" : undefined}>
+                    {date(detail.echeanceLe)}
+                  </dd>
+                </div>
+              </dl>
+
+              <Responsabilite d={detail} />
+
+              {/* Le besoin et ses pieces ensemble, la reponse et les siennes
+                  ensemble. Une liste unique melangeait le cahier des charges
+                  du client et le chiffrage rendu, qui ne s ouvrent ni au meme
+                  moment ni par la meme personne. */}
+              <section className="cot-bloc">
+                <span className="cot-sous-titre">{t("cot.leBesoin")}</span>
+                {detail.description ? (
+                  <p className="cot-texte">{detail.description}</p>
+                ) : (
+                  <p className="cot-texte muted-3">{t("cot.besoinVide")}</p>
+                )}
+                <ListePieces pieces={piecesBesoin} />
+              </section>
+
+              {(detail.reponse || piecesCotation.length > 0) && (
+                <section className="cot-bloc cot-bloc-reponse">
+                  <span className="cot-sous-titre">{t("cot.reponseDuPM")}</span>
+                  {detail.reponse && <p className="cot-texte">{detail.reponse}</p>}
+                  <ListePieces pieces={piecesCotation} />
+                </section>
+              )}
+
+              {/* Le fil du dossier en dernier : qui l a demande, a qui il
+                  revient, qui s en est saisi, quand. On l ouvre pour trancher
+                  un desaccord, pas a chaque consultation. */}
+              <section className="cot-bloc">
+                <span className="cot-sous-titre">{t("cot.suiviDossier")}</span>
+                <ol className="cot-fil">
+                  <li>
+                    <IconClock size={15} />
+                    {t("cot.demandeeLe", { date: dateHeure(detail.createdAt), nom: detail.commercialNom })}
+                  </li>
+                  {detail.affectations.map((a) => (
+                    <li key={a.id}>
+                      <IconLayers size={15} />
+                      {a.ancienResponsableNom
+                        ? t("cot.reaffecteeDe", {
+                            ancien: a.ancienResponsableNom,
+                            nouveau: a.nouveauResponsableNom,
+                            par: a.parNom ?? "",
+                            date: dateHeure(a.createdAt),
+                          })
+                        : a.automatique
+                          ? t("cot.affecteeAuto", {
+                              nom: a.nouveauResponsableNom,
+                              date: dateHeure(a.createdAt),
+                            })
+                          : t("cot.affecteePar", {
+                              nom: a.nouveauResponsableNom,
+                              par: a.parNom ?? "",
+                              date: dateHeure(a.createdAt),
+                            })}
+                      {a.motif && <span className="cot-motif">{a.motif}</span>}
+                    </li>
+                  ))}
+                  {detail.priseEnChargeLe && detail.traiteParNom && (
+                    <li>
+                      <IconCheck size={15} />
+                      {t("cot.priseEnChargePar", {
+                        nom: detail.traiteParNom,
+                        date: dateHeure(detail.priseEnChargeLe),
+                      })}
+                    </li>
+                  )}
+                  {detail.traiteeLe && (
+                    <li>
+                      <IconCheck size={15} />
+                      {t("cot.rendueLe", { date: dateHeure(detail.traiteeLe) })}
+                    </li>
+                  )}
+                  {detail.revisionDemandeeLe && (
+                    <li>
+                      <IconAlert size={15} />
+                      {t("cot.revisionDemandeeLe", { date: dateHeure(detail.revisionDemandeeLe) })}
+                      {detail.motifRevision && <span className="cot-motif">{detail.motifRevision}</span>}
+                    </li>
+                  )}
+                  {detail.recueLe && (
+                    <li>
+                      <IconCheck size={15} />
+                      {t("cot.recueLeDate", { date: dateHeure(detail.recueLe) })}
+                    </li>
+                  )}
+                </ol>
+              </section>
+
+              {droits.traiter &&
+                detail.statut !== "CLOTUREE" &&
+                detail.responsableId === utilisateur?.id &&
+                detail.priseEnChargeLe !== null && (
+                  <form className="cot-action" onSubmit={envoyerReponse}>
+                    <span className="cot-sous-titre">
+                      {detail.statut === "TRAITEE" ? t("cot.corrigerCotation") : t("cot.rendreCotation")}
+                    </span>
+                    <div className="field">
+                      <label htmlFor="cot-reponse">{t("cot.reponse")}</label>
+                      <textarea
+                        id="cot-reponse"
+                        rows={3}
+                        value={reponse}
+                        onChange={(e) => setReponse(e.target.value)}
+                        placeholder={t("cot.reponsePlaceholder")}
+                      />
+                    </div>
+                    <div className="depot">
+                      <input
+                        ref={champCotation}
+                        type="file"
+                        className="depot-champ"
+                        accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.docx,.doc"
+                        onChange={(e) => setPieceReponse(e.target.files?.[0] ?? null)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => champCotation.current?.click()}
+                      >
+                        <IconPaperclip size={15} />
+                        {pieceReponse ? t("cot.remplacerFichier") : t("cot.joindreCotation")}
+                      </button>
+                      <span className={pieceReponse ? "depot-nom" : "depot-nom vide"}>
+                        {pieceReponse ? pieceReponse.name : t("cot.aucunFichier")}
+                      </span>
+                    </div>
+                    <div className="field-hint">{t("cot.reponseAide")}</div>
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={envoiReponse}>
+                        <IconSend size={15} />
+                        {envoiReponse
+                          ? t("cot.envoiEnCours")
+                          : detail.statut === "TRAITEE"
+                            ? t("cot.renvoyer")
+                            : t("cot.envoyerAuCommercial")}
+                      </button>
+                    </div>
+                  </form>
+                )}
+            </div>
+
+            {/* Les deux issues du demandeur, dans le pied fixe. Au fil du
+                corps, elles passaient sous l'historique du dossier : il
+                fallait derouler toute la fiche pour accuser reception d'une
+                cotation qu'on venait de lire en haut. */}
+            {detail.statut === "TRAITEE" && detail.commercialId === utilisateur?.id && (
+              <div className="modal-forme-pied cot-fiche-pied">
                 <span className="field-hint">{t("cot.receptionAide")}</span>
                 <div className="form-actions">
                   <button
@@ -1242,24 +1325,31 @@ export default function CotationsPage() {
                   >
                     {t("cot.demanderRevision")}
                   </button>
-                  <button type="button" className="btn btn-primary" onClick={() => confirmerReception(detail)}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => confirmerReception(detail)}
+                  >
                     <IconCheck size={15} />
                     {t("cot.confirmerReception")}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {detail.statut === "NON_TRAITEE" && detail.commercialId === utilisateur?.id && (
-            <div className="form-actions">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => retirer(detail)}>
-                <IconTrash size={14} />
-                {t("cot.retirer")}
-              </button>
-            </div>
-          )}
-        </section>
+            {/* Le retrait n'est possible que tant que personne n'a ouvert le
+                dossier, et il reste discret : ce n'est pas l'action que l'on
+                vient chercher en ouvrant une demande. */}
+            {detail.statut === "NON_TRAITEE" && detail.commercialId === utilisateur?.id && (
+              <div className="modal-forme-pied cot-fiche-pied">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => retirer(detail)}>
+                  <IconTrash size={14} />
+                  {t("cot.retirer")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* La liste. Un seul panneau : l'en-tête porte la recherche et les

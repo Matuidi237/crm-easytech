@@ -1620,4 +1620,14 @@ export const fr = {
   "cot.mEnRetard": "Demandes en retard",
   "cot.mEnRetardNote": "Échéance dépassée, comprises dans les demandes en attente",
   "cot.mEnRetardVide": "Toutes les échéances sont tenues",
+  /* ---------------------------- Fiche d une cotation, en fenetre */
+  "cot.fClient": "Client",
+  "cot.fDemandeur": "Demandeur",
+  "cot.fSoumise": "Soumise le",
+  "cot.fEcheance": "Échéance",
+  "cot.leBesoin": "Le besoin exprimé",
+  "cot.besoinVide": "Le demandeur n'a pas détaillé le besoin par écrit.",
+  "cot.poidsKo": "{n} Ko",
+  "cot.poidsMo": "{n} Mo",
+  "cot.fichierMeta": "{poids} · déposé par {nom} le {date}",
 };

@@ -1618,4 +1618,14 @@ export const en: Record<keyof typeof fr, string> = {
   "cot.mEnRetard": "Requests overdue",
   "cot.mEnRetardNote": "Past deadline, counted within the pending requests",
   "cot.mEnRetardVide": "Every deadline is being met",
+  /* -------------------------- Quotation request sheet, in a window */
+  "cot.fClient": "Customer",
+  "cot.fDemandeur": "Requested by",
+  "cot.fSoumise": "Submitted on",
+  "cot.fEcheance": "Deadline",
+  "cot.leBesoin": "The stated need",
+  "cot.besoinVide": "The requester did not describe the need in writing.",
+  "cot.poidsKo": "{n} KB",
+  "cot.poidsMo": "{n} MB",
+  "cot.fichierMeta": "{poids} · added by {nom} on {date}",
 };

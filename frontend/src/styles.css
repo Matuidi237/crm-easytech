@@ -1890,6 +1890,11 @@ td.col-actions {
   inset: 0;
   background: rgba(32, 28, 27, 0.45);
   display: grid;
+  /* Piste bornee a la largeur disponible : sans « minmax(0, 1fr) », une piste
+     automatique se dimensionne sur le contenu le plus large, et une fenetre
+     dont un enfant refuse de retrecir deborde de l ecran au lieu de le faire
+     retrecir. Vu sur la fiche d une cotation a 375 px. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 20px;
   z-index: 90;
@@ -8913,5 +8918,207 @@ td.col-actions {
 
   .cotm-valeur {
     font-size: 32px;
+  }
+}
+
+/* ================== Fiche d une cotation, en fenetre ===================== */
+
+/* Plus large que le formulaire de demande : on y lit un cahier des charges et
+   une liste de fichiers, pas une suite de champs courts. */
+.cot-fiche {
+  max-width: 780px;
+}
+
+.cot-fiche-titre {
+  min-width: 0;
+}
+
+.cot-fiche-titre h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.cot-fiche-etiquettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Les faits du dossier. Grille a deux colonnes : les valeurs s alignent, ce
+   qui permet de les parcourir du regard au lieu de les lire une a une. */
+.cot-faits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.cot-faits dt {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.cot-faits dd {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.cot-faits .cot-fait-fort {
+  font-weight: 600;
+}
+
+/* Un bloc par question : le besoin, la reponse, le suivi. Le filet du haut
+   les separe sans ajouter de cadre, qui empilerait boite dans boite. */
+.cot-bloc {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.cot-bloc-reponse {
+  padding: 16px 18px;
+  margin-top: 18px;
+  border: 1px solid var(--success);
+  /* Teinte verte : la reponse est ce que le commercial vient chercher, et
+     elle se perdait au milieu des autres paragraphes. */
+  background: var(--success-bg);
+  border-radius: 12px;
+}
+
+.cot-bloc-reponse .cot-sous-titre {
+  color: #0a6b4e;
+}
+
+/* Les fichiers. Une ligne cliquable pleine largeur plutot qu un lien dans du
+   texte : la cible est le fichier entier, pas son nom. */
+.cot-fichiers {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cot-fichier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.cot-fichier:hover {
+  border-color: var(--brand);
+  background: var(--brand-100);
+}
+
+.cot-fichier:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.cot-fichier-icone {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--brand-100);
+  color: var(--brand-700);
+}
+
+.cot-fichier-corps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cot-fichier-nom {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cot-fichier-meta {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.cot-fichier-action {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.cot-fichier:hover .cot-fichier-action {
+  color: var(--brand-700);
+}
+
+@media (max-width: 600px) {
+  .cot-faits {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cot-fiche-titre h3 {
+    font-size: 16px;
+  }
+}
+
+/* Le pied de la fiche porte l aide a gauche et les deux boutons a droite :
+   l aide collee au bouton se lit comme sa legende, ce qu elle est. */
+.cot-fiche-pied {
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cot-fiche-pied .field-hint {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Sous 560 px, les deux boutons et l aide ne tiennent plus sur une ligne :
+   leur largeur minimale elargissait la fenetre entiere au-dela de l ecran.
+   Empiles, l aide se lit avant les boutons qu elle explique. */
+@media (max-width: 560px) {
+  .cot-fiche-pied {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cot-fiche-pied .form-actions {
+    width: 100%;
+  }
+
+  .cot-fiche-pied .form-actions .btn {
+    flex: 1 1 0;
+    justify-content: center;
   }
 }

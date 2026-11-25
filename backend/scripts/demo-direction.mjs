@@ -129,46 +129,17 @@ const COMPTES = [
     email: "samuel.etoo@easytechgroup.net",
     pays: "Congo",
   },
-  // Équipe projet : elle a son propre encart sur la page Équipes.
+  /* Equipe projet : un seul responsable a ce jour, et le jeu de demonstration
+     le reflete. Cinq chefs de projet fictifs donnaient une file repartie entre
+     cinq files d attente, donc une charge individuelle cinq fois plus legere
+     que la realite, et un tableau de bord qui rassurait a tort. */
   {
     identifiant: "demo-chef1",
-    nomComplet: "Aline Mbarga",
+    nomComplet: "Fabrice MBAMBA",
     role: "CHEF_DE_PROJET",
-    fonction: "Cheffe de projet infrastructure",
-    email: "aline.mbarga@easytechgroup.net",
+    fonction: "Responsable Projets",
+    email: "fabrice.mbamba@easytechgroup.net",
     pays: "Cameroun",
-  },
-  {
-    identifiant: "demo-chef2",
-    nomComplet: "Idriss Fotso",
-    role: "CHEF_DE_PROJET",
-    fonction: "Chef de projet cybersécurité",
-    email: "idriss.fotso@easytechgroup.net",
-    pays: "Cameroun",
-  },
-  {
-    identifiant: "demo-chef3",
-    nomComplet: "Grace Nkeng",
-    role: "CHEF_DE_PROJET",
-    fonction: "Cheffe de projet cloud",
-    email: "grace.nkeng@easytechgroup.net",
-    pays: "Kenya",
-  },
-  {
-    identifiant: "demo-chef4",
-    nomComplet: "Serge Bilong",
-    role: "CHEF_DE_PROJET",
-    fonction: "Chef de projet formation",
-    email: "serge.bilong@easytechgroup.net",
-    pays: "Nigeria",
-  },
-  {
-    identifiant: "demo-chef5",
-    nomComplet: "Laure Tchoumi",
-    role: "CHEF_DE_PROJET",
-    fonction: "Cheffe de projet déploiement",
-    email: "laure.tchoumi@easytechgroup.net",
-    pays: "Côte d'Ivoire",
   },
 ];
 
@@ -188,7 +159,7 @@ const PRESTATIONS = {
   "Pare-feu Fortinet": { libelle: "Mise en place du pare-feu", semaines: 3 },
 };
 
-const CHEFS = ["demo-chef1", "demo-chef2", "demo-chef3", "demo-chef4", "demo-chef5"];
+const CHEFS = ["demo-chef1"];
 
 /**
  * Partenaires technologiques.
