@@ -1608,47 +1608,60 @@ export default function CotationsPage() {
         <section className="cot-section">
           <header className="cot-section-tete">
             <h2>{t("cot.sectionRevision")}</h2>
+            <span className="tag">
+              {reprises.length === 1
+                ? t("cot.reprisesUnDossier")
+                : t("cot.reprisesNDossiers", { n: nombre(reprises.length) })}
+            </span>
           </header>
-          <div className="panneau cot-reprises">
+          <div className="cot-reprises">
             {reprises.map((d) => (
-              <article key={d.id} className="cot-reprise">
-                <div className="cot-reprise-haut">
-                  <span className="cot-reprise-motif">{d.motifRevision}</span>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => ouvrirDetail(d)}>
-                    {t("cot.ouvrirDossier")}
-                  </button>
-                </div>
-                <div className="cot-reprise-meta">
-                  <span>
-                    {d.revisionDemandeeLe
-                      ? t("cot.revisionDemandeeLe", { date: date(d.revisionDemandeeLe) })
-                      : ""}
+              /* La carte entière ouvre le dossier. Un bouton « Ouvrir le
+                 dossier » en bout de ligne obligeait à viser, alors que rien
+                 d'autre n'est cliquable ici. */
+              <button
+                type="button"
+                key={d.id}
+                className="cot-reprise"
+                onClick={() => ouvrirDetail(d)}
+              >
+                <span className="cot-reprise-tete">
+                  <span className="cot-ref">
+                    {t("cot.cotationN", { reference: d.reference })}
                   </span>
-                  <span className="cot-reprise-sep">·</span>
-                  <span>{t("cot.cotationN", { reference: d.reference })}</span>
-                  <span className="cot-reprise-sep">·</span>
-                  <span>
+                  <span className="cot-reprise-objet">{d.objet}</span>
+                  {/* Le nombre de reprises porte le coût : un dossier repris
+                      trois fois n'est pas le même problème qu'un dossier
+                      repris une fois. */}
+                  <span className="pill pill-reprise">
                     {d.nbRevisions === 1
                       ? t("cot.repriseUneFois")
                       : t("cot.reprisesFois", { n: nombre(d.nbRevisions) })}
                   </span>
-                </div>
-                <div className="cot-reprise-pied">
-                  <span className="cot-reprise-avatar">{initiale(d.commercialNom)}</span>
-                  <div className="cot-reprise-colonne">
-                    <span className="cot-reprise-nom">{d.commercialNom}</span>
-                    <span className="cot-reprise-detail">{d.clientNom}</span>
-                  </div>
-                  <div className="cot-reprise-colonne">
-                    <span className="cot-reprise-detail">{t("cot.colObjet")}</span>
-                    <span className="cot-reprise-nom">{d.objet}</span>
-                  </div>
-                  <div className="cot-reprise-colonne">
-                    <span className="cot-reprise-detail">{t("cot.responsable")}</span>
-                    <span className="cot-reprise-nom">{d.responsableNom ?? "—"}</span>
-                  </div>
-                </div>
-              </article>
+                </span>
+
+                {/* Le motif est la seule chose qu'on vient lire ici : c'est
+                    lui qui dit ce qui a été mal chiffré ou mal exprimé. Il
+                    porte donc une citation, pas une ligne de plus. */}
+                <span className="cot-reprise-motif">{d.motifRevision}</span>
+
+                <span className="cot-reprise-meta">
+                  <span className="cot-reprise-qui">
+                    <span className="cot-reprise-avatar">{initiale(d.commercialNom)}</span>
+                    {d.commercialNom}
+                  </span>
+                  <span className="cot-reprise-sep">·</span>
+                  <span>{d.clientNom}</span>
+                  <span className="cot-reprise-sep">·</span>
+                  <span>{d.responsableNom ?? t("cot.nonAffectee")}</span>
+                  {d.revisionDemandeeLe && (
+                    <>
+                      <span className="cot-reprise-sep">·</span>
+                      <span>{t("cot.revisionDemandeeLe", { date: date(d.revisionDemandeeLe) })}</span>
+                    </>
+                  )}
+                </span>
+              </button>
             ))}
           </div>
         </section>

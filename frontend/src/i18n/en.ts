@@ -1632,4 +1632,6 @@ export const en: Record<keyof typeof fr, string> = {
   "cot.etat.ATTENTE": "Pending",
   "cot.etat.TRAITEES": "Completed",
   "cot.etat.RETARD": "Overdue",
+  "cot.reprisesUnDossier": "One request",
+  "cot.reprisesNDossiers": "{n} requests",
 };

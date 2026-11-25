@@ -8271,88 +8271,121 @@ td.col-actions {
   color: var(--ink);
 }
 
+/* Les dossiers repris. Une carte par dossier, bordee d ambre comme le
+   compteur des demandes en attente : c est du travail a refaire, pas une
+   erreur a sanctionner. Le rouge est reserve au retard. */
 .cot-reprises {
-  padding: 0;
-}
-
-.cot-reprise + .cot-reprise {
-  border-top: 1px solid var(--border);
-}
-
-.cot-reprise-haut {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px 0;
+  flex-direction: column;
+  gap: 12px;
 }
 
+.cot-reprise {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warn);
+  border-radius: 12px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.cot-reprise:hover {
+  border-color: var(--warn);
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.09);
+}
+
+.cot-reprise:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+
+.cot-reprise-tete {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.cot-reprise-objet {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pill-reprise {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+/* Le motif est la seule chose qu on vient lire ici, il porte donc l encre
+   pleine. Pas de filet de citation a sa gauche : la carte en a deja un, et
+   deux traits ambres a 12 px l un de l autre se lisent comme une erreur de
+   mise en page. */
 .cot-reprise-motif {
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.4;
+  font-size: 13.5px;
+  line-height: 1.5;
   color: var(--ink);
 }
 
 .cot-reprise-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
   flex-wrap: wrap;
-  padding: 4px 18px 16px;
+  gap: 8px;
   font-size: 12px;
   color: var(--ink-3);
 }
 
-.cot-reprise-sep {
-  color: var(--border);
-}
-
-.cot-reprise-pied {
-  display: grid;
-  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+.cot-reprise-qui {
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--border);
-  background: var(--surface-2);
+  gap: 7px;
+  color: var(--ink-2);
+  font-weight: 550;
 }
 
 .cot-reprise-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   background: var(--brand);
   color: #fff;
-  font-size: 14px;
+  font-size: 10.5px;
   font-weight: 650;
 }
 
-.cot-reprise-colonne {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+.cot-reprise-sep {
+  color: var(--border-2);
 }
 
-.cot-reprise-nom {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* Sous 600 px, la reference et la pastille ne laissent plus assez de place a
+   l objet : il se repliait mot a mot en une colonne d une largeur de doigt.
+   Il prend donc sa propre ligne, et la carte retrouve sa hauteur normale. */
+@media (max-width: 600px) {
+  .cot-reprise-objet {
+    flex: 1 1 100%;
+    order: 3;
+  }
 
-.cot-reprise-detail {
-  font-size: 11.5px;
-  color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  .cot-reprise-tete {
+    gap: 6px 8px;
+  }
 }
 
 .cot-pied-page {

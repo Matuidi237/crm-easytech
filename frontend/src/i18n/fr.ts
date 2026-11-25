@@ -1637,4 +1637,6 @@ export const fr = {
   "cot.etat.ATTENTE": "En attente",
   "cot.etat.TRAITEES": "Traitées",
   "cot.etat.RETARD": "En retard",
+  "cot.reprisesUnDossier": "Un dossier",
+  "cot.reprisesNDossiers": "{n} dossiers",
 };
