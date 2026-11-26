@@ -4,7 +4,14 @@ import { PilotageCommercial, fetchPilotageCommercial } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue } from "../i18n";
 import Encarts from "../components/Encarts";
-import { IconAlert, IconAward, IconClose, IconTrend, IconUsers } from "../components/Icons";
+import {
+  IconAlert,
+  IconAward,
+  IconChevronDown,
+  IconClose,
+  IconTrend,
+  IconUsers,
+} from "../components/Icons";
 
 /** Les trois signaux qui appellent une action, et le filtre qu'ils posent. */
 const ALERTES = ["sansObjectif", "sousTrajectoire", "silencieux"] as const;
@@ -32,6 +39,10 @@ export default function PilotageCommercialPage() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<Alerte | "">("");
   const [fenetre, setFenetre] = useState<Fenetre | null>(null);
+  /* Les pays ouverts. Tous replies au depart : l'arbre sert a choisir ou
+     regarder, et sept lignes ouvertes d'emblee ne seraient que le tableau
+     plat d'avant avec des titres en plus. */
+  const [paysOuverts, setPaysOuverts] = useState<string[]>([]);
 
   useEffect(() => {
     fetchPilotageCommercial()
@@ -58,6 +69,45 @@ export default function PilotageCommercialPage() {
     if (filtre === "silencieux") return tous.filter((c) => c.silencieux);
     return tous.filter((c) => c.atteintePct !== null && c.atteintePct < ecoule);
   }, [donnees, filtre]);
+
+  /* L'arbre : un noeud par pays du commercial, ses vendeurs en dessous.
+     Groupe sur la liste filtree, pour qu'un filtre actif vide les pays qui
+     n'ont personne a montrer au lieu de les laisser ouvrir sur rien. */
+  const arbre = useMemo(() => {
+    const par = new Map<string | null, typeof commerciaux>();
+    for (const c of commerciaux) {
+      par.set(c.pays, [...(par.get(c.pays) ?? []), c]);
+    }
+    return [...par.entries()]
+      .map(([pays, membres]) => {
+        const ca = membres.reduce((s, m) => s + m.chiffreAffaires, 0);
+        /* Le taux du pays ne porte que sur les commerciaux qui ont une
+           cible. Compter le chiffre de ceux qui n'en ont pas face a une
+           cible qui les exclut gonflait le taux : le Cameroun affichait
+           199 % parce qu'un de ses deux vendeurs n'avait pas d'objectif. */
+        const avecCible = membres.filter((m) => m.cible !== null);
+        const cible = avecCible.reduce((s, m) => s + (m.cible ?? 0), 0);
+        const caMesure = avecCible.reduce((s, m) => s + m.chiffreAffaires, 0);
+        return {
+          pays,
+          membres,
+          ca,
+          cible,
+          /* Null quand aucun objectif n'est pose dans ce pays : zero pour
+             cent se lirait comme un echec collectif. */
+          atteintePct: cible > 0 ? Math.round((caMesure / cible) * 100) : null,
+          /* Dit pourquoi le taux ne couvre pas tout le monde, plutot que de
+             laisser croire qu'il porte sur le chiffre affiche a cote. */
+          sansCible: membres.length - avecCible.length,
+        };
+      })
+      /* Par chiffre decroissant, les pays sans pays renseigne en dernier :
+         ce n'est pas un marche, c'est une fiche a completer. */
+      .sort((a, b) => {
+        if ((a.pays === null) !== (b.pays === null)) return a.pays === null ? 1 : -1;
+        return b.ca - a.ca;
+      });
+  }, [commerciaux]);
 
   const entete = (
     <div className="page-head">
@@ -242,67 +292,128 @@ export default function PilotageCommercialPage() {
           )}
         </div>
 
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("rc.colCommercial")}</th>
-                <th>{t("rc.colPays")}</th>
-                <th className="num">{t("rc.colCa")}</th>
-                <th className="num">{t("rc.colObjectif")}</th>
-                <th className="num">{t("rc.colAtteinte")}</th>
-                <th>{t("rc.colDerniereVente")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {commerciaux.map((c) => (
-                <tr key={c.id}>
-                  <td className="td-strong td-main" data-label={t("rc.colCommercial")}>
-                    {/* La fiche porte les objectifs, l'agenda et le
-                        portefeuille : c'est de là qu'il agit. */}
-                    <Link className="cp-lien" to={`/equipes/commerciale/${c.id}`}>
-                      {c.nomComplet}
-                    </Link>
-                  </td>
-                  <td data-label={t("rc.colPays")}>
-                    {c.pays ?? <span className="muted-3">{t("rc.paysInconnu")}</span>}
-                  </td>
-                  <td className="num" data-label={t("rc.colCa")} title={montant(c.chiffreAffaires)}>
-                    {montantCompact(c.chiffreAffaires)}
-                  </td>
-                  <td className="num" data-label={t("rc.colObjectif")}>
-                    {c.cible === null ? (
-                      <span className="pill pill-warn">{t("rc.aFixer")}</span>
-                    ) : (
-                      <span title={montant(c.cible)}>{montantCompact(c.cible)}</span>
-                    )}
-                  </td>
-                  <td className="num" data-label={t("rc.colAtteinte")}>
-                    {c.atteintePct === null ? (
-                      <span className="muted-3">-</span>
-                    ) : (
-                      <span
-                        className={`rc-taux${
-                          c.atteintePct < objectif.partEcoulee ? " en-retrait" : ""
-                        }`}
-                      >
-                        {nombre(c.atteintePct)}%
-                      </span>
-                    )}
-                  </td>
-                  <td data-label={t("rc.colDerniereVente")}>
-                    {c.derniereVente === null ? (
-                      <span className="pill pill-danger">{t("rc.aucuneVente")}</span>
-                    ) : (
-                      <span className={c.silencieux ? "cot-retard" : undefined}>
-                        {date(c.derniereVente)}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* L'arbre. Un pays se deplie sur ses commerciaux, un commercial
+            mene a sa fiche. Trois niveaux et pas davantage : au-dela, on ne
+            sait plus ou l'on est en revenant d'un ecran de detail. */}
+        <div className="arbre">
+          {arbre.length === 0 ? (
+            <p className="suivi-vide">{t("rc.arbreVide")}</p>
+          ) : (
+            arbre.map((n) => {
+              const cle = n.pays ?? "";
+              const ouvert = paysOuverts.includes(cle);
+              return (
+                <div className={`arbre-pays${ouvert ? " ouvert" : ""}`} key={cle}>
+                  <button
+                    type="button"
+                    className="arbre-tete"
+                    aria-expanded={ouvert}
+                    onClick={() =>
+                      setPaysOuverts(
+                        ouvert ? paysOuverts.filter((p) => p !== cle) : [...paysOuverts, cle]
+                      )
+                    }
+                  >
+                    <span className="arbre-chevron">
+                      <IconChevronDown size={16} />
+                    </span>
+                    <span className="arbre-nom">
+                      {n.pays ?? t("rc.paysInconnu")}
+                    </span>
+                    <span className="arbre-effectif">
+                      {n.membres.length === 1
+                        ? t("rc.unCommercial")
+                        : t("rc.nCommerciaux", { n: nombre(n.membres.length) })}
+                      {n.sansCible > 0 && (
+                        <span className="arbre-sans-cible">
+                          {t("rc.dontSansCible", { n: nombre(n.sansCible) })}
+                        </span>
+                      )}
+                    </span>
+                    <span className="arbre-ca" title={montant(n.ca)}>
+                      {montantCompact(n.ca)}
+                    </span>
+                    {/* L'atteinte du pays, teintee comme celle d'un
+                        commercial : c'est la meme mesure a un etage pres. */}
+                    <span
+                      className={`arbre-taux${
+                        n.atteintePct !== null && n.atteintePct < objectif.partEcoulee
+                          ? " en-retrait"
+                          : ""
+                      }`}
+                    >
+                      {n.atteintePct === null ? "-" : `${nombre(n.atteintePct)}%`}
+                    </span>
+                  </button>
+
+                  {ouvert && (
+                    <div className="table-scroll">
+                      <table className="table-nue arbre-table">
+                        <thead>
+                          <tr>
+                            <th>{t("rc.colCommercial")}</th>
+                            <th className="num">{t("rc.colCa")}</th>
+                            <th className="num">{t("rc.colObjectif")}</th>
+                            <th className="num">{t("rc.colAtteinte")}</th>
+                            <th>{t("rc.colDerniereVente")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {n.membres.map((c) => (
+                            <tr key={c.id}>
+                              <td className="td-strong td-main" data-label={t("rc.colCommercial")}>
+                                {/* La fiche porte ses metriques, son agenda,
+                                    ses cotations et son portefeuille. */}
+                                <Link className="cp-lien" to={`/equipes/commerciale/${c.id}`}>
+                                  {c.nomComplet}
+                                </Link>
+                              </td>
+                              <td
+                                className="num"
+                                data-label={t("rc.colCa")}
+                                title={montant(c.chiffreAffaires)}
+                              >
+                                {montantCompact(c.chiffreAffaires)}
+                              </td>
+                              <td className="num" data-label={t("rc.colObjectif")}>
+                                {c.cible === null ? (
+                                  <span className="pill pill-warn">{t("rc.aFixer")}</span>
+                                ) : (
+                                  <span title={montant(c.cible)}>{montantCompact(c.cible)}</span>
+                                )}
+                              </td>
+                              <td className="num" data-label={t("rc.colAtteinte")}>
+                                {c.atteintePct === null ? (
+                                  <span className="muted-3">-</span>
+                                ) : (
+                                  <span
+                                    className={`rc-taux${
+                                      c.atteintePct < objectif.partEcoulee ? " en-retrait" : ""
+                                    }`}
+                                  >
+                                    {nombre(c.atteintePct)}%
+                                  </span>
+                                )}
+                              </td>
+                              <td data-label={t("rc.colDerniereVente")}>
+                                {c.derniereVente === null ? (
+                                  <span className="pill pill-danger">{t("rc.aucuneVente")}</span>
+                                ) : (
+                                  <span className={c.silencieux ? "cot-retard" : undefined}>
+                                    {date(c.derniereVente)}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

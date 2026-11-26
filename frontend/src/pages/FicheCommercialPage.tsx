@@ -5,6 +5,7 @@ import { useLangue, useLibelles } from "../i18n";
 import { useFilAriane } from "../ContexteEntete";
 import { EvolutionMensuelle } from "../components/Charts";
 import SuiviCommercial from "../components/SuiviCommercial";
+import BlocDepliable from "../components/BlocDepliable";
 import { IconAlert, IconCoins, IconInbox, IconTrend } from "../components/Icons";
 
 function initiales(nom: string) {
@@ -194,14 +195,17 @@ export default function FicheCommercialPage() {
           ligne, qui ne se lit qu'en cas de doute. */}
       {id && <SuiviCommercial id={id} nom={m.nomComplet} />}
 
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("fc.historiqueTitre")}</div>
-            <div className="card-sub">{t("fc.historiqueSousTitre", { n: nombre(fiche.nbVentes) })}</div>
-          </div>
-          {fiche.derniereVente && <span className="tag">{date(fiche.derniereVente)}</span>}
-        </div>
+      {/* Le detail ligne a ligne, replie. Une commission se conteste, il doit
+          donc rester verifiable ; mais on ne l'ouvre qu'en cas de doute, et
+          quatorze lignes deployees d'office repoussaient tout le reste de la
+          fiche hors de l'ecran. */}
+      <BlocDepliable
+        titre={t("fc.historiqueTitre")}
+        sousTitre={t("fc.historiqueSousTitre", { n: nombre(fiche.nbVentes) })}
+        compteur={
+          fiche.nbVentes === 1 ? t("suivi.uneVente") : t("suivi.nVentes", { n: nombre(fiche.nbVentes) })
+        }
+      >
 
         {fiche.ventes.length === 0 ? (
           <div className="empty">
@@ -268,7 +272,7 @@ export default function FicheCommercialPage() {
             </table>
           </div>
         )}
-      </div>
+      </BlocDepliable>
     </>
   );
 }

@@ -8,6 +8,7 @@ import {
   fetchSuiviCommercial,
 } from "../api";
 import { useAuth } from "../AuthContext";
+import BlocDepliable from "./BlocDepliable";
 import { useLangue, type CleTraduction } from "../i18n";
 import ListeDeroulante from "./ListeDeroulante";
 import { IconAlert, IconCheck, IconClose, IconPlus, IconSend } from "./Icons";
@@ -313,18 +314,18 @@ export default function SuiviCommercial({ id, nom }: { id: string; nom: string }
       </div>
 
       {/* --- Agenda ------------------------------------------------------ */}
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("suivi.agendaTitre")}</div>
-            <div className="card-sub">
-              {t("suivi.agendaSousTitre", {
-                debut: date(suivi.agenda.debut),
-                fin: date(suivi.agenda.fin),
-              })}
-            </div>
-          </div>
-        </div>
+      <BlocDepliable
+        titre={t("suivi.agendaTitre")}
+        sousTitre={t("suivi.agendaSousTitre", {
+          debut: date(suivi.agenda.debut),
+          fin: date(suivi.agenda.fin),
+        })}
+        compteur={
+          suivi.agenda.creneaux.length === 1
+            ? t("suivi.unCreneau")
+            : t("suivi.nCreneaux", { n: nombre(suivi.agenda.creneaux.length) })
+        }
+      >
 
         {journees.length === 0 ? (
           <p className="suivi-vide">{t("suivi.agendaVide")}</p>
@@ -348,16 +349,18 @@ export default function SuiviCommercial({ id, nom }: { id: string; nom: string }
             ))}
           </ul>
         )}
-      </div>
+      </BlocDepliable>
 
       {/* --- Demandes de cotation ---------------------------------------- */}
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("suivi.cotationsTitre")}</div>
-            <div className="card-sub">{t("suivi.cotationsSousTitre")}</div>
-          </div>
-        </div>
+      <BlocDepliable
+        titre={t("suivi.cotationsTitre")}
+        sousTitre={t("suivi.cotationsSousTitre")}
+        compteur={
+          suivi.cotations.length === 1
+            ? t("suivi.uneCotation")
+            : t("suivi.nCotations", { n: nombre(suivi.cotations.length) })
+        }
+      >
 
         {suivi.cotations.length === 0 ? (
           <p className="suivi-vide">{t("suivi.cotationsVide")}</p>
@@ -394,20 +397,18 @@ export default function SuiviCommercial({ id, nom }: { id: string; nom: string }
             </table>
           </div>
         )}
-      </div>
+      </BlocDepliable>
 
       {/* --- Portefeuille ------------------------------------------------ */}
-      <div className="table-card">
-        <div className="card-head">
-          <div>
-            <div className="card-title">{t("suivi.portefeuilleTitre")}</div>
-            <div className="card-sub">
-              {suivi.portefeuille.total === 1
-                ? t("suivi.portefeuilleUn")
-                : t("suivi.portefeuilleSousTitre", { n: nombre(suivi.portefeuille.total) })}
-            </div>
-          </div>
-        </div>
+      <BlocDepliable
+        titre={t("suivi.portefeuilleTitre")}
+        sousTitre={t("suivi.portefeuilleSousTitre2")}
+        compteur={
+          suivi.portefeuille.total === 1
+            ? t("suivi.unClient")
+            : t("suivi.nClients", { n: nombre(suivi.portefeuille.total) })
+        }
+      >
 
         {suivi.portefeuille.clients.length === 0 ? (
           <p className="suivi-vide">{t("suivi.portefeuilleVide")}</p>
@@ -437,7 +438,7 @@ export default function SuiviCommercial({ id, nom }: { id: string; nom: string }
             </table>
           </div>
         )}
-      </div>
+      </BlocDepliable>
     </>
   );
 }

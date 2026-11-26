@@ -9405,3 +9405,204 @@ button.encart:hover .encart-invite {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* ================== Arbre des pays et blocs depliables =================== */
+
+/* L arbre : un noeud par pays, ses commerciaux en dessous. La tete est un
+   bouton pleine largeur, pas un petit chevron a viser. */
+.arbre {
+  display: flex;
+  flex-direction: column;
+}
+
+.arbre-pays + .arbre-pays {
+  border-top: 1px solid var(--border);
+}
+
+.arbre-tete {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 18px;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.arbre-tete:hover {
+  background: var(--surface-2);
+}
+
+.arbre-tete:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+/* Le chevron pivote au lieu de changer de dessin : l animation dit que c est
+   le meme element qui s ouvre, la ou deux icones differentes donnent
+   l impression d un changement d etat sans lien avec le contenu. */
+.arbre-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--ink-3);
+  transform: rotate(-90deg);
+  transition: transform 0.18s ease;
+}
+
+.arbre-pays.ouvert .arbre-chevron {
+  transform: rotate(0deg);
+}
+
+.arbre-nom {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arbre-effectif {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.arbre-ca {
+  flex: 0 0 auto;
+  min-width: 96px;
+  text-align: right;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.arbre-taux {
+  flex: 0 0 auto;
+  min-width: 52px;
+  text-align: right;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+
+.arbre-taux.en-retrait {
+  color: var(--warn);
+}
+
+/* Les commerciaux du pays, en retrait sous leur noeud. Le fond les rattache
+   a la tete : sans lui, la liste flotte entre deux pays. */
+.arbre-pays.ouvert .table-scroll {
+  padding: 0 18px 14px 48px;
+  background: var(--surface-2);
+}
+
+.arbre-table th,
+.arbre-table td {
+  padding-left: 0;
+}
+
+@media (max-width: 760px) {
+  .arbre-tete {
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  .arbre-nom {
+    flex: 1 1 100%;
+    order: -1;
+    padding-left: 26px;
+  }
+
+  /* Le chevron se cale en haut a gauche, au niveau du nom du pays : dans le
+     flux, la tete repliee le renvoyait sur la ligne des chiffres, loin de ce
+     qu il ouvre. Le parent est positionne pour lui servir de repere. */
+  .arbre-chevron {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+  }
+
+  .arbre-pays.ouvert .table-scroll {
+    padding: 0 12px 14px;
+  }
+}
+
+/* Un bloc de fiche qu on deplie. Replie, il annonce son contenu dans une
+   etiquette : « 26 clients », « 3 demandes en cours ». */
+.bloc-depliable {
+  padding: 0;
+}
+
+.bloc-tete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 20px;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-lg);
+  transition: background 0.15s ease;
+}
+
+.bloc-tete:hover {
+  background: var(--surface-2);
+}
+
+.bloc-tete:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.bloc-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--ink-3);
+  transform: rotate(-90deg);
+  transition: transform 0.18s ease;
+}
+
+.bloc-depliable.ouvert .bloc-chevron {
+  transform: rotate(0deg);
+}
+
+.bloc-titres {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bloc-corps {
+  padding: 0 20px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* Le corps retrouve la respiration que la carte lui donnait avant : les
+   tableaux qu il contient portaient leur propre marge haute. */
+.bloc-corps > :first-child {
+  margin-top: 16px;
+}
+
+/* La mention des commerciaux sans objectif, dans la tete du pays. Elle dit
+   pourquoi le taux ne couvre pas tout l effectif affiche a cote. */
+.arbre-sans-cible {
+  margin-left: 6px;
+  color: var(--warn);
+}
