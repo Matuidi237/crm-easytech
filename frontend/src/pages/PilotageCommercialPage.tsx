@@ -4,7 +4,8 @@ import { PilotageCommercial, fetchPilotageCommercial } from "../api";
 import { useAuth } from "../AuthContext";
 import { useLangue } from "../i18n";
 import { BarList, foldTail } from "../components/Charts";
-import { IconAlert, IconArrowRight } from "../components/Icons";
+import Encarts from "../components/Encarts";
+import { IconAlert, IconArrowRight, IconAward, IconTrend } from "../components/Icons";
 
 /** Les trois signaux qui appellent une action, et le filtre qu'ils posent. */
 const ALERTES = ["sansObjectif", "sousTrajectoire", "silencieux"] as const;
@@ -85,13 +86,33 @@ export default function PilotageCommercialPage() {
   const dansLesTemps = (objectif.atteintePct ?? 0) >= objectif.partEcoulee;
   const totalPays = parPays.reduce((s, p) => s + p.ca, 0);
 
-  const compteurs: { cle: Alerte; valeur: number; libelle: string }[] = [
-    { cle: "sansObjectif", valeur: alertes.sansObjectif, libelle: t("rc.alerteSansObjectif") },
-    { cle: "sousTrajectoire", valeur: alertes.sousTrajectoire, libelle: t("rc.alerteSousTrajectoire") },
+  /* Les trois signaux qui appellent une action. Le ton monte avec la gravite :
+     un objectif qui manque se pose, un retard de trajectoire se rattrape, un
+     commercial muet depuis un mois se rappelle tout de suite. */
+  const compteurs = [
     {
-      cle: "silencieux",
+      cle: "sansObjectif" as const,
+      ton: "bleu" as const,
+      valeur: alertes.sansObjectif,
+      label: t("rc.alerteSansObjectif"),
+      note: t("rc.alerteSansObjectifNote"),
+      icone: IconAward,
+    },
+    {
+      cle: "sousTrajectoire" as const,
+      ton: "ambre" as const,
+      valeur: alertes.sousTrajectoire,
+      label: t("rc.alerteSousTrajectoire"),
+      note: t("rc.alerteSousTrajectoireNote", { pct: nombre(objectif.partEcoulee) }),
+      icone: IconTrend,
+    },
+    {
+      cle: "silencieux" as const,
+      ton: "rouge" as const,
       valeur: alertes.silencieux,
-      libelle: t("rc.alerteSilencieux", { n: nombre(alertes.seuilSilenceJours) }),
+      label: t("rc.alerteSilencieux"),
+      note: t("rc.alerteSilencieuxNote", { n: nombre(alertes.seuilSilenceJours) }),
+      icone: IconAlert,
     },
   ];
 
@@ -99,107 +120,80 @@ export default function PilotageCommercialPage() {
     <>
       {entete}
 
-      {/* La trajectoire, en un chiffre. C'est lui qui fixe les objectifs :
-          savoir s'ils seront tenus est sa première question, et le taux ne
-          veut rien dire sans le temps consommé en regard. */}
-      <section className="panneau heros">
-        <div className="heros-haut">
-          <div className="heros-principal">
-            <span className="heros-contexte">
-              {t("rc.objectifContexte", { annee: objectif.annee })}
-            </span>
-            <span className="heros-chiffre">
-              {objectif.atteintePct === null ? t("rc.sansObjectifGroupe") : `${nombre(objectif.atteintePct)}%`}
-            </span>
-            <span className="heros-appui">
-              {objectif.cible === null
+      {/* Quatre encarts, et rien d'autre en tete. Le premier porte la
+          trajectoire, les trois suivants ce qui appelle une action : chacun
+          filtre le tableau en dessous, et le second clic le retire.
+
+          Pas de jauge : une barre de progression posee a cote d'un
+          pourcentage affiche deux fois la meme chose, et le chiffre se lit
+          plus vite. La comparaison au temps ecoule, qui est la seule lecture
+          honnete d'un taux, tient dans la ligne de contexte. */}
+      <Encarts
+        encarts={[
+          {
+            cle: "objectif",
+            ton: objectif.atteintePct === null ? "neutre" : dansLesTemps ? "vert" : "ambre",
+            label: t("rc.objectifContexte", { annee: objectif.annee }),
+            valeur:
+              objectif.atteintePct === null
+                ? t("rc.sansObjectifGroupe")
+                : `${nombre(objectif.atteintePct)}%`,
+            note:
+              objectif.cible === null
                 ? t("rc.sansObjectifAppui", { n: nombre(objectif.effectif) })
-                : t("co.realiseSurCible", {
-                    realise: montant(objectif.realise),
-                    cible: montant(objectif.cible),
+                : t("rc.objectifNote", {
+                    realise: montantCompact(objectif.realise),
+                    cible: montantCompact(objectif.cible),
+                    ecoule: nombre(objectif.partEcoulee),
+                  }),
+            icone: IconTrend,
+          },
+          ...compteurs.map((c) => ({
+            cle: c.cle,
+            ton: c.ton,
+            label: c.label,
+            valeur: nombre(c.valeur),
+            note: c.note,
+            icone: c.icone,
+            actif: filtre === c.cle,
+            onClick:
+              c.valeur === 0 ? undefined : () => setFiltre(filtre === c.cle ? "" : c.cle),
+          })),
+        ]}
+      />
+
+      {/* Les deux montants qui situent le mois, sur une seule ligne. En
+          encarts ils auraient dispute la vedette a la trajectoire, qui est la
+          question du matin ; ici ils la completent. */}
+      <p className="rc-appui">
+        <span>
+          {t("rc.caMois")}
+          <strong title={montant(mois.ca)}>{montantCompact(mois.ca)}</strong>
+          {mois.variationPct !== null && (
+            <span className={`delta ${mois.variationPct >= 0 ? "delta-hausse" : "delta-baisse"}`}>
+              {mois.variationPct >= 0 ? "+" : ""}
+              {nombre(mois.variationPct)}%
+            </span>
+          )}
+        </span>
+        <span className="rc-appui-sep">·</span>
+        <span>
+          {t("rc.pipelinePondere")}
+          <strong title={montant(pipeline.pondere)}>{montantCompact(pipeline.pondere)}</strong>
+        </span>
+        {pipeline.resteApresPipeline !== null && (
+          <>
+            <span className="rc-appui-sep">·</span>
+            <span>
+              {pipeline.resteApresPipeline <= 0
+                ? t("rc.objectifCouvert")
+                : t("rc.resteNote", {
+                    montant: montantCompact(pipeline.resteApresPipeline),
                   })}
             </span>
-          </div>
-          {objectif.cible !== null && (
-            <span className={`etat ${dansLesTemps ? "etat-bon" : "etat-alerte"}`}>
-              {dansLesTemps ? t("ag.etat.en-ligne") : t("ag.etat.en-retard")}
-            </span>
-          )}
-        </div>
-
-        {objectif.cible !== null && (
-          <>
-            <div className="mesure">
-              <span
-                className={`mesure-remplie${dansLesTemps ? "" : " alerte"}`}
-                style={{ width: `${Math.min(100, objectif.atteintePct ?? 0)}%` }}
-              />
-              <span className="mesure-seuil" style={{ left: `${objectif.partEcoulee}%` }} />
-            </div>
-            <div className="mesure-pied">
-              <span>{t("co.tempsEcouleSeuil", { pct: objectif.partEcoulee })}</span>
-              <span>
-                {t("rc.couvertPar", {
-                  n: nombre(objectif.nbAvecObjectif),
-                  total: nombre(objectif.effectif),
-                })}
-              </span>
-            </div>
           </>
         )}
-
-        {/* Deux chiffres d'appui, et pas quatre cartes : ce qui est rentré ce
-            mois-ci, et ce qui est engagé mais pas encore signé. Le second
-            change la lecture du premier, un objectif qui paraît hors
-            d'atteinte ne l'est pas si le pipeline le couvre. */}
-        <dl className="heros-rythme">
-          <div>
-            <dt>{t("rc.caMois")}</dt>
-            <dd>
-              {montant(mois.ca)}
-              {mois.variationPct !== null && (
-                <span className={`delta ${mois.variationPct >= 0 ? "delta-hausse" : "delta-baisse"}`}>
-                  {mois.variationPct >= 0 ? "+" : ""}
-                  {nombre(mois.variationPct)}%
-                </span>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>{t("rc.pipelinePondere")}</dt>
-            <dd>{montant(pipeline.pondere)}</dd>
-          </div>
-          {pipeline.resteApresPipeline !== null && (
-            <div>
-              <dt>{t("rc.resteAFaire")}</dt>
-              <dd className={pipeline.resteApresPipeline <= 0 ? "valeur-positive" : undefined}>
-                {pipeline.resteApresPipeline <= 0
-                  ? t("rc.objectifCouvert")
-                  : montant(pipeline.resteApresPipeline)}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </section>
-
-      {/* Les trois signaux qui appellent une action. Chacun filtre le tableau
-          en dessous : un compteur qu'on ne peut pas ouvrir oblige à retrouver
-          à la main les lignes qu'il annonce. */}
-      <div className="rc-signaux">
-        {compteurs.map((c) => (
-          <button
-            type="button"
-            key={c.cle}
-            className={`rc-signal${filtre === c.cle ? " actif" : ""}${c.valeur === 0 ? " calme" : ""}`}
-            aria-pressed={filtre === c.cle}
-            disabled={c.valeur === 0}
-            onClick={() => setFiltre(filtre === c.cle ? "" : c.cle)}
-          >
-            <span className="rc-signal-valeur">{nombre(c.valeur)}</span>
-            <span className="rc-signal-libelle">{c.libelle}</span>
-          </button>
-        ))}
-      </div>
+      </p>
 
       <div className="table-card">
         <div className="card-head">
@@ -250,19 +244,19 @@ export default function PilotageCommercialPage() {
                     )}
                   </td>
                   <td data-label={t("rc.colAtteinte")}>
+                    {/* Le taux en clair, teinte selon qu'il suit ou non le
+                        temps ecoule. Une barre a cote n'ajoutait rien : la
+                        comparaison se fait d'une ligne a l'autre, et les
+                        chiffres tabulaires suffisent a l'oeil. */}
                     {c.atteintePct === null ? (
                       <span className="muted-3">-</span>
                     ) : (
-                      <span className="rc-atteinte">
-                        <span className="rc-jauge">
-                          <span
-                            className={`rc-jauge-remplie${
-                              c.atteintePct < objectif.partEcoulee ? " alerte" : ""
-                            }`}
-                            style={{ width: `${Math.min(100, c.atteintePct)}%` }}
-                          />
-                        </span>
-                        <span className="rc-atteinte-pct">{nombre(c.atteintePct)}%</span>
+                      <span
+                        className={`rc-taux${
+                          c.atteintePct < objectif.partEcoulee ? " en-retrait" : ""
+                        }`}
+                      >
+                        {nombre(c.atteintePct)}%
                       </span>
                     )}
                   </td>

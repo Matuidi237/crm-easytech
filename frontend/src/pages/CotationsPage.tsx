@@ -24,6 +24,7 @@ import { useLangue, type CleTraduction } from "../i18n";
 import ChampClient from "../components/ChampClient";
 import ListeDeroulante from "../components/ListeDeroulante";
 import CarteIndicateur, { type Carte } from "../components/CarteIndicateur";
+import Encarts from "../components/Encarts";
 import {
   IconAlert,
   IconArrowRight,
@@ -587,7 +588,7 @@ export default function CotationsPage() {
     {
       cle: "attente" as const,
       etat: "ATTENTE" as const,
-      ton: "ambre",
+      ton: "ambre" as const,
       label: t("cot.mEnAttente"),
       valeur: enAttente,
       note:
@@ -599,7 +600,7 @@ export default function CotationsPage() {
     {
       cle: "traitees" as const,
       etat: "TRAITEES" as const,
-      ton: "vert",
+      ton: "vert" as const,
       label: t("cot.mTraitees"),
       valeur: traiteesTotal,
       note:
@@ -611,7 +612,7 @@ export default function CotationsPage() {
     {
       cle: "retard" as const,
       etat: "RETARD" as const,
-      ton: "rouge",
+      ton: "rouge" as const,
       label: t("cot.mEnRetard"),
       valeur: totaux.enRetard,
       note: totaux.enRetard === 0 ? t("cot.mEnRetardVide") : t("cot.mEnRetardNote"),
@@ -847,29 +848,18 @@ export default function CotationsPage() {
           traite ou supervise la file garde les compteurs du circuit, qui
           distinguent les étapes internes dont il est responsable. */}
       {vueCommerciale ? (
-        <div className="cotm">
-          {metriques.map((m) => (
-            /* Chaque encart filtre la liste sur son etat, et le second clic
-               le retire. Un compteur qu on ne peut pas ouvrir oblige a
-               retrouver a la main les lignes qu il annonce. */
-            <button
-              type="button"
-              className={`cotm-carte cotm-${m.ton}${filtreEtat === m.etat ? " actif" : ""}`}
-              key={m.cle}
-              aria-pressed={filtreEtat === m.etat}
-              onClick={() => choisirEtat(filtreEtat === m.etat ? "" : m.etat)}
-            >
-              <span className="cotm-pastille">
-                <m.Icone size={20} />
-              </span>
-              <span className="cotm-corps">
-                <span className="cotm-label">{m.label}</span>
-                <span className="cotm-valeur">{nombre(m.valeur)}</span>
-                <span className="cotm-note">{m.note}</span>
-              </span>
-            </button>
-          ))}
-        </div>
+        <Encarts
+          encarts={metriques.map((m) => ({
+            cle: m.cle,
+            ton: m.ton,
+            label: m.label,
+            valeur: nombre(m.valeur),
+            note: m.note,
+            icone: m.Icone,
+            actif: filtreEtat === m.etat,
+            onClick: () => choisirEtat(filtreEtat === m.etat ? "" : m.etat),
+          }))}
+        />
       ) : (
         <div className="stat-grid">
           {cartes.map((c) => (
