@@ -1481,6 +1481,28 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
 
   const cibleGroupe = lignes.reduce((s, l) => s + (l.cible ?? 0), 0);
 
+  /* Douze mois glissants, mois vides compris : un trou dans une serie
+     temporelle est une information, le masquer donnerait une courbe
+     faussement reguliere. */
+  const parMois: { mois: string; ca: number; nbVentes: number }[] = [];
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1);
+    parMois.push({
+      mois: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      ca: 0,
+      nbVentes: 0,
+    });
+  }
+  const indexMois = new Map(parMois.map((m, i) => [m.mois, i]));
+  for (const v of ventesEquipe) {
+    const cle = `${v.dateVente.getFullYear()}-${String(v.dateVente.getMonth() + 1).padStart(2, "0")}`;
+    const i = indexMois.get(cle);
+    if (i === undefined) continue;
+    parMois[i].ca += montantDe(v);
+    parMois[i].nbVentes += 1;
+  }
+  for (const m of parMois) m.ca = Math.round(m.ca);
+
   /* La concentration du chiffre d'affaires, dite « 80/20 ».
      
      Deux chiffres distincts, et les confondre serait une erreur de lecture :
@@ -1548,6 +1570,7 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
       seuilSilenceJours: SILENCE_JOURS,
     },
     commerciaux: lignes,
+    parMois,
     portefeuille: {
       total: fichesParPays.reduce((s, p) => s + p._count._all, 0),
       /* Le pays manquant est compté à part plutôt qu'écarté : une centaine de

@@ -1698,4 +1698,9 @@ export const en: Record<keyof typeof fr, string> = {
   "suivi.portefeuilleSousTitre2": "The customers they look after",
   "suivi.uneVente": "1 sale",
   "suivi.nVentes": "{n} sales",
+  "rc.apercuRecherche": "Search",
+  "rc.apercuCourbe": "Revenue over time",
+  "rc.apercuDouzeMois": "Last 12 months",
+  "rc.apercuTousPays": "All countries",
+  "rc.apercuMarches": "Split by market",
 };

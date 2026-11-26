@@ -9606,3 +9606,498 @@ button.encart:hover .encart-invite {
   margin-left: 6px;
   color: var(--warn);
 }
+
+/* ================== Apercu d une autre peau d interface ================== */
+
+/* Tout est prefixe « ap- » et toutes les valeurs sont locales a « .ap-page ».
+   Cette maquette ne doit rien pouvoir casser ailleurs : elle se juge, elle
+   n est pas en service. */
+.ap-page {
+  --ap-fond: #eef1f6;
+  --ap-verre: rgba(255, 255, 255, 0.55);
+  --ap-carte: #ffffff;
+  --ap-filet: rgba(16, 24, 40, 0.07);
+  --ap-encre: #1b2434;
+  --ap-encre-2: #6b7688;
+  --ap-trait: #5b7fb3;
+  --ap-ombre: 0 10px 30px rgba(21, 32, 53, 0.08);
+
+  min-height: 100vh;
+  padding: 28px;
+  background: linear-gradient(140deg, #f5f7fa 0%, #e9edf4 100%);
+  color: var(--ap-encre);
+  font-size: 14px;
+}
+
+.ap-vide {
+  color: var(--ap-encre-2);
+}
+
+/* Le cadre vitre de la maquette : un bloc translucide pose sur le degrade. */
+.ap-cadre {
+  display: grid;
+  grid-template-columns: 216px 1fr;
+  max-width: 1120px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  box-shadow: var(--ap-ombre);
+  overflow: hidden;
+}
+
+.ap-rail {
+  padding: 22px 16px;
+  background: var(--ap-verre);
+  border-right: 1px solid var(--ap-filet);
+  backdrop-filter: blur(12px);
+}
+
+.ap-marque {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 26px;
+}
+
+.ap-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--ap-trait);
+  color: #fff;
+  font-weight: 700;
+}
+
+.ap-marque strong {
+  display: block;
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+}
+
+.ap-marque em {
+  display: block;
+  font-size: 10px;
+  font-style: normal;
+  letter-spacing: 0.16em;
+  color: var(--ap-encre-2);
+}
+
+.ap-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ap-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--ap-encre-2);
+}
+
+.ap-nav-item.actif {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ap-encre);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(21, 32, 53, 0.06);
+}
+
+.ap-nav-puce {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1.6px solid currentColor;
+  opacity: 0.6;
+}
+
+.ap-corps {
+  padding: 24px 26px 28px;
+}
+
+.ap-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.ap-tete h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.ap-outils {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ap-recherche {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  min-width: 190px;
+  background: var(--ap-carte);
+  border: 1px solid var(--ap-filet);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ap-encre-2);
+}
+
+.ap-cloche {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--ap-carte);
+  border: 1px solid var(--ap-filet);
+  border-radius: 50%;
+  color: var(--ap-encre-2);
+}
+
+.ap-cloche i {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e0484a;
+  border: 1.5px solid var(--ap-carte);
+}
+
+.ap-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ap-trait);
+  color: #fff;
+  font-weight: 650;
+}
+
+/* Les quatre cartes de tete, avec leur courbe de tendance. */
+.ap-cartes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ap-carte {
+  padding: 16px 18px 12px;
+  background: var(--ap-carte);
+  border: 1px solid var(--ap-filet);
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(21, 32, 53, 0.04);
+}
+
+.ap-carte-haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ap-carte-label {
+  font-size: 12px;
+  color: var(--ap-encre-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-delta {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.ap-delta.hausse {
+  background: #e4f4ec;
+  color: #10795a;
+}
+
+.ap-delta.baisse {
+  background: #fcebea;
+  color: #b8342f;
+}
+
+.ap-carte-valeur {
+  margin-top: 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un montant long descend d un cran : « 192,3 M XAF » passait a la ligne au
+   corps prevu pour « 93% », et un nombre coupe en deux cesse d en etre un. */
+.ap-carte-valeur[data-long="true"] {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.ap-mini {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin-top: 8px;
+  color: var(--ap-trait);
+}
+
+.ap-bloc {
+  padding: 18px 20px 20px;
+  background: var(--ap-carte);
+  border: 1px solid var(--ap-filet);
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(21, 32, 53, 0.04);
+}
+
+.ap-bloc + .ap-bloc,
+.ap-bas {
+  margin-top: 18px;
+}
+
+.ap-bloc-tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.ap-bloc-tete h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.ap-select {
+  padding: 6px 13px;
+  background: var(--ap-fond);
+  border: 1px solid var(--ap-filet);
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--ap-encre-2);
+}
+
+/* La grande aire. L etiquette du sommet est posee en absolu sur la courbe :
+   une valeur sur chaque point rendrait le trace illisible. */
+.ap-aire {
+  position: relative;
+}
+
+.ap-aire svg {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+
+.ap-sommet {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  background: var(--ap-carte);
+  border: 1px solid var(--ap-filet);
+  border-radius: 7px;
+  box-shadow: 0 2px 8px rgba(21, 32, 53, 0.1);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ap-mois {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ap-encre-2);
+}
+
+.ap-bas {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 18px;
+}
+
+.ap-bas > .ap-bloc {
+  margin-top: 0;
+}
+
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ap-table th {
+  padding: 0 10px 10px 0;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ap-encre-2);
+  border-bottom: 1px solid var(--ap-filet);
+}
+
+.ap-table td {
+  padding: 11px 10px 11px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--ap-filet);
+}
+
+.ap-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.ap-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-ligne-qui {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 550;
+}
+
+.ap-mini-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ap-fond);
+  color: var(--ap-trait);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ap-discret {
+  color: var(--ap-encre-2);
+}
+
+.ap-etat {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.ap-etat.bon {
+  background: #e4f4ec;
+  color: #10795a;
+}
+
+.ap-etat.alerte {
+  background: #fdf1de;
+  color: #9a6508;
+}
+
+.ap-etat.neutre {
+  background: var(--ap-fond);
+  color: var(--ap-encre-2);
+}
+
+.ap-anneau {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ap-anneau svg {
+  width: 160px;
+  height: 160px;
+}
+
+.ap-legende {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  font-size: 12px;
+  color: var(--ap-encre-2);
+}
+
+.ap-legende li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ap-legende i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.ap-legende b {
+  color: var(--ap-encre);
+}
+
+@media (max-width: 1020px) {
+  .ap-cartes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ap-bas {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .ap-page {
+    padding: 14px;
+  }
+
+  .ap-cadre {
+    grid-template-columns: 1fr;
+  }
+
+  .ap-rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--ap-filet);
+  }
+
+  .ap-nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .ap-nav-item {
+    white-space: nowrap;
+  }
+
+  .ap-cartes {
+    grid-template-columns: 1fr;
+  }
+
+  .ap-recherche {
+    display: none;
+  }
+}

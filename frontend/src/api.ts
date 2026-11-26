@@ -2146,6 +2146,8 @@ export type PilotageCommercial = {
     silencieux: number;
     seuilSilenceJours: number;
   };
+  /** Douze mois glissants, mois vides compris. */
+  parMois: { mois: string; ca: number; nbVentes: number }[];
   portefeuille: {
     total: number;
     /** Pays null : les fiches dont le pays n'a jamais été renseigné. */

@@ -10,6 +10,7 @@ import {
 } from "./vues";
 import PilotageCommercialPage from "./pages/PilotageCommercialPage";
 import ChefProjetPage from "./pages/ChefProjetPage";
+import ApercuUIPage from "./pages/ApercuUIPage";
 import type { Permission } from "./api";
 import ProtectedRoute from "./ProtectedRoute";
 import Layout from "./Layout";
@@ -103,6 +104,11 @@ export default function App() {
         <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
+          {/* Apercu d une autre peau d interface. Pose hors du gabarit, et
+              non dedans : c est une maquette qui remplace l ecran entier,
+              barre laterale comprise, pas une page de l application. Aucune
+              entree de menu n y mene, elle ne s atteint qu a l adresse. */}
+          <Route path="/apercu-ui" element={<ApercuUIPage />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Accueil />} />
             <Route path="/clients" element={<ClientsPage />} />

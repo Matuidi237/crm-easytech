@@ -1703,4 +1703,9 @@ export const fr = {
   "suivi.portefeuilleSousTitre2": "Les clients dont il a la charge",
   "suivi.uneVente": "1 vente",
   "suivi.nVentes": "{n} ventes",
+  "rc.apercuRecherche": "Rechercher",
+  "rc.apercuCourbe": "Évolution du chiffre d'affaires",
+  "rc.apercuDouzeMois": "12 derniers mois",
+  "rc.apercuTousPays": "Tous les pays",
+  "rc.apercuMarches": "Répartition par marché",
 };
