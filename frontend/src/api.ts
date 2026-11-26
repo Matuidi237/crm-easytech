@@ -2146,6 +2146,19 @@ export type PilotageCommercial = {
     silencieux: number;
     seuilSilenceJours: number;
   };
+  portefeuille: {
+    total: number;
+    /** Pays null : les fiches dont le pays n'a jamais été renseigné. */
+    parPays: { pays: string | null; clients: number; ca: number }[];
+  };
+  concentration: {
+    /** Combien de clients cumulent 80 % du chiffre. La mesure de Pareto. */
+    nbPourQuatreVingts: number | null;
+    nbClients: number;
+    /** Ce que pèsent les vingt premiers, qui ne font pas 80 % partout. */
+    partTetePct: number | null;
+    tete: { id: string; nom: string; pays: string | null; ca: number; partPct: number }[];
+  };
   commerciaux: {
     id: string;
     nomComplet: string;

@@ -1349,7 +1349,7 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
   const perimetre = await perimetreVentes(req.utilisateur!);
   const vendeurs = await perimetreVendeurs(req.utilisateur!);
 
-  const [membres, ventes, objectifs, affaires] = await Promise.all([
+  const [membres, ventes, objectifs, fichesParPays, affaires] = await Promise.all([
     prisma.utilisateur.findMany({
       where: avec({ role: { in: [...ROLES_COMMERCIALE] }, actif: true }, vendeurs),
       select: { id: true, nomComplet: true, pays: true, objectifsPersonnels: true },
@@ -1362,6 +1362,8 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
         prixAchat: true,
         quantite: true,
         dateVente: true,
+        clientId: true,
+        clientNom: true,
         /* Le pays vient de la fiche client : la vente ne le porte pas, et
            c'est le marché qu'on veut comparer, pas le bureau du vendeur. */
         client: { select: { pays: true } },
@@ -1376,6 +1378,13 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
         debut: new Date(Date.UTC(anneeEnCours.debut.getFullYear(), 0, 1)),
       },
       select: { utilisateurId: true, cibleCaXAF: true, fixeParEncadrement: true },
+    }),
+    /* Le portefeuille du groupe, par pays. Compté sur les fiches et non sur
+       les ventes : un client sans commande cette année reste un client, et
+       c'est précisément celui qu'on veut pouvoir retrouver. */
+    prisma.client.groupBy({
+      by: ["pays"],
+      _count: { _all: true },
     }),
     /* Ce qui est engagé mais pas encore vendu. Un objectif qui paraît hors
        d'atteinte ne l'est pas si le pipeline le couvre, et c'est la seule
@@ -1472,6 +1481,43 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
 
   const cibleGroupe = lignes.reduce((s, l) => s + (l.cible ?? 0), 0);
 
+  /* La concentration du chiffre d'affaires, dite « 80/20 ».
+     
+     Deux chiffres distincts, et les confondre serait une erreur de lecture :
+     le nombre de clients qu'il faut cumuler pour atteindre 80 % du chiffre
+     mesure la dépendance réelle du groupe, tandis que la part des vingt
+     premiers répond à la question telle qu'elle se pose en réunion. Le
+     premier est la mesure, le second la vue. */
+  const parClient = new Map<string, { nom: string; pays: string | null; ca: number }>();
+  for (const v of ventesAnnee) {
+    /* Les ventes dont la fiche a disparu se regroupent sur leur nom : les
+       écarter ferait baisser le total et fausserait toutes les parts. */
+    const cle = v.clientId ?? `nom:${v.clientNom}`;
+    const acc = parClient.get(cle) ?? { nom: v.clientNom, pays: v.client?.pays ?? null, ca: 0 };
+    acc.ca += montantDe(v);
+    parClient.set(cle, acc);
+  }
+
+  const classementClients = [...parClient.entries()]
+    .map(([id, c]) => ({ id, ...c, ca: Math.round(c.ca) }))
+    .sort((a, b) => b.ca - a.ca || a.nom.localeCompare(b.nom));
+
+  /* Le plus petit groupe de clients qui cumule 80 % du chiffre. C'est la
+     mesure de Pareto proprement dite : si elle tombe à trois, le groupe tient
+     sur trois comptes et la perte d'un seul se verrait immédiatement. */
+  const SEUIL_PARETO = 0.8;
+  let cumul = 0;
+  let nbPareto = 0;
+  for (const c of classementClients) {
+    if (cumul >= caAnnee * SEUIL_PARETO) break;
+    cumul += c.ca;
+    nbPareto += 1;
+  }
+
+  const TETE = 20;
+  const tete = classementClients.slice(0, TETE);
+  const caTete = tete.reduce((s, c) => s + c.ca, 0);
+
   res.json({
     objectif: {
       annee: anneeEnCours.debut.getFullYear(),
@@ -1502,6 +1548,39 @@ directionRouter.get("/pilotage-commercial", async (req, res) => {
       seuilSilenceJours: SILENCE_JOURS,
     },
     commerciaux: lignes,
+    portefeuille: {
+      total: fichesParPays.reduce((s, p) => s + p._count._all, 0),
+      /* Le pays manquant est compté à part plutôt qu'écarté : une centaine de
+         fiches sans pays est une information sur la qualité de la base, pas
+         un détail à masquer. */
+      parPays: fichesParPays
+        .map((p) => ({
+          pays: p.pays,
+          clients: p._count._all,
+          ca: Math.round(
+            ventesAnnee
+              .filter((v) => (v.client?.pays ?? null) === p.pays)
+              .reduce((s, v) => s + montantDe(v), 0)
+          ),
+        }))
+        .sort((a, b) => b.clients - a.clients),
+    },
+    concentration: {
+      /* Combien de clients font 80 % du chiffre, et ce que pèsent les vingt
+         premiers. Null quand il n'y a pas de chiffre : zéro pour cent se
+         lirait comme une absence de concentration alors qu'il n'y a rien à
+         concentrer. */
+      nbPourQuatreVingts: caAnnee > 0 ? nbPareto : null,
+      nbClients: classementClients.length,
+      partTetePct: caAnnee > 0 ? Math.round((caTete / caAnnee) * 100) : null,
+      tete: tete.map((c) => ({
+        id: c.id,
+        nom: c.nom,
+        pays: c.pays,
+        ca: c.ca,
+        partPct: caAnnee > 0 ? Math.round((c.ca / caAnnee) * 1000) / 10 : 0,
+      })),
+    },
     parPays: [...parPays.entries()]
       .map(([pays, v]) => ({ pays, ca: Math.round(v.ca), nbVentes: v.nbVentes }))
       .sort((a, b) => b.ca - a.ca),

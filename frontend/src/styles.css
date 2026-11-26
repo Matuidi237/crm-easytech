@@ -8966,6 +8966,11 @@ button.encart:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.encart-valeur[data-long="true"] {
+  font-size: 27px;
+  white-space: nowrap;
+}
+
 .encart-note {
   margin-top: 6px;
   font-size: 12px;
@@ -9266,4 +9271,137 @@ button.encart:focus-visible {
    remonte deja ces lignes en tete : la couleur ne porte pas l alerte seule. */
 .rc-taux.en-retrait {
   color: var(--warn);
+}
+
+/* L invite a ouvrir, au bas d un encart cliquable. Discrete : c est le
+   chiffre qu on vient lire, pas le lien. */
+.encart-invite {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+button.encart:hover .encart-invite {
+  text-decoration: underline;
+}
+
+/* Le classement court dans un encart : trois lignes, le rang, le nom et la
+   part. Il ne remplace pas le chiffre, il dit de quoi celui-ci est fait. */
+.encart-rang {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+.encart-rang-ligne {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.encart-rang-place {
+  flex: 0 0 auto;
+  width: 16px;
+  font-weight: 700;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.encart-rang-nom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.encart-rang-part {
+  flex: 0 0 auto;
+  font-weight: 650;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Les signaux, au-dessus du tableau qu ils filtrent. */
+.rc-signaux {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 14px;
+}
+
+.rc-signal {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 7px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.rc-signal:hover:not(:disabled) {
+  border-color: var(--warn);
+}
+
+.rc-signal:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+
+.rc-signal.actif {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* Un signal a zero se desactive plutot que de disparaitre : une rangee dont
+   les elements bougent d un jour a l autre ne se memorise pas. */
+.rc-signal.calme {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.rc-signal-valeur {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--warn);
+}
+
+.rc-signal.calme .rc-signal-valeur {
+  color: var(--ink-3);
+}
+
+/* La fenetre de detail, plus large que celle d un formulaire : on y lit un
+   tableau de vingt lignes a quatre colonnes. */
+.rc-fenetre {
+  max-width: 720px;
+}
+
+.rc-fenetre .modal-forme-corps {
+  padding: 0 22px 18px;
+}
+
+.rc-place {
+  display: inline-block;
+  min-width: 26px;
+  color: var(--ink-3);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }

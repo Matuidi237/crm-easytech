@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 /**
  * Les encarts d'état des tableaux de bord.
@@ -32,6 +32,9 @@ export type Encart = {
   /** Renseigné, l'encart devient un bouton qui filtre ce qu'il compte. */
   onClick?: () => void;
   actif?: boolean;
+  /** Complément sous la note : un classement court, une invite à ouvrir. Il
+      ne remplace pas le chiffre, il dit de quoi celui-ci est fait. */
+  apres?: ReactNode;
 };
 
 function Contenu({ e }: { e: Encart }) {
@@ -43,10 +46,14 @@ function Contenu({ e }: { e: Encart }) {
       </span>
       <span className="encart-corps">
         <span className="encart-label">{e.label}</span>
-        <span className="encart-valeur" title={e.titre}>
+        {/* Le corps suit la longueur : « 192,3 M XAF » passait a la ligne au
+            corps prevu pour « 93% », et un montant coupe en deux ne se lit
+            plus comme un nombre. */}
+        <span className="encart-valeur" data-long={e.valeur.length > 7} title={e.titre}>
           {e.valeur}
         </span>
         <span className="encart-note">{e.note}</span>
+        {e.apres}
       </span>
     </>
   );
